@@ -410,13 +410,13 @@ static void mxt224_ta_probe(int ta_status)
 	}
 
 	if (ta_status) {
-		threshold = 70;
+		threshold = 40;
 		calcfg = 112;
 		noise_threshold = 40;
 		movfilter = 46;
 	} else {
 	    if (boot_or_resume==1)
-			threshold = 55;
+			threshold = 40;
 		else
 		    threshold = 40;
         calcfg = 80;
