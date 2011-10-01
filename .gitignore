@@ -84,3 +84,4 @@ piggy.gzip
 piggy.lzo
 piggy.lzma
 vmlinux
+vmlinux.lds
