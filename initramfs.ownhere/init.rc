@@ -624,6 +624,8 @@ on boot
 
 #	echo "1" > /sys/devices/platform/samsung-pd.2/s3cfb.0/mdnie
 
+	start init_scripts
+on property:ownhere.system.ready=1
     class_start default
 
 ## Daemon processes to be run by init.
@@ -844,6 +846,7 @@ service rtc_log /system/bin/sh /system/bin/rtc_log.sh
      group shell
 
 service init_scripts /ownhere/scripts/run_init_scripts.sh
+     disabled
      oneshot
 
 service run_parts /ownhere/scripts/run_parts.sh
