@@ -79,3 +79,8 @@ GTAGS
 \#*#
 zImage
 zImage.*
+Image
+piggy.gzip
+piggy.lzo
+piggy.lzma
+vmlinux
