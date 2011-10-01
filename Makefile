@@ -333,8 +333,8 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 MODFLAGS	= -DMODULE
-#OWNHERE_CFLAGS  = -mno-unaligned-access -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -ffast-math -fsingle-precision-constant -pipe -mtune=cortex-a9 -mfpu=neon -march=armv7-a
-OWNHERE_CFLAGS  = -mno-unaligned-access -mtune=cortex-a9 -mfpu=neon -march=armv7-a
+OWNHERE_CFLAGS  = -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -ffast-math -fsingle-precision-constant -pipe -mtune=cortex-a9 -mfpu=neon -march=armv7-a
+#OWNHERE_CFLAGS  = -mno-unaligned-access -mtune=cortex-a9 -mfpu=neon -march=armv7-a
 CFLAGS_MODULE   = $(MODFLAGS) $(OWNHERE_CFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
@@ -356,7 +356,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   $(OWNHERE_CFLAGS)
+		   -mtune=cortex-a9 -mfpu=neon -march=armv7-a -mno-unaligned-access
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)
 KBUILD_CFLAGS += -DSEC_FIPS_ENABLED
