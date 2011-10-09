@@ -23,7 +23,7 @@ dd if=$zImage bs=$pos skip=1 | $zipfunc > ${zImage}.uncompress
 echo "${zImage} decompress to ${zImage}.uncompress"
 
 start=`grep -a -b --only-matching '070701' ${zImage}.uncompress | head -1 | cut -f 1 -d :`
-end=`grep -a -b --only-matching 'TRAILER!!!' ${zImage}.uncompress | head -1 | cut -f 1 -d :`
+end=`grep -a -b --only-matching 'TRAILER!!!' ${zImage}.uncompress | awk -F ':' '{pos=$1;if (pos<10000000) { if (pos>max) {max=pos}}}END{print max}'`
 
 end=$((end + 10))
 count=$((end - start))
