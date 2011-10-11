@@ -356,7 +356,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -mtune=cortex-a9 -mfpu=neon -march=armv7-a -mno-unaligned-access
+		   -mtune=cortex-a9 -mfpu=neon -march=armv7-a \
+		   #-mno-unaligned-access rem for /opt/toolchains/linaro201109-4.5
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)
 KBUILD_CFLAGS += -DSEC_FIPS_ENABLED
