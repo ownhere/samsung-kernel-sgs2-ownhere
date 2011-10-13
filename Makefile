@@ -336,10 +336,10 @@ MODFLAGS	= -DMODULE
 OWNHERE_CFLAGS  = -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -ffast-math -fsingle-precision-constant -pipe -mtune=cortex-a9 -mfpu=neon -march=armv7-a
 #OWNHERE_CFLAGS  = -mno-unaligned-access -mtune=cortex-a9 -mfpu=neon -march=armv7-a
 CFLAGS_MODULE   = $(MODFLAGS) $(OWNHERE_CFLAGS)
-AFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS) $(OWNHERE_CFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
 CFLAGS_KERNEL	= $(OWNHERE_CFLAGS)
-AFLAGS_KERNEL	=
+AFLAGS_KERNEL	= $(OWNHERE_CFLAGS)
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 
@@ -356,7 +356,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -mtune=cortex-a9 -mfpu=neon -march=armv7-a \
+		   $(OWNHERE_CFLAGS) 
+		   #-mtune=cortex-a9 -mfpu=neon -march=armv7-a \
 		   #-mno-unaligned-access rem for /opt/toolchains/linaro201109-4.5
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)

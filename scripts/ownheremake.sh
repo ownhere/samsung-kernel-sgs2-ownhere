@@ -6,10 +6,12 @@ prefix=""
 #fi
 myinitramfs="initramfs.ownhere"
 branch=`git branch|grep -E "^\*"|awk '{print $2}'`
-#compiler="/opt/toolchains/none/arm-2009q3/bin/arm-none-eabi-"
+compiler="/opt/toolchains/none/arm-2009q3/bin/arm-none-eabi-"
 #compiler="/opt/toolchains/none/arm-2011.03/bin/arm-none-eabi-"
-compiler="/opt/toolchains/linaro201109-4.5/bin/arm-eabi-"
+#compiler="/opt/toolchains/linaro201109-4.5/bin/arm-eabi-"
 #compiler="/opt/toolchains/linaro201109-4.6/bin/arm-eabi-"
+#compiler="/www/android/cm/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-"
+#compiler="/www/android/cm/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-"
 if [[ $1 =~ ^pack ]]; then
 	echo "branch:" $branch
 	cd arch/arm/boot
