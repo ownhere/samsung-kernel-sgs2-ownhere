@@ -58,7 +58,8 @@ extern int gpu_clock_control[2];
 	#define GPU_DVFS_DOWN_THRESHOLD  90 //((int)((255*30)/100))   // 30%
 #else
 #ifdef MALI_DVFS_AGRESSIVE_POLICY
-	#define GPU_DVFS_UP_THRESHOLD	((int)((255*55)/100))   // 55%
+//	#define GPU_DVFS_UP_THRESHOLD	((int)((255*55)/100))   // 55%
+	#define GPU_DVFS_UP_THRESHOLD	((int)((255*60)/100))   // 55%
 	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*25)/100))   // 25%
 #else
 	#define GPU_DVFS_UP_THRESHOLD	((int)((255*65)/100))   // 60%
