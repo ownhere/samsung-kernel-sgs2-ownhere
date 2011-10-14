@@ -148,7 +148,7 @@ static struct dbs_tuners {
 	.ignore_nice = 0,
 	.powersave_bias = 0,
 	.deep_sleep = 1,
-	.fast_start = 0,
+	.fast_start = 1,
 };
 
 static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
