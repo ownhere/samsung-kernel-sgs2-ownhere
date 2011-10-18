@@ -923,6 +923,7 @@ void s5pv310_set_busfreq(unsigned int div_index)
 #endif
 }
 
+
 void s5pv310_set_clkdiv(unsigned int div_index)
 {
 	unsigned int tmp;
@@ -1169,7 +1170,6 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 #ifndef CONFIG_S5PV310_BUSFREQ
 	unsigned int int_volt;
 #endif
-
 	unsigned int check_gov = 0;
 
 	mutex_lock(&set_cpu_freq_change);
@@ -1764,9 +1764,9 @@ static int s5pv310_cpufreq_notifier_event(struct notifier_block *this,
 	case PM_SUSPEND_PREPARE:
 		max = policy->max;
 		min = policy->min;
-		policy->max = policy->min = s5pv310_freq_table[L3].frequency;
+		policy->max = policy->min = s5pv310_freq_table[L1].frequency;
 		ret = cpufreq_driver_target(policy,
-				s5pv310_freq_table[L3].frequency,
+				s5pv310_freq_table[L1].frequency,
 				DISABLE_FURTHER_CPUFREQ);
 		if (WARN_ON(ret < 0)) {
 			ret = NOTIFY_BAD;
@@ -1782,7 +1782,7 @@ static int s5pv310_cpufreq_notifier_event(struct notifier_block *this,
 	case PM_POST_SUSPEND:
 		printk(KERN_DEBUG "PM_POST_SUSPEND for CPUFREQ: %d\n", ret);
 		ret = cpufreq_driver_target(policy,
-				s5pv310_freq_table[L3].frequency,
+				s5pv310_freq_table[L1].frequency,
 				ENABLE_FURTHER_CPUFREQ);
 		policy->max = max;
 		policy->min = min;
