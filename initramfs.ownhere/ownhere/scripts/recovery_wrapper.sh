@@ -22,6 +22,7 @@ ln -s /sbin/recovery /sbin/mkyaffs2image
 ln -s /sbin/recovery /sbin/nandroid
 ln -s /sbin/recovery /sbin/reboot
 ln -s /sbin/recovery /sbin/unyaffs
+ln -s /sbin/recovery /sbin/md5sum
 ln -s /ownhere/bin/busybox /sbin/ash
 ln -s /ownhere/bin/busybox /sbin/cat
 ln -s /ownhere/bin/busybox /sbin/chmod
