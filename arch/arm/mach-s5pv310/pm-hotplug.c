@@ -72,6 +72,7 @@ static DEFINE_MUTEX(hotplug_lock);
 static void hotplug_timer(struct work_struct *work)
 {
 	unsigned int i, avg_load = 0, load = 0;
+	unsigned int cur_freq;
 
 	mutex_lock(&hotplug_lock);
 
@@ -105,7 +106,10 @@ static void hotplug_timer(struct work_struct *work)
 
 	avg_load = load / num_online_cpus();
 
-	if (avg_load < trans_load_l && cpu_online(1)) {
+	cur_freq = cpufreq_get(0);
+
+	if (((avg_load < trans_load_l) || (cur_freq <= 200 * 1000)) &&
+	    (cpu_online(1) == 1)) {
 		printk("cpu1 turning off!\n");
 		cpu_down(1);
 #if CPUMON
@@ -113,7 +117,8 @@ static void hotplug_timer(struct work_struct *work)
 #endif
 		printk("cpu1 off end!\n");
 		hotpluging_rate = CHECK_DELAY;
-	} else if (avg_load > trans_load_h && !cpu_online(1)) {
+	} else if (((avg_load > trans_load_h) && (cur_freq > 200 * 1000)) &&
+		   (cpu_online(1) == 0)) {
 		printk("cpu1 turning on!\n");
 		cpu_up(1);
 #if CPUMON
