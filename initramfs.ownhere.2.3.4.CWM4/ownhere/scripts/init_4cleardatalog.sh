@@ -1,3 +1,5 @@
 #!/system/bin/sh
 
-rm -r /data/log/*
+if ! [ -e /data/log/disableautoclear ]; then
+	rm -r /data/log/*
+fi

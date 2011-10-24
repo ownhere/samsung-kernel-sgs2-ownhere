@@ -26,6 +26,8 @@ on init
 
     #mount /tmp /tmp tmpfs   
 
+    sysclktz 480
+
 on early-fs
 
     # rfs drivers

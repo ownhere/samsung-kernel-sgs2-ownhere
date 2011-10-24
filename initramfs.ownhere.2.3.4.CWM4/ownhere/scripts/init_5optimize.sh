@@ -6,3 +6,5 @@ echo "500" > /proc/sys/vm/dirty_expire_centisecs
 echo "1500" > /proc/sys/vm/dirty_writeback_centisecs
 echo "5" > /proc/sys/vm/laptop_mode
 #echo "50" > /proc/sys/vm/vfs_cache_pressure
+echo 1 >/sys/devices/system/cpu/cpufreq/ondemand/deep_sleep
+echo 0 >/sys/devices/system/cpu/cpufreq/ondemand/fast_start
