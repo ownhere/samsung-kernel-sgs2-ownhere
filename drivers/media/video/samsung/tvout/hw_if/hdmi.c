@@ -1305,7 +1305,7 @@ int s5p_hdmi_reg_intc_set_isr(irqreturn_t (*isr)(int, void *), u8 num)
 		return -1;
 	}
 
-	if (num > HDMI_IRQ_TOTAL_NUM) {
+	if (num >= HDMI_IRQ_TOTAL_NUM) {
 		tvout_err("max irq_num exceeded\n");
 		return -1;
 	}
