@@ -299,6 +299,36 @@ err:
 	return ret;
 }
 
+int alarm_set_alarm(char* alarm_data)
+{
+	struct rtc_wkalrm alm;
+	int ret;
+	char buf_ptr[14];
+
+	if (!alarm_rtc_dev) {
+		pr_alarm(ERROR,
+			"alarm_set_alarm: no RTC, time will be lost on reboot\n");
+		return -1;
+	}
+
+	strlcpy(buf_ptr, alarm_data, 14);
+
+	alm.time.tm_sec = 0;
+	alm.time.tm_min  =  (buf_ptr[11]-'0') * 10 + (buf_ptr[12]-'0');
+	alm.time.tm_hour =  (buf_ptr[9]-'0') * 10 + (buf_ptr[10]-'0');
+	alm.time.tm_mday =  (buf_ptr[7]-'0') * 10 + (buf_ptr[8]-'0');
+	alm.time.tm_mon  =  (buf_ptr[5]-'0') * 10 + (buf_ptr[6]-'0');
+	alm.time.tm_year =  (buf_ptr[1]-'0') * 1000 + (buf_ptr[2]-'0') * 100
+						+ (buf_ptr[3]-'0') * 10 + (buf_ptr[4]-'0');
+	alm.enabled = (*buf_ptr == '1');
+	alm.time.tm_mon -= 1;
+	alm.time.tm_year -= 1900;
+
+	ret = rtc_set_alarm_boot(alarm_rtc_dev, &alm);
+
+	return ret;
+}
+
 /**
  * alarm_get_elapsed_realtime - get the elapsed real time in ktime_t format
  *

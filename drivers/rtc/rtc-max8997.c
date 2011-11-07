@@ -18,6 +18,10 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/max8997-private.h>
+#include <linux/workqueue.h>
+#include <linux/reboot.h>
+#include <linux/io.h>
+#include <mach/regs-clock.h>
 
 #define MAX8997_RTC_CONTROLM		0x02
 #define MAX8997_RTC_CONTROL		0x03
@@ -88,8 +92,13 @@ struct max8997_rtc_info {
 	struct rtc_device	*rtc_dev;
 	struct mutex		lock;
 	int irq;
+	int irq2;
 	int rtc_24hr_mode;
 };
+
+static struct rtc_time current_alarm_time;
+static struct delayed_work pollling_work_alarmboot;
+static struct max8997_rtc_info *info_alarmboot;
 
 static inline int max8997_rtc_calculate_wday(u8 shifted)
 {
@@ -280,6 +289,38 @@ out:
 	return ret;
 }
 
+static int max8997_rtc_stop_alarm_boot(struct max8997_rtc_info *info)
+{
+	u8 data[RTC_NR_TIME];
+	int ret, i;
+
+	if (!mutex_is_locked(&info->lock))
+		dev_warn(info->dev, "%s: should have mutex locked\n", __func__);
+
+	ret = max8997_bulk_read(info->rtc, MAX8997_ALARM2_SEC, RTC_NR_TIME,
+				data);
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to read alarm reg(%d)\n",
+				__func__, ret);
+		goto out;
+	}
+
+	for (i = 0; i < RTC_NR_TIME; i++)
+		data[i] &= ~ALARM_ENABLE_MASK;
+
+	ret = max8997_bulk_write(info->rtc, MAX8997_ALARM2_SEC, RTC_NR_TIME,
+				 data);
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to write alarm reg(%d)\n",
+				__func__, ret);
+		goto out;
+	}
+
+	ret = max8997_rtc_set_update_reg(info);
+out:
+	return ret;
+}
+
 static int max8997_rtc_start_alarm(struct max8997_rtc_info *info)
 {
 	u8 data[RTC_NR_TIME];
@@ -308,6 +349,46 @@ static int max8997_rtc_start_alarm(struct max8997_rtc_info *info)
 		data[RTC_DATE] |= (1 << ALARM_ENABLE_SHIFT);
 
 	ret = max8997_bulk_write(info->rtc, MAX8997_ALARM1_SEC, RTC_NR_TIME,
+				 data);
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to write alarm reg(%d)\n",
+				__func__, ret);
+		goto out;
+	}
+
+	ret = max8997_rtc_set_update_reg(info);
+out:
+	return ret;
+}
+
+static int max8997_rtc_start_alarm_boot(struct max8997_rtc_info *info)
+{
+	u8 data[RTC_NR_TIME];
+	int ret;
+
+	if (!mutex_is_locked(&info->lock))
+		dev_warn(info->dev, "%s: should have mutex locked\n", __func__);
+
+	ret = max8997_bulk_read(info->rtc, MAX8997_ALARM2_SEC, RTC_NR_TIME,
+				data);
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to read alarm reg(%d)\n",
+				__func__, ret);
+		goto out;
+	}
+
+	data[RTC_SEC] |= (1 << ALARM_ENABLE_SHIFT);
+	data[RTC_MIN] |= (1 << ALARM_ENABLE_SHIFT);
+	data[RTC_HOUR] |= (1 << ALARM_ENABLE_SHIFT);
+	data[RTC_WEEKDAY] &= ~ALARM_ENABLE_MASK;
+	if (data[RTC_MONTH] & 0xf)
+		data[RTC_MONTH] |= (1 << ALARM_ENABLE_SHIFT);
+	if (data[RTC_YEAR] & 0x7f)
+		data[RTC_YEAR] |= (1 << ALARM_ENABLE_SHIFT);
+	if (data[RTC_DATE] & 0x1f)
+		data[RTC_DATE] |= (1 << ALARM_ENABLE_SHIFT);
+
+	ret = max8997_bulk_write(info->rtc, MAX8997_ALARM2_SEC, RTC_NR_TIME,
 				 data);
 	if (ret < 0) {
 		dev_err(info->dev, "%s: fail to write alarm reg(%d)\n",
@@ -355,6 +436,55 @@ out:
 	return ret;
 }
 
+static int max8997_rtc_set_alarm_boot(struct device *dev, struct rtc_wkalrm *alrm)
+{
+	struct max8997_rtc_info *info = dev_get_drvdata(dev);
+	u8 data[RTC_NR_TIME];
+	int ret = 0;
+
+	data[RTC_SEC] = alrm->time.tm_sec;
+	data[RTC_MIN] = alrm->time.tm_min;
+	data[RTC_HOUR] = alrm->time.tm_hour;
+	data[RTC_WEEKDAY] = 1 << alrm->time.tm_wday;
+	data[RTC_DATE] = alrm->time.tm_mday;
+	data[RTC_MONTH] = alrm->time.tm_mon + 1;
+	data[RTC_YEAR] = alrm->time.tm_year > 100 ? (alrm->time.tm_year - 100) : 0 ;
+
+	 printk("%s : tm(%04d.%02d.%02d %02d:%02d:%02d [%d])\n", __func__,
+		data[RTC_YEAR], data[RTC_MONTH], data[RTC_DATE],
+		data[RTC_HOUR], data[RTC_MIN], data[RTC_SEC], data[RTC_WEEKDAY]);
+
+	if(!info) {
+		goto out;
+	}
+
+	mutex_lock(&info->lock);
+
+	ret = max8997_rtc_stop_alarm_boot(info);
+	if (ret < 0)
+		goto out;
+
+	ret = max8997_bulk_write(info->rtc, MAX8997_ALARM2_SEC, RTC_NR_TIME,
+				data);
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to write alarm reg(%d)\n",
+				__func__, ret);
+		goto out;
+	}
+
+	ret = max8997_rtc_set_update_reg(info);
+	if (ret < 0)
+		goto out;
+
+	if (alrm->enabled)
+		ret = max8997_rtc_start_alarm_boot(info);
+
+out:
+	mutex_unlock(&info->lock);
+
+	return ret;
+}
+
 static int max8997_rtc_alarm_irq_enable(struct device *dev,
 					unsigned int enabled)
 {
@@ -382,11 +512,23 @@ static irqreturn_t max8997_rtc_alarm_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t max8997_rtc_alarm2_irq(int irq, void *data)
+{
+	struct max8997_rtc_info *info = data;
+
+	dev_info(info->dev, "%s:irq(%d)\n", __func__, irq);
+
+	rtc_update_irq(info->rtc_dev, 1, RTC_IRQF | RTC_AF);
+
+	return IRQ_HANDLED;
+}
+
 static const struct rtc_class_ops max8997_rtc_ops = {
 	.read_time = max8997_rtc_read_time,
 	.set_time = max8997_rtc_set_time,
 	.read_alarm = max8997_rtc_read_alarm,
 	.set_alarm = max8997_rtc_set_alarm,
+	.set_alarm_boot = max8997_rtc_set_alarm_boot,
 	.alarm_irq_enable = max8997_rtc_alarm_irq_enable,
 };
 
@@ -466,11 +608,47 @@ static int max8997_rtc_init_reg(struct max8997_rtc_info *info)
 	return ret;
 }
 
+static void check_alarm_boot_workqueue(void)
+{
+	int ret;
+	u8 data[7];
+	unsigned long time_sec, alarm_sec;
+	struct rtc_time current_rtc_time;
+
+	ret = max8997_bulk_read(info_alarmboot->max8997->rtc, 0x10, 7, data);
+	current_rtc_time.tm_sec = data[0] & 0x7f;
+	current_rtc_time.tm_min = data[1] & 0x7f;
+	if (info_alarmboot->rtc_24hr_mode)
+		current_rtc_time.tm_hour = data[2] & 0x1f;
+	else {
+		current_rtc_time.tm_hour = data[2] & 0x0f;
+		if (data[2] & (1<<6))
+			current_rtc_time.tm_hour += 12;
+	}
+	current_rtc_time.tm_mday = data[6] & 0x1f;
+	current_rtc_time.tm_mon = (data[4] & 0x0f);
+	current_rtc_time.tm_year = (data[5] & 0x7f);
+
+	rtc_tm_to_time(&current_rtc_time, &time_sec);
+	rtc_tm_to_time(&current_alarm_time, &alarm_sec);
+
+	printk("[LPM AB] check_alarm_boot_kernel : alarm_sec - time_sec =%ld\n",
+			alarm_sec - time_sec);
+
+	if((time_sec > alarm_sec - 10) && (time_sec < alarm_sec + 5))
+		machine_restart(NULL);
+
+	schedule_delayed_work(&pollling_work_alarmboot, 2000);
+}
+
 static int __devinit max8997_rtc_probe(struct platform_device *pdev)
 {
 	struct max8997_dev *max8997 = dev_get_drvdata(pdev->dev.parent);
 	struct max8997_rtc_info *info;
 	int ret;
+	int alarm_en = 0;
+	unsigned char alarm_data[7];
+	u32 LPM_mode = __raw_readl(S5P_INFORM2);
 
 	info = kzalloc(sizeof(struct max8997_rtc_info), GFP_KERNEL);
 	if (!info)
@@ -482,6 +660,7 @@ static int __devinit max8997_rtc_probe(struct platform_device *pdev)
 	info->max8997 = max8997;
 	info->rtc = max8997->rtc;
 	info->irq = max8997->irq_base + MAX8997_IRQ_RTCA1;
+	info->irq2 = max8997->irq_base + MAX8997_IRQ_RTCA2;
 
 	platform_set_drvdata(pdev, info);
 
@@ -490,6 +669,31 @@ static int __devinit max8997_rtc_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to initialize RTC reg:%d\n", ret);
 		goto err_rtc;
+	}
+
+	ret = max8997_bulk_read(max8997->rtc, 0x1E, 7, alarm_data);
+	current_alarm_time.tm_sec = alarm_data[0] & 0x7f;
+	current_alarm_time.tm_min = alarm_data[1] & 0x7f;
+	if (info->rtc_24hr_mode)
+		current_alarm_time.tm_hour = alarm_data[2] & 0x1f;
+	else {
+		current_alarm_time.tm_hour = alarm_data[2] & 0x0f;
+		if (alarm_data[2] & (1<<6))
+			current_alarm_time.tm_hour += 12;
+	}
+	current_alarm_time.tm_mday = alarm_data[6] & 0x1f;
+	current_alarm_time.tm_mon = (alarm_data[4] & 0x0f);
+	current_alarm_time.tm_year = (alarm_data[5] & 0x7f);
+
+	if(alarm_data[0]&0x80 && alarm_data[0]&0x80 && alarm_data[0]&0x80)
+		alarm_en = 1;
+
+	printk("[LPM AB] alarm_en = %d, LPM_mode = %d\n", alarm_en, LPM_mode);
+	if(alarm_en == 1 && LPM_mode == 1) {
+		info_alarmboot = info;
+		INIT_DELAYED_WORK_DEFERRABLE(&pollling_work_alarmboot,
+			check_alarm_boot_workqueue);
+		schedule_delayed_work(&pollling_work_alarmboot, 2000);
 	}
 
 	max8997_rtc_enable_wtsr(info, true);
@@ -515,6 +719,13 @@ static int __devinit max8997_rtc_probe(struct platform_device *pdev)
 			info->irq, ret);
 		goto err_rtc;
 	}
+	ret = request_threaded_irq(info->irq2, NULL, max8997_rtc_alarm2_irq, 0,
+			"rtc-alarm0", info);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
+			info->irq2, ret);
+		goto err_rtc;
+	}
 
 	goto out;
 err_rtc:
@@ -532,6 +743,7 @@ static int __devexit max8997_rtc_remove(struct platform_device *pdev)
 
 	if (info) {
 		free_irq(info->irq, info);
+		free_irq(info->irq2, info);
 		rtc_device_unregister(info->rtc_dev);
 		kfree(info);
 	}
@@ -556,6 +768,9 @@ static void max8997_rtc_shutdown(struct platform_device *pdev)
 			break;
 		}
 	}
+
+	/* Disable SMPL when power off */
+	max8997_rtc_enable_smpl(info, false);
 }
 
 static const struct platform_device_id rtc_id[] = {

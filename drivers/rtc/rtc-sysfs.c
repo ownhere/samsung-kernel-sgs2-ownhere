@@ -208,6 +208,89 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(wakealarm, S_IRUGO | S_IWUSR,
 		rtc_sysfs_show_wakealarm, rtc_sysfs_set_wakealarm);
 
+//ownhere add
+static ssize_t
+rtc_sysfs_show_bootalarm(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t retval;
+	unsigned long alarm;
+	struct rtc_wkalrm alm;
+
+	/* Don't show disabled alarms.  For uniformity, RTC alarms are
+	 * conceptually one-shot, even though some common RTCs (on PCs)
+	 * don't actually work that way.
+	 *
+	 * NOTE: RTC implementations where the alarm doesn't match an
+	 * exact YYYY-MM-DD HH:MM[:SS] date *must* disable their RTC
+	 * alarms after they trigger, to ensure one-shot semantics.
+	 */
+	retval = rtc_read_alarm(to_rtc_device(dev), &alm);
+	if (retval == 0 && alm.enabled) {
+		rtc_tm_to_time(&alm.time, &alarm);
+		retval = sprintf(buf, "%lu\n", alarm);
+	}
+
+	return retval;
+}
+
+static ssize_t
+rtc_sysfs_set_bootalarm(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	ssize_t retval;
+	unsigned long now, alarm;
+	struct rtc_wkalrm alm;
+	struct rtc_device *rtc = to_rtc_device(dev);
+	char *buf_ptr;
+	int adjust = 0;
+
+	/* Only request alarms that trigger in the future.  Disable them
+	 * by writing another time, e.g. 0 meaning Jan 1 1970 UTC.
+	 */
+	retval = rtc_read_time(rtc, &alm.time);
+	if (retval < 0)
+		return retval;
+	rtc_tm_to_time(&alm.time, &now);
+
+	buf_ptr = (char *)buf;
+	if (*buf_ptr == '+') {
+		buf_ptr++;
+		adjust = 1;
+	}
+	alarm = simple_strtoul(buf_ptr, NULL, 0);
+	if (adjust) {
+		alarm += now;
+	}
+	if (alarm > now) {
+		/* Avoid accidentally clobbering active alarms; we can't
+		 * entirely prevent that here, without even the minimal
+		 * locking from the /dev/rtcN api.
+		 */
+		retval = rtc_read_alarm(rtc, &alm);
+		if (retval < 0)
+			return retval;
+		if (alm.enabled)
+			return -EBUSY;
+
+		alm.enabled = 1;
+	} else {
+		alm.enabled = 0;
+
+		/* Provide a valid future alarm time.  Linux isn't EFI,
+		 * this time won't be ignored when disabling the alarm.
+		 */
+		alarm = now + 300;
+	}
+	rtc_time_to_tm(alarm, &alm.time);
+
+	retval = rtc_set_alarm_boot(rtc, &alm);
+	return (retval < 0) ? retval : n;
+}
+static DEVICE_ATTR(bootalarm, S_IRUGO | S_IWUSR,
+		rtc_sysfs_show_bootalarm, rtc_sysfs_set_bootalarm);
+//ownhere end
+
 
 /* The reason to trigger an alarm with no process watching it (via sysfs)
  * is its side effect:  waking from a system state like suspend-to-RAM or
