@@ -1311,9 +1311,11 @@ static int vidioc_querycap(struct file *file, void  *priv,
 		goto out;
 	}
 	strncpy(cap->driver, gspca_dev->sd_desc->name, sizeof cap->driver);
+	(cap->driver)[sizeof(cap->driver) - 1] = '\0';
 	if (gspca_dev->dev->product != NULL) {
 		strncpy(cap->card, gspca_dev->dev->product,
 			sizeof cap->card);
+		(cap->card)[sizeof(cap->card) - 1] = '\0';
 	} else {
 		snprintf(cap->card, sizeof cap->card,
 			"USB Camera (%04x:%04x)",
@@ -1482,6 +1484,7 @@ static int vidioc_enum_input(struct file *file, void *priv,
 	input->status = gspca_dev->cam.input_flags;
 	strncpy(input->name, gspca_dev->sd_desc->name,
 		sizeof input->name);
+	input->name[sizeof(input->name) - 1] = '\0';
 	return 0;
 }
 
@@ -1572,9 +1575,11 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	struct gspca_dev *gspca_dev = priv;
 	struct gspca_frame *frame;
 
-	if (v4l2_buf->index < 0
-	    || v4l2_buf->index >= gspca_dev->nframes)
+	if ((unsigned)(v4l2_buf->index) >= gspca_dev->nframes) {
+		PDEBUG(D_FRAM,
+			"querybuf idx %d >= %d", v4l2_buf->index, gspca_dev->nframes);
 		return -EINVAL;
+	}
 
 	frame = &gspca_dev->frame[v4l2_buf->index];
 	memcpy(v4l2_buf, &frame->v4l2_buf, sizeof *v4l2_buf);
