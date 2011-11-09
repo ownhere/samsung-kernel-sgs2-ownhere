@@ -85,3 +85,4 @@ piggy.lzo
 piggy.lzma
 vmlinux
 vmlinux.lds
+arch/arm/boot/compressed/*.S
