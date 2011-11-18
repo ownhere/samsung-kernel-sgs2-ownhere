@@ -776,9 +776,6 @@ enum cpu_idle_type {
 	CPU_MAX_IDLE_TYPES
 };
 
-/*
- * sched-domains (multiprocessor balancing) declarations:
- */
 
 /*
  * Increase resolution of nice-level calculations:
@@ -788,6 +785,15 @@ enum cpu_idle_type {
 
 #define SCHED_LOAD_SCALE_FUZZ	SCHED_LOAD_SCALE
 
+/*
+ * Increase resolution of cpu_power calculations
+ */
+#define SCHED_POWER_SHIFT	10
+#define SCHED_POWER_SCALE	(1L << SCHED_POWER_SHIFT)
+
+/*
+ * sched-domains (multiprocessor balancing) declarations:
+ */
 #ifdef CONFIG_SMP
 #define SD_LOAD_BALANCE		0x0001	/* Do load balancing on this domain. */
 #define SD_BALANCE_NEWIDLE	0x0002	/* Balance when about to become idle */
@@ -800,8 +806,9 @@ enum cpu_idle_type {
 #define SD_POWERSAVINGS_BALANCE	0x0100	/* Balance for power savings */
 #define SD_SHARE_PKG_RESOURCES	0x0200	/* Domain members share cpu pkg resources */
 #define SD_SERIALIZE		0x0400	/* Only a single load balancing instance */
-
+#define SD_ASYM_PACKING		0x0800  /* Place busy groups earlier in the domain */
 #define SD_PREFER_SIBLING	0x1000	/* Prefer to place tasks in a sibling domain */
+#define SD_OVERLAP		0x2000	/* sched_domains of this level overlap */
 
 enum powersavings_balance_level {
 	POWERSAVINGS_BALANCE_NONE = 0,  /* No power saving load balance */
@@ -834,6 +841,8 @@ static inline int sd_balance_for_package_power(void)
 
 	return SD_PREFER_SIBLING;
 }
+
+extern int __weak arch_sd_sibiling_asym_packing(void);
 
 /*
  * Optimise SD flags for power savings:
