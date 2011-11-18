@@ -2228,7 +2228,7 @@ void __init_or_cpufreq s5pv310_setup_clocks(void)
 
 	vpllsrc = clk_get_rate(&clk_vpllsrc.clk);
 	vpll = s5p_get_pll46xx(vpllsrc, __raw_readl(S5P_VPLL_CON0),
-				__raw_readl(S5P_VPLL_CON1), pll_4650);
+				__raw_readl(S5P_VPLL_CON1), pll_4650c);
 #else
 	apll = xtal;
 	mpll = xtal;
