@@ -6424,7 +6424,7 @@ static void sched_domain_node_span(int node, struct cpumask *span)
 }
 #endif /* CONFIG_NUMA */
 
-int sched_smt_power_savings = 0, sched_mc_power_savings = 0;
+int sched_smt_power_savings = 1, sched_mc_power_savings = 1;
 
 /*
  * The cpus mask in sched_group and sched_domain hangs off the end.
