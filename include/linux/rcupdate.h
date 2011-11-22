@@ -58,8 +58,6 @@ extern void rcu_init(void);
 
 #if defined(CONFIG_TREE_RCU) || defined(CONFIG_TREE_PREEMPT_RCU)
 #include <linux/rcutree.h>
-#elif defined(CONFIG_JRCU)
-#include <linux/jrcu.h>
 #elif defined(CONFIG_TINY_RCU)
 #include <linux/rcutiny.h>
 #else
