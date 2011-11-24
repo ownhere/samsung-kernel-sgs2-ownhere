@@ -1000,6 +1000,10 @@ static void xen_reboot(int reason)
 {
 	struct sched_shutdown r = { .reason = reason };
 
+#ifdef CONFIG_SMP
+	smp_send_stop();
+#endif
+
 	if (HYPERVISOR_sched_op(SCHEDOP_shutdown, &r))
 		BUG();
 }

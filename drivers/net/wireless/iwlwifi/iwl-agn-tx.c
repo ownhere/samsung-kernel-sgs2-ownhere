@@ -1141,14 +1141,11 @@ int iwlagn_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
 	     q->read_ptr = iwl_queue_inc_wrap(q->read_ptr, q->n_bd)) {
 
 		tx_info = &txq->txb[txq->q.read_ptr];
-
-		if (WARN_ON_ONCE(tx_info->skb[0] == NULL))
-			continue;
+		iwlagn_tx_status(priv, tx_info->skb[0]);
 
 		hdr = (struct ieee80211_hdr *)tx_info->skb[0]->data;
-		if (ieee80211_is_data_qos(hdr->frame_control))
+		if (hdr && ieee80211_is_data_qos(hdr->frame_control))
 			nfreed++;
-		iwlagn_tx_status(priv, tx_info->skb[0]);
 		tx_info->skb[0] = NULL;
 
 		if (priv->cfg->ops->lib->txq_inval_byte_cnt_tbl)

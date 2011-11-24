@@ -93,7 +93,6 @@ enum {
 	STAC_92HD83XXX_REF,
 	STAC_92HD83XXX_PWR_REF,
 	STAC_DELL_S14,
-	STAC_DELL_E6410,
 	STAC_92HD83XXX_HP,
 	STAC_92HD83XXX_MODELS
 };
@@ -737,7 +736,7 @@ static int stac92xx_mux_enum_put(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 	struct sigmatel_spec *spec = codec->spec;
 	unsigned int adc_idx = snd_ctl_get_ioffidx(kcontrol, &ucontrol->id);
 	const struct hda_input_mux *imux = spec->input_mux;
-	unsigned int idx, prev_idx, didx;
+	unsigned int idx, prev_idx;
 
 	idx = ucontrol->value.enumerated.item[0];
 	if (idx >= imux->num_items)
@@ -749,8 +748,7 @@ static int stac92xx_mux_enum_put(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 		snd_hda_codec_write_cache(codec, spec->mux_nids[adc_idx], 0,
 					  AC_VERB_SET_CONNECT_SEL,
 					  imux->items[idx].index);
-		if (prev_idx >= spec->num_analog_muxes &&
-		    spec->mux_nids[adc_idx] != spec->dmux_nids[adc_idx]) {
+		if (prev_idx >= spec->num_analog_muxes) {
 			imux = spec->dinput_mux;
 			/* 0 = analog */
 			snd_hda_codec_write_cache(codec,
@@ -760,13 +758,9 @@ static int stac92xx_mux_enum_put(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 		}
 	} else {
 		imux = spec->dinput_mux;
-		/* first dimux item is hardcoded to select analog imux,
-		 * so lets skip it
-		 */
-		didx = idx - spec->num_analog_muxes + 1;
 		snd_hda_codec_write_cache(codec, spec->dmux_nids[adc_idx], 0,
 					  AC_VERB_SET_CONNECT_SEL,
-					  imux->items[didx].index);
+					  imux->items[idx - 1].index);
 	}
 	spec->cur_mux[adc_idx] = idx;
 	return 1;
@@ -1198,13 +1192,6 @@ static int stac92xx_build_controls(struct hda_codec *codec)
 	return 0;	
 }
 
-/* Deliberately turn off 0x0f (Dock Mic) to make it choose Int Mic instead */
-static unsigned int dell_e6410_pin_configs[10] = {
-	0x04a11020, 0x0421101f, 0x400000f0, 0x90170110,
-	0x23011050, 0x40f000f0, 0x400000f0, 0x90a60130,
-	0x40f000f0, 0x40f000f0,
-};
-
 static unsigned int ref9200_pin_configs[8] = {
 	0x01c47010, 0x01447010, 0x0221401f, 0x01114010,
 	0x02a19020, 0x01a19021, 0x90100140, 0x01813122,
@@ -1623,14 +1610,12 @@ static struct snd_pci_quirk stac92hd73xx_cfg_tbl[] = {
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x02fe,
 				"Dell Studio XPS 1645", STAC_DELL_M6_BOTH),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0413,
-				"Dell Studio 1558", STAC_DELL_M6_DMIC),
+				"Dell Studio 1558", STAC_DELL_M6_BOTH),
 	{} /* terminator */
 };
 
 static struct snd_pci_quirk stac92hd73xx_codec_id_cfg_tbl[] = {
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x02a1,
-		      "Alienware M17x", STAC_ALIENWARE_M17X),
-	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x043a,
 		      "Alienware M17x", STAC_ALIENWARE_M17X),
 	{} /* terminator */
 };
@@ -1651,7 +1636,6 @@ static unsigned int *stac92hd83xxx_brd_tbl[STAC_92HD83XXX_MODELS] = {
 	[STAC_92HD83XXX_REF] = ref92hd83xxx_pin_configs,
 	[STAC_92HD83XXX_PWR_REF] = ref92hd83xxx_pin_configs,
 	[STAC_DELL_S14] = dell_s14_pin_configs,
-	[STAC_DELL_E6410] = dell_e6410_pin_configs,
 };
 
 static const char *stac92hd83xxx_models[STAC_92HD83XXX_MODELS] = {
@@ -1659,7 +1643,6 @@ static const char *stac92hd83xxx_models[STAC_92HD83XXX_MODELS] = {
 	[STAC_92HD83XXX_REF] = "ref",
 	[STAC_92HD83XXX_PWR_REF] = "mic-ref",
 	[STAC_DELL_S14] = "dell-s14",
-	[STAC_DELL_E6410] = "dell-e6410",
 	[STAC_92HD83XXX_HP] = "hp",
 };
 
@@ -1671,10 +1654,6 @@ static struct snd_pci_quirk stac92hd83xxx_cfg_tbl[] = {
 		      "DFI LanParty", STAC_92HD83XXX_REF),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x02ba,
 		      "unknown Dell", STAC_DELL_S14),
-	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x040a,
-		      "Dell E6410", STAC_DELL_E6410),
-	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x040b,
-		      "Dell E6510", STAC_DELL_E6410),
 	SND_PCI_QUIRK_MASK(PCI_VENDOR_ID_HP, 0xff00, 0x3600,
 		      "HP", STAC_92HD83XXX_HP),
 	{} /* terminator */

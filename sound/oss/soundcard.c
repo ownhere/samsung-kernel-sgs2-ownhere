@@ -86,7 +86,7 @@ int *load_mixer_volumes(char *name, int *levels, int present)
 	int             i, n;
 
 	for (i = 0; i < num_mixer_volumes; i++) {
-		if (strncmp(name, mixer_vols[i].name, 32) == 0) {
+		if (strcmp(name, mixer_vols[i].name) == 0) {
 			if (present)
 				mixer_vols[i].num = i;
 			return mixer_vols[i].levels;
@@ -98,7 +98,7 @@ int *load_mixer_volumes(char *name, int *levels, int present)
 	}
 	n = num_mixer_volumes++;
 
-	strncpy(mixer_vols[n].name, name, 32);
+	strcpy(mixer_vols[n].name, name);
 
 	if (present)
 		mixer_vols[n].num = n;
@@ -389,11 +389,11 @@ static long sound_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case SND_DEV_DSP:
 	case SND_DEV_DSP16:
 	case SND_DEV_AUDIO:
-		ret = audio_ioctl(dev, file, cmd, p);
+		return audio_ioctl(dev, file, cmd, p);
 		break;
 
 	case SND_DEV_MIDIN:
-		ret = MIDIbuf_ioctl(dev, file, cmd, p);
+		return MIDIbuf_ioctl(dev, file, cmd, p);
 		break;
 
 	}

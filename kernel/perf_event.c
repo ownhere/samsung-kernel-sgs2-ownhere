@@ -58,8 +58,7 @@ static atomic_t nr_task_events __read_mostly;
  */
 int sysctl_perf_event_paranoid __read_mostly = 1;
 
-/* Minimum for 128 pages + 1 for the user control page */
-int sysctl_perf_event_mlock __read_mostly = 516; /* 'free' kb per user */
+int sysctl_perf_event_mlock __read_mostly = 512; /* 'free' kb per user */
 
 /*
  * max perf event sample rate
@@ -1610,12 +1609,8 @@ static void rotate_ctx(struct perf_event_context *ctx)
 {
 	raw_spin_lock(&ctx->lock);
 
-	/*
-	 * Rotate the first entry last of non-pinned groups. Rotation might be
-	 * disabled by the inheritance code.
-	 */
-	if (!ctx->rotate_disable)
-		list_rotate_left(&ctx->flexible_groups);
+	/* Rotate the first entry last of non-pinned groups */
+	list_rotate_left(&ctx->flexible_groups);
 
 	raw_spin_unlock(&ctx->lock);
 }
@@ -1762,13 +1757,7 @@ static u64 perf_event_read(struct perf_event *event)
 		unsigned long flags;
 
 		raw_spin_lock_irqsave(&ctx->lock, flags);
-		/*
-		 * may read while context is not active
-		 * (e.g., thread is blocked), in that case
-		 * we cannot update context time
-		 */
-		if (ctx->is_active)
-			update_context_time(ctx);
+		update_context_time(ctx);
 		update_event_times(event);
 		raw_spin_unlock_irqrestore(&ctx->lock, flags);
 	}
@@ -5401,20 +5390,17 @@ __perf_event_exit_task(struct perf_event *child_event,
 			 struct perf_event_context *child_ctx,
 			 struct task_struct *child)
 {
-	if (child_event->parent) {
-		raw_spin_lock_irq(&child_ctx->lock);
-		perf_group_detach(child_event);
-		raw_spin_unlock_irq(&child_ctx->lock);
-	}
+	struct perf_event *parent_event;
 
 	perf_event_remove_from_context(child_event);
 
+	parent_event = child_event->parent;
 	/*
-	 * It can happen that the parent exits first, and has events
+	 * It can happen that parent exits first, and has events
 	 * that are still around due to the child reference. These
-	 * events need to be zapped.
+	 * events need to be zapped - but otherwise linger.
 	 */
-	if (child_event->parent) {
+	if (parent_event) {
 		sync_child_event(child_event, child);
 		free_event(child_event);
 	}
@@ -5604,7 +5590,6 @@ int perf_event_init_task(struct task_struct *child)
 	struct perf_event *event;
 	struct task_struct *parent = current;
 	int inherited_all = 1;
-	unsigned long flags;
 	int ret = 0;
 
 	child->perf_event_ctxp = NULL;
@@ -5645,25 +5630,12 @@ int perf_event_init_task(struct task_struct *child)
 			break;
 	}
 
-	/*
-	 * We can't hold ctx->lock when iterating the ->flexible_group list due
-	 * to allocations, but we need to prevent rotation because
-	 * rotate_ctx() will change the list from interrupt context.
-	 */
-	raw_spin_lock_irqsave(&parent_ctx->lock, flags);
-	parent_ctx->rotate_disable = 1;
-	raw_spin_unlock_irqrestore(&parent_ctx->lock, flags);
-
 	list_for_each_entry(event, &parent_ctx->flexible_groups, group_entry) {
 		ret = inherit_task_group(event, parent, parent_ctx, child,
 					 &inherited_all);
 		if (ret)
 			break;
 	}
-
-	raw_spin_lock_irqsave(&parent_ctx->lock, flags);
-	parent_ctx->rotate_disable = 0;
-	raw_spin_unlock_irqrestore(&parent_ctx->lock, flags);
 
 	child_ctx = child->perf_event_ctxp;
 

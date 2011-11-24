@@ -758,13 +758,11 @@ static int nl80211_set_channel(struct sk_buff *skb, struct genl_info *info)
 
 	result = get_rdev_dev_by_info_ifindex(info, &rdev, &netdev);
 	if (result)
-		goto unlock_rtnl;
+		goto unlock;
 
 	result = __nl80211_set_channel(rdev, netdev->ieee80211_ptr, info);
 
-	dev_put(netdev);
-	cfg80211_unlock_rdev(rdev);
- unlock_rtnl:
+ unlock:
 	rtnl_unlock();
 
 	return result;
@@ -3179,12 +3177,12 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	i = 0;
 	if (info->attrs[NL80211_ATTR_SCAN_SSIDS]) {
 		nla_for_each_nested(attr, info->attrs[NL80211_ATTR_SCAN_SSIDS], tmp) {
-			request->ssids[i].ssid_len = nla_len(attr);
 			if (request->ssids[i].ssid_len > IEEE80211_MAX_SSID_LEN) {
 				err = -EINVAL;
 				goto out_free;
 			}
 			memcpy(request->ssids[i].ssid, nla_data(attr), nla_len(attr));
+			request->ssids[i].ssid_len = nla_len(attr);
 			i++;
 		}
 	}
@@ -4911,7 +4909,7 @@ static int nl80211_set_cqm_rssi(struct genl_info *info,
 
 	err = get_rdev_dev_by_info_ifindex(info, &rdev, &dev);
 	if (err)
-		goto unlock_rtnl;
+		goto unlock_rdev;
 
 	wdev = dev->ieee80211_ptr;
 
@@ -4928,10 +4926,9 @@ static int nl80211_set_cqm_rssi(struct genl_info *info,
 	err = rdev->ops->set_cqm_rssi_config(wdev->wiphy, dev,
 					     threshold, hysteresis);
 
- unlock_rdev:
+unlock_rdev:
 	cfg80211_unlock_rdev(rdev);
 	dev_put(dev);
- unlock_rtnl:
 	rtnl_unlock();
 
 	return err;

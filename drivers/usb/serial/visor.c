@@ -27,7 +27,6 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/usb/serial.h>
-#include <linux/usb/cdc.h>
 #include "visor.h"
 
 /*
@@ -480,17 +479,6 @@ static int visor_probe(struct usb_serial *serial,
 
 	dbg("%s", __func__);
 
-	/*
-	 * some Samsung Android phones in modem mode have the same ID
-	 * as SPH-I500, but they are ACM devices, so dont bind to them
-	 */
-	if (id->idVendor == SAMSUNG_VENDOR_ID &&
-		id->idProduct == SAMSUNG_SPH_I500_ID &&
-		serial->dev->descriptor.bDeviceClass == USB_CLASS_COMM &&
-		serial->dev->descriptor.bDeviceSubClass ==
-			USB_CDC_SUBCLASS_ACM)
-		return -ENODEV;
-
 	if (serial->dev->actconfig->desc.bConfigurationValue != 1) {
 		dev_err(&serial->dev->dev, "active config #%d != 1 ??\n",
 			serial->dev->actconfig->desc.bConfigurationValue);
@@ -618,10 +606,6 @@ static int treo_attach(struct usb_serial *serial)
 
 static int clie_5_attach(struct usb_serial *serial)
 {
-	struct usb_serial_port *port;
-	unsigned int pipe;
-	int j;
-
 	dbg("%s", __func__);
 
 	/* TH55 registers 2 ports.
@@ -637,13 +621,8 @@ static int clie_5_attach(struct usb_serial *serial)
 		return -1;
 
 	/* port 0 now uses the modified endpoint Address */
-	port = serial->port[0];
-	port->bulk_out_endpointAddress =
+	serial->port[0]->bulk_out_endpointAddress =
 				serial->port[1]->bulk_out_endpointAddress;
-
-	pipe = usb_sndbulkpipe(serial->dev, port->bulk_out_endpointAddress);
-	for (j = 0; j < ARRAY_SIZE(port->write_urbs); ++j)
-		port->write_urbs[j]->pipe = pipe;
 
 	return 0;
 }

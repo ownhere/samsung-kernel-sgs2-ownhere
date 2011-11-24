@@ -325,7 +325,7 @@ struct queue_limits {
 
 	unsigned char		misaligned;
 	unsigned char		discard_misaligned;
-	unsigned char		cluster;
+	unsigned char		no_cluster;
 	signed char		discard_zeroes_data;
 };
 
@@ -448,6 +448,7 @@ struct request_queue
 #endif
 };
 
+#define QUEUE_FLAG_CLUSTER	0	/* cluster several segments into 1 */
 #define QUEUE_FLAG_QUEUED	1	/* uses generic tag queueing */
 #define QUEUE_FLAG_STOPPED	2	/* queue is stopped */
 #define	QUEUE_FLAG_SYNCFULL	3	/* read queue has been filled */
@@ -468,6 +469,7 @@ struct request_queue
 #define QUEUE_FLAG_NOXMERGES   17	/* No extended merges */
 
 #define QUEUE_FLAG_DEFAULT	((1 << QUEUE_FLAG_IO_STAT) |		\
+				 (1 << QUEUE_FLAG_CLUSTER) |		\
 				 (1 << QUEUE_FLAG_STACKABLE)	|	\
 				 (1 << QUEUE_FLAG_SAME_COMP))
 
@@ -633,11 +635,6 @@ enum {
 #define list_entry_rq(ptr)	list_entry((ptr), struct request, queuelist)
 
 #define rq_data_dir(rq)		((rq)->cmd_flags & 1)
-
-static inline unsigned int blk_queue_cluster(struct request_queue *q)
-{
-	return q->limits.cluster;
-}
 
 /*
  * We regard a request as sync, if either a read or a sync write
@@ -939,7 +936,7 @@ extern void blk_queue_max_segment_size(struct request_queue *, unsigned int);
 extern void blk_queue_max_discard_sectors(struct request_queue *q,
 		unsigned int max_discard_sectors);
 extern void blk_queue_logical_block_size(struct request_queue *, unsigned short);
-extern void blk_queue_physical_block_size(struct request_queue *, unsigned int);
+extern void blk_queue_physical_block_size(struct request_queue *, unsigned short);
 extern void blk_queue_alignment_offset(struct request_queue *q,
 				       unsigned int alignment);
 extern void blk_limits_io_min(struct queue_limits *limits, unsigned int min);
@@ -1089,7 +1086,7 @@ static inline unsigned int queue_physical_block_size(struct request_queue *q)
 	return q->limits.physical_block_size;
 }
 
-static inline unsigned int bdev_physical_block_size(struct block_device *bdev)
+static inline int bdev_physical_block_size(struct block_device *bdev)
 {
 	return queue_physical_block_size(bdev_get_queue(bdev));
 }

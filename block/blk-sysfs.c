@@ -114,7 +114,7 @@ static ssize_t queue_max_segments_show(struct request_queue *q, char *page)
 
 static ssize_t queue_max_segment_size_show(struct request_queue *q, char *page)
 {
-	if (blk_queue_cluster(q))
+	if (test_bit(QUEUE_FLAG_CLUSTER, &q->queue_flags))
 		return queue_var_show(queue_max_segment_size(q), (page));
 
 	return queue_var_show(PAGE_CACHE_SIZE, (page));
@@ -502,10 +502,8 @@ int blk_register_queue(struct gendisk *disk)
 		return ret;
 
 	ret = kobject_add(&q->kobj, kobject_get(&dev->kobj), "%s", "queue");
-	if (ret < 0) {
-		blk_trace_remove_sysfs(dev);
+	if (ret < 0)
 		return ret;
-	}
 
 	kobject_uevent(&q->kobj, KOBJ_ADD);
 

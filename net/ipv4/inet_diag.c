@@ -437,7 +437,7 @@ static int valid_cc(const void *bc, int len, int cc)
 			return 0;
 		if (cc == len)
 			return 1;
-		if (op->yes < 4 || op->yes & 3)
+		if (op->yes < 4)
 			return 0;
 		len -= op->yes;
 		bc  += op->yes;
@@ -447,11 +447,11 @@ static int valid_cc(const void *bc, int len, int cc)
 
 static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
 {
-	const void *bc = bytecode;
+	const unsigned char *bc = bytecode;
 	int  len = bytecode_len;
 
 	while (len > 0) {
-		const struct inet_diag_bc_op *op = bc;
+		struct inet_diag_bc_op *op = (struct inet_diag_bc_op *)bc;
 
 //printk("BC: %d %d %d {%d} / %d\n", op->code, op->yes, op->no, op[1].no, len);
 		switch (op->code) {
@@ -462,20 +462,22 @@ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
 		case INET_DIAG_BC_S_LE:
 		case INET_DIAG_BC_D_GE:
 		case INET_DIAG_BC_D_LE:
+			if (op->yes < 4 || op->yes > len + 4)
+				return -EINVAL;
 		case INET_DIAG_BC_JMP:
-			if (op->no < 4 || op->no > len + 4 || op->no & 3)
+			if (op->no < 4 || op->no > len + 4)
 				return -EINVAL;
 			if (op->no < len &&
 			    !valid_cc(bytecode, bytecode_len, len - op->no))
 				return -EINVAL;
 			break;
 		case INET_DIAG_BC_NOP:
+			if (op->yes < 4 || op->yes > len + 4)
+				return -EINVAL;
 			break;
 		default:
 			return -EINVAL;
 		}
-		if (op->yes < 4 || op->yes > len + 4 || op->yes & 3)
-			return -EINVAL;
 		bc  += op->yes;
 		len -= op->yes;
 	}
@@ -488,11 +490,9 @@ static int inet_csk_diag_dump(struct sock *sk,
 {
 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
 
-	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
+	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
 		struct inet_diag_entry entry;
-		const struct nlattr *bc = nlmsg_find_attr(cb->nlh,
-							  sizeof(*r),
-							  INET_DIAG_REQ_BYTECODE);
+		struct rtattr *bc = (struct rtattr *)(r + 1);
 		struct inet_sock *inet = inet_sk(sk);
 
 		entry.family = sk->sk_family;
@@ -512,7 +512,7 @@ static int inet_csk_diag_dump(struct sock *sk,
 		entry.dport = ntohs(inet->inet_dport);
 		entry.userlocks = sk->sk_userlocks;
 
-		if (!inet_diag_bc_run(nla_data(bc), nla_len(bc), &entry))
+		if (!inet_diag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
 			return 0;
 	}
 
@@ -527,11 +527,9 @@ static int inet_twsk_diag_dump(struct inet_timewait_sock *tw,
 {
 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
 
-	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
+	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
 		struct inet_diag_entry entry;
-		const struct nlattr *bc = nlmsg_find_attr(cb->nlh,
-							  sizeof(*r),
-							  INET_DIAG_REQ_BYTECODE);
+		struct rtattr *bc = (struct rtattr *)(r + 1);
 
 		entry.family = tw->tw_family;
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
@@ -550,7 +548,7 @@ static int inet_twsk_diag_dump(struct inet_timewait_sock *tw,
 		entry.dport = ntohs(tw->tw_dport);
 		entry.userlocks = 0;
 
-		if (!inet_diag_bc_run(nla_data(bc), nla_len(bc), &entry))
+		if (!inet_diag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
 			return 0;
 	}
 
@@ -620,7 +618,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
 	struct inet_diag_req *r = NLMSG_DATA(cb->nlh);
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct listen_sock *lopt;
-	const struct nlattr *bc = NULL;
+	struct rtattr *bc = NULL;
 	struct inet_sock *inet = inet_sk(sk);
 	int j, s_j;
 	int reqnum, s_reqnum;
@@ -640,9 +638,8 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
 	if (!lopt || !lopt->qlen)
 		goto out;
 
-	if (nlmsg_attrlen(cb->nlh, sizeof(*r))) {
-		bc = nlmsg_find_attr(cb->nlh, sizeof(*r),
-				     INET_DIAG_REQ_BYTECODE);
+	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
+		bc = (struct rtattr *)(r + 1);
 		entry.sport = inet->inet_num;
 		entry.userlocks = sk->sk_userlocks;
 	}
@@ -675,8 +672,8 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
 					&ireq->rmt_addr;
 				entry.dport = ntohs(ireq->rmt_port);
 
-				if (!inet_diag_bc_run(nla_data(bc),
-						      nla_len(bc), &entry))
+				if (!inet_diag_bc_run(RTA_DATA(bc),
+						    RTA_PAYLOAD(bc), &entry))
 					continue;
 			}
 

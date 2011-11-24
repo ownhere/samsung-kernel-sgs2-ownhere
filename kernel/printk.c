@@ -1193,7 +1193,7 @@ int printk_needs_cpu(int cpu)
 void wake_up_klogd(void)
 {
 	if (waitqueue_active(&log_wait))
-		this_cpu_write(printk_pending, 1);
+		__raw_get_cpu_var(printk_pending) = 1;
 }
 
 /**
