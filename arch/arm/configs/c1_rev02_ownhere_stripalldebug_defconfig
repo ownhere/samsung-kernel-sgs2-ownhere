@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.35.7
-# Wed Nov 23 07:25:45 2011
+# Linux kernel version: 2.6.35.14
+# Fri Nov 25 21:56:23 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -100,7 +100,8 @@ CONFIG_UID16=y
 CONFIG_SYSCTL_SYSCALL=y
 # CONFIG_KALLSYMS is not set
 CONFIG_HOTPLUG=y
-# CONFIG_PRINTK is not set
+CONFIG_PRINTK=y
+CONFIG_SEC_LOG=y
 CONFIG_BUG=y
 CONFIG_ELF_CORE=y
 CONFIG_BASE_FULL=y
@@ -2380,10 +2381,11 @@ CONFIG_NLS_UTF8=y
 #
 # Kernel hacking
 #
+# CONFIG_PRINTK_TIME is not set
 CONFIG_ENABLE_WARN_DEPRECATED=y
 CONFIG_ENABLE_MUST_CHECK=y
 CONFIG_FRAME_WARN=1024
-CONFIG_MAGIC_SYSRQ=y
+# CONFIG_MAGIC_SYSRQ is not set
 # CONFIG_STRIP_ASM_SYMS is not set
 # CONFIG_UNUSED_SYMBOLS is not set
 # CONFIG_DEBUG_FS is not set
