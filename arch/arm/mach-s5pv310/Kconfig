@@ -528,6 +528,7 @@ endmenu
 
 config S5PV310_ASV
 	bool "Enable ASV support"
+	depends on CPU_FREQ
 	default n
 	help
 		Say Y here to enable ASV(Adaptive Supply Voltage)
