@@ -77,7 +77,7 @@
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
 
-#include <mach/sec_debug.h>
+//#include <mach/sec_debug.h>
 
 #include "sched_cpupri.h"
 
@@ -3980,7 +3980,7 @@ need_resched_nonpreemptible:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
-	sec_debug_task_sched_log(cpu, rq->curr);
+	//sec_debug_task_sched_log(cpu, rq->curr);
 	post_schedule(rq);
 
 	if (unlikely(reacquire_kernel_lock(current) < 0)) {

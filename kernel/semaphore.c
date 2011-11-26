@@ -33,7 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/ftrace.h>
 
-#include <mach/sec_debug.h>
+//#include <mach/sec_debug.h>
 
 static noinline void __down(struct semaphore *sem);
 static noinline int __down_interruptible(struct semaphore *sem);
