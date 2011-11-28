@@ -140,7 +140,7 @@ cifs_read_super(struct super_block *sb, void *data,
 	    sb->s_blocksize =
 		cifs_sb->tcon->ses->server->maxBuf - MAX_CIFS_HDR_SIZE; */
 	sb->s_blocksize = CIFS_MAX_MSGSIZE;
-	sb->s_blocksize_bits = 14;	/* default 2**14 = CIFS_MAX_MSGSIZE */
+	sb->s_blocksize_bits = 16;	/* default 2**14 = CIFS_MAX_MSGSIZE */
 	inode = cifs_root_iget(sb, ROOT_I);
 
 	if (IS_ERR(inode)) {
@@ -312,7 +312,7 @@ cifs_alloc_inode(struct super_block *sb)
 	cifs_inode->clientCanCacheAll = false;
 	cifs_inode->delete_pending = false;
 	cifs_inode->invalid_mapping = false;
-	cifs_inode->vfs_inode.i_blkbits = 14;  /* 2**14 = CIFS_MAX_MSGSIZE */
+	cifs_inode->vfs_inode.i_blkbits = 16;  /* 2**14 = CIFS_MAX_MSGSIZE */
 	cifs_inode->server_eof = 0;
 
 	/* Can not set i_flags here - they get immediately overwritten
