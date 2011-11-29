@@ -1,0 +1,17 @@
+#!/system/bin/sh
+
+if [ "$SUBSYSTEM" == "block" ];
+then
+  mountdir="/mnt/usb"
+  devbase=`basename ${DEVPATH}`
+  if [ "$ACTION" == "add" ];
+  then
+    mkdir -p ${mountdir}/${devbase}
+    /sbin/ntfs-3g /dev/block/platform/s3c_otghcd/${devbase} ${mountdir}/${devbase} -o ro || rmdir ${mountdir}/${devbase}
+  fi
+  if [ "$ACTION" == "remove" ];
+  then
+    umount -f ${mountdir}/${devbase}
+    rmdir ${mountdir}/${devbase}
+  fi
+fi
