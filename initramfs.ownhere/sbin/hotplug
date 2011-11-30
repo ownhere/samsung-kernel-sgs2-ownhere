@@ -1,17 +1,18 @@
-#!/system/bin/sh
+#!/system/xbin/busybox sh
 
-if [ "$SUBSYSTEM" == "block" ];
+if [ "${SUBSYSTEM}" == "block" ] && [ `echo ${DEVPATH}|/system/xbin/busybox grep -c "s3c_otghcd"` -ge 1 ] ;
 then
-  mountdir="/mnt/usb"
-  devbase=`basename ${DEVPATH}`
-  if [ "$ACTION" == "add" ];
+  mountdir="/mnt/sdcard/usbStorage"
+  devbase=`/system/xbin/busybox basename ${DEVPATH}`
+  if [ "${ACTION}" == "add" ];
   then
-    mkdir -p ${mountdir}/${devbase}
-    /sbin/ntfs-3g /dev/block/platform/s3c_otghcd/${devbase} ${mountdir}/${devbase} -o ro || rmdir ${mountdir}/${devbase}
+    /system/xbin/busybox mkdir -p ${mountdir}/${devbase}
+    #/sbin/ntfs-3g /dev/block/platform/s3c_otghcd/${devbase} ${mountdir}/${devbase} -o ro || rmdir ${mountdir}/${devbase}
+    /sbin/ntfs-3g /dev/block/platform/s3c_otghcd/${devbase} ${mountdir}/${devbase} -o ro
   fi
-  if [ "$ACTION" == "remove" ];
+  if [ "${ACTION}" == "remove" ];
   then
-    umount -f ${mountdir}/${devbase}
-    rmdir ${mountdir}/${devbase}
+    /system/xbin/busybox umount -f ${mountdir}/${devbase}
+    #rmdir ${mountdir}/${devbase}
   fi
 fi
