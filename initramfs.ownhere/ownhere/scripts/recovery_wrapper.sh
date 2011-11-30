@@ -2,7 +2,7 @@
 # be sure / is read+write for Gingerbread
 /ownhere/bin/mount -o remount,rw /
 
-exec >> /ownhere/logs/cwm_log.txt 2>&1
+#exec >> /ownhere/logs/cwm_log.txt 2>&1
 
 # mostly replicate updater-script behavior from CWM as update.zip
 set -x
@@ -18,6 +18,7 @@ ln -s /sbin/recovery /sbin/amend
 ln -s /sbin/recovery /sbin/dump_image
 ln -s /sbin/recovery /sbin/erase_image
 ln -s /sbin/recovery /sbin/flash_image
+ln -s /sbin/recovery /sbin/edify
 ln -s /sbin/recovery /sbin/mkyaffs2image
 ln -s /sbin/recovery /sbin/nandroid
 ln -s /sbin/recovery /sbin/reboot
@@ -64,6 +65,28 @@ ln -s /ownhere/bin/busybox /sbin/unlzma
 ln -s /ownhere/bin/busybox /sbin/unlzop
 ln -s /ownhere/bin/busybox /sbin/unzip
 
+/ownhere/bin/busybox mount -o remount,rw rootfs /
+
+/ownhere/bin/busybox rm /emmc
+/ownhere/bin/busybox mkdir /emmc
+/ownhere/bin/busybox chmod 777 /emmc
+
+/ownhere/bin/busybox rm /sdcard
+/ownhere/bin/busybox mkdir /sdcard
+/ownhere/bin/busybox chmod 777 /sdcard
+
+/ownhere/bin/busybox rm /etc
+/ownhere/bin/busybox mkdir /etc
+/ownhere/bin/busybox cat /res/etc/recovery.fstab > /etc/recovery.fstab
+
+start adbd
+stop tvout
+
+/ownhere/bin/busybox rm /cache
+/ownhere/bin/busybox mkdir /cache
+/ownhere/bin/busybox chmod 777 /cache
+/ownhere/bin/busybox mount -t ext4 /dev/block/mmcblk0p7 /cache
 
 # run the actual recovery
+echo 1 > /sbin/recovery-is-running
 exec /sbin/recovery
