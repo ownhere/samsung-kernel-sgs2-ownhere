@@ -86,6 +86,8 @@ stop tvout
 /ownhere/bin/busybox mkdir /cache
 /ownhere/bin/busybox chmod 777 /cache
 /ownhere/bin/busybox mount -t ext4 /dev/block/mmcblk0p7 /cache
+/ownhere/bin/busybox mount -t ext4 /dev/block/mmcblk0p9 /system
+/ownhere/bin/busybox mount -t ext4 /dev/block/mmcblk0p10 /data
 
 # run the actual recovery
 echo 1 > /sbin/recovery-is-running
