@@ -9,8 +9,7 @@ branch=`git branch|grep -E "^\*"|awk '{print $2}'`
 if [ ! -z ${BUILD} ]; then
 	branch=${branch}"-"${BUILD}
 fi
-#compiler="/opt/toolchains/none/arm-2009q3/bin/arm-none-eabi-"
-compiler="/opt/toolchains/none/arm-2010.09/bin/arm-none-eabi-"
+compiler="/opt/toolchains/none/arm-2009q3/bin/arm-none-eabi-"
 #compiler="/opt/toolchains/none/arm-2011.03/bin/arm-none-eabi-"
 #compiler="/opt/toolchains/linaro201109-4.5/bin/arm-eabi-"
 #compiler="/opt/toolchains/linaro201109-4.6/bin/arm-eabi-"
