@@ -1,10 +1,10 @@
-#!/ownhere/bin/busybox sh
+#!/sbin/busybox_recovery sh
 
 if [ $# -lt 1 ];
 then
   /system/bin/getprop
-  for i in $(/ownhere/bin/busybox ls -1 /customkernel/property/*); do
-    j=$(echo "$i" | cut -d "/" -f 4)
+  for i in $(busybox_recovery ls -1 /customkernel/property/*); do
+    j=$(echo "$i" | busybox_recovery cut -d "/" -f 4)
     k=$(cat $i);
     echo [$j]: [$k];
   done;

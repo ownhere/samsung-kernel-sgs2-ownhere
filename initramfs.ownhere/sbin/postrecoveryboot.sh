@@ -1,4 +1,4 @@
-#!/ownhere/bin/busybox sh
+#!/sbin/sh
 
 #rm /etc
 #mkdir /etc
@@ -18,3 +18,25 @@
 #  mkdir /sdcard/.android_secure
 #  busybox mount --bind /sdcard/external_sd/.android_secure /sdcard/.android_secure
 #fi;
+for i in $(seq 1 10)
+do
+    TMP=$(mount | grep /tmp)
+    if [ -z "$TMP" ]
+    then
+        break
+    fi
+    umount -l /tmp
+    sleep 1
+done
+
+busybox_recovery mount -o rw,remount /
+rm -r /tmp
+mkdir -p /tmp
+rm /sdcard
+mkdir /sdcard
+busybox_recovery mount /sdcard >> /dev/null 2>&1
+rm /emmc
+mkdir /emmc
+busybox_recovery mount /emmc >> /dev/null 2>&1
+touch /tmp/recovery.log
+sync

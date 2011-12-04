@@ -30,6 +30,7 @@ loglevel 3
 # Backward compatibility
     symlink /system/etc /etc
     symlink /sys/kernel/debug /d
+    symlink /sbin/recovery /sbin/busybox_recovery
 
 # Right now vendor lives on the same filesystem as system,
 # but someday that may change.
@@ -166,6 +167,9 @@ on post-fs
     mount ext4 /dev/block/mmcblk0p10 /data nosuid nodev noatime wait crypt discard,noauto_da_alloc
     chown system system /data
     chmod 0771 /data
+    mkdir /data/system 
+    chown system system /data/system 
+    chmod 0771 /data/system
     mkdir /data/dbdata
     chown system system /data/dbdata
     chmod 0771 /data/dbdata

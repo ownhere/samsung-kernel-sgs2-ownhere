@@ -8,15 +8,21 @@ on init
     export ANDROID_DATA /data
     export EXTERNAL_STORAGE /sdcard
 
-    symlink /system/etc /etc
+    symlink /misc /etc
+    symlink /sbin/recovery /sbin/busybox_recovery
+    symlink /sbin/recovery /sbin/busybox
+    symlink /sbin/busybox /sbin/sh
+    symlink /sbin/mkfs.ext4 /sbin/mke2fs
+    symlink /sbin/tunefs.ext4 /sbin/tune2fs
 
-    mkdir /sdcard
-    mkdir /sdcard1
+    mkdir /sdcard 0000 system system
+    mkdir /sdcard1 0000 system system
+    mkdir /emmc 0000 system system
     mkdir /preload
     mkdir /system
     mkdir /system2
-    mkdir /data
-    mkdir /cache
+    mkdir /data 0771 system system
+    mkdir /cache 0770 system cache
     mkdir /efs
     mkdir /tmp
     mkdir /dbdata
@@ -42,7 +48,8 @@ on early-fs
 
 on fs
     mount tmpfs tmpfs /tmp mode=0755    
-    mount ext4 /dev/block/mmcblk0p9 /system wait
+    mount ext4 /dev/block/mmcblk0p9 /system wait rw
+    mount ext4 /dev/block/mmcblk0p7 /cache nosuid nodev noatime wait
 
     # SEC_DMCRYPT move mounting efs befor apply_disk_policy, and set group id to system
     mkdir /efs
@@ -58,7 +65,7 @@ on post-fs
 
     #temp
     chmod 750 /sbin/fat.format
-    mount rootfs rootfs / ro remount
+#    mount rootfs rootfs / ro remount
 
     write /proc/sys/kernel/panic_on_oops 1
     write /proc/sys/kernel/hung_task_timeout_secs 0
@@ -83,7 +90,7 @@ service ueventd /sbin/ueventd
     critical
 
 
-service console /system/bin/sh
+service console /sbin/sh
     console
 
 #service recovery /sbin/recovery
