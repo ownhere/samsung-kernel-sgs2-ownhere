@@ -13,6 +13,10 @@ if [ "$pos" == "" ];then
 	if [ "$pos" == "" ];then
 		pos=`grep -P -a -b --only-matching '\211\114\132' $zImage | head -2 |tail -1|cut -f 1 -d : | awk '(int($0)<50000){print $0;exit}'`
 		zipfunc="lzop -d"
+		if [ "$pos" == "" ];then
+			pos=`grep -P -a -b --only-matching '\xfd\x37\x7a\x58\x5a' $zImage | head -2 |tail -1|cut -f 1 -d : | awk '(int($0)<50000){print $0;exit}'`
+			zipfunc="xz -d"
+		fi
 	fi
 fi
 if [ "$pos" == "" ];then
@@ -39,6 +43,10 @@ if [ $count -lt 1000000 ]; then
 		if [ "$pos" == "" ];then
 			pos=`grep -P -a -b --only-matching '\211\114\132' $zImage | cut -f 1 -d : | awk '(int($0)<200000){print $0;exit}'`
 			zipfunc="lzop -d"
+			if [ "$pos" == "" ];then
+				pos=`grep -P -a -b --only-matching '\xfd\x37\x7a\x58\x5a' $zImage | cut -f 1 -d : | awk '(int($0)<200000){print $0;exit}'`
+				zipfunc="xz -d"
+			fi
 		fi
 	fi
 	if [ "$pos" == "" ]; then
