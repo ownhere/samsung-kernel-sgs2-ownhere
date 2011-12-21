@@ -46,7 +46,7 @@ else
 	#!!!!!!!!!!!!!!!!!
 	#add -march=armv7-a -mtune=cortex-a9 -mfpu=neon to Makefile KBUILD_CFLAGS
 	#!!!!!!!!!!!!!!!!!
-	$prefix make -j `cat /proc/cpuinfo |grep -c ^processor` EXTRA_AFLAGS=-mfpu=neon ARCH=arm CROSS_COMPILE=${compiler} INSTALL_MOD_PATH=$PWD/${myinitramfs} CONFIG_INITRAMFS_SOURCE=$PWD/${myinitramfs} CONFIG_INITRAMFS_COMPRESSION_GZIP="y" CONFIG_INITRAMFS_ROOT_UID=0 CONFIG_INITRAMFS_ROOT_GID=0 LOCALVERSION="-I9100-${branch}" $1 $2 $3 $4 $5 $6 $7 $8 $9
+	$prefix make -j `cat /proc/cpuinfo |grep -c ^processor` EXTRA_AFLAGS=-mfpu=neon ARCH=arm CROSS_COMPILE=${compiler} INSTALL_MOD_PATH=$PWD/${myinitramfs} CONFIG_INITRAMFS_SOURCE=$PWD/${myinitramfs} CONFIG_INITRAMFS_ROOT_UID=0 CONFIG_INITRAMFS_ROOT_GID=0 LOCALVERSION="-I9100-${branch}" $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 	if [ "$1" == "modules_install" ]; then
 		$prefix find $PWD/${myinitramfs}/lib/modules -iname "*.ko" -exec mv {} $PWD/${myinitramfs}/lib/modules \;

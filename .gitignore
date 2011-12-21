@@ -86,3 +86,4 @@ piggy.lzma
 vmlinux
 vmlinux.lds
 arch/arm/boot/compressed/*.S
+usr/initramfs_data.cpio
