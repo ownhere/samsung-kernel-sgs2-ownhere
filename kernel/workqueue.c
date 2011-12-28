@@ -260,6 +260,7 @@ static void insert_work(struct cpu_workqueue_struct *cwq,
 	wake_up(&cwq->more_work);
 }
 
+
 static void __queue_work(struct cpu_workqueue_struct *cwq,
 			 struct work_struct *work)
 {
@@ -291,6 +292,78 @@ int queue_work(struct workqueue_struct *wq, struct work_struct *work)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(queue_work);
+
+static void insert_work_front(struct cpu_workqueue_struct *cwq,
+			struct work_struct *work, struct list_head *head)
+{
+	trace_workqueue_insertion(cwq->thread, work);
+
+	set_wq_data(work, cwq);
+	/*
+	 * Ensure that we get the right work->data if we see the
+	 * result of list_add() below, see try_to_grab_pending().
+	 */
+	smp_wmb();
+	list_add(&work->entry, head);
+	wake_up(&cwq->more_work);
+}
+
+static void __queue_work_front(struct cpu_workqueue_struct *cwq,
+			 struct work_struct *work)
+{
+	unsigned long flags;
+
+	debug_work_activate(work);
+	spin_lock_irqsave(&cwq->lock, flags);
+	insert_work_front(cwq, work, &cwq->worklist);
+	spin_unlock_irqrestore(&cwq->lock, flags);
+}
+
+/**
+ * queue_work_on_front - queue work on specific cpu
+ * @cpu: CPU number to execute work on
+ * @wq: workqueue to use
+ * @work: work to queue
+ *
+ * Returns 0 if @work was already on a queue, non-zero otherwise.
+ *
+ * We queue the work to a specific CPU, the caller must ensure it
+ * can't go away.
+ */
+
+int
+queue_work_on_front(int cpu, struct workqueue_struct *wq, struct work_struct *work)
+{
+	int ret = 0;
+
+	if (!test_and_set_bit(WORK_STRUCT_PENDING, work_data_bits(work))) {
+		BUG_ON(!list_empty(&work->entry));
+		__queue_work_front(wq_per_cpu(wq, cpu), work);
+		ret = 1;
+	}
+	return ret;
+}
+
+/**
+ * queue_work - queue work on a workqueue
+ * @wq: workqueue to use
+ * @work: work to queue
+ *
+ * Returns 0 if @work was already on a queue, non-zero otherwise.
+ *
+ * We queue the work to the CPU on which it was submitted, but if the CPU dies
+ * it can be processed by another CPU.
+ */
+int queue_work_front(struct workqueue_struct *wq, struct work_struct *work)
+{
+	int ret;
+
+	ret = queue_work_on_front(get_cpu(), wq, work);
+	put_cpu();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(queue_work_front);
 
 /**
  * queue_work_on - queue work on specific cpu
