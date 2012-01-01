@@ -108,7 +108,7 @@ static void hotplug_timer(struct work_struct *work)
 
 	cur_freq = cpufreq_get(0);
 
-	if (((avg_load < trans_load_l) || (cur_freq <= 500 * 1000)) &&
+	if (((avg_load < trans_load_l) || (cur_freq <= 1000 * 1000)) &&
 	    (cpu_online(1) == 1)) {
 		printk("cpu1 turning off!\n");
 		cpu_down(1);
@@ -117,7 +117,7 @@ static void hotplug_timer(struct work_struct *work)
 #endif
 		printk("cpu1 off end!\n");
 		hotpluging_rate = CHECK_DELAY;
-	} else if (((avg_load > trans_load_h) && (cur_freq > 500 * 1000)) &&
+	} else if (((avg_load > trans_load_h) && (cur_freq > 1000 * 1000)) &&
 		   (cpu_online(1) == 0)) {
 		printk("cpu1 turning on!\n");
 		cpu_up(1);
