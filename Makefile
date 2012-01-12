@@ -333,7 +333,7 @@ CHECK		= sparse
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 MODFLAGS	= -DMODULE
-OWNHERE_CFLAGS  = -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -ffast-math -fsingle-precision-constant -pipe -mtune=cortex-a9 -mfpu=neon -march=armv7-a
+OWNHERE_CFLAGS  = -finline-functions -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -ffast-math -fsingle-precision-constant -pipe -mtune=cortex-a9 -mfpu=neon -march=armv7-a -mno-unaligned-access
 #OWNHERE_CFLAGS  = -mno-unaligned-access -mtune=cortex-a9 -mfpu=neon -march=armv7-a
 CFLAGS_MODULE   = $(MODFLAGS) $(OWNHERE_CFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS) $(OWNHERE_CFLAGS)
