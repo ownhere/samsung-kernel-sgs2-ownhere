@@ -48,7 +48,7 @@ int mali_gpu_clk 	=		160;
 static unsigned int GPU_MHZ	=		1000000;
 #ifdef CONFIG_CPU_S5PV310_EVT1
 #ifdef CONFIG_S5PV310_ASV
-int mali_gpu_vol     =               1000000;        /* 1.00V for ASV */
+int mali_gpu_vol     =               1100000;        /* 1.00V for ASV */
 #else
 int mali_gpu_vol     =               950000;        /* 0.95V */
 #endif
