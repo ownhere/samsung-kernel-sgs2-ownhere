@@ -44,6 +44,11 @@
  */
 static DEFINE_MUTEX(port_mutex);
 
+#ifdef CONFIG_MACH_C1
+volatile int gps_is_running;
+EXPORT_SYMBOL(gps_is_running);
+#endif /* CONFIG_MACH_C1 */
+
 /*
  * lockdep: port->lock is initialized in two places, but we
  *          want only one lock-class:
