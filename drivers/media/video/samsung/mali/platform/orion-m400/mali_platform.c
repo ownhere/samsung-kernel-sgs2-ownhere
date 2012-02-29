@@ -34,11 +34,22 @@
 #include <asm/io.h>
 #include <mach/regs-pmu.h>
 
+#define EXTXTALCLK_NAME 		"ext_xtal"
+#define VPLLSRCCLK_NAME 		"vpll_src"
+#define FOUTVPLLCLK_NAME 		"fout_vpll"
+#define SCLVPLLCLK_NAME 		"sclk_vpll"
+#define GPUMOUT1CLK_NAME 		"mout_g3d1"
+
 #define MPLLCLK_NAME 		"mout_mpll"
 #define GPUMOUT0CLK_NAME 	"mout_g3d0"
 #define GPUCLK_NAME 		"sclk_g3d"
 #define CLK_DIV_STAT_G3D 	0x1003C62C
 #define CLK_DESC 		"clk-divider-status"
+
+static struct clk               *ext_xtal_clock = 0;
+static struct clk               *vpll_src_clock = 0;
+static struct clk               *fout_vpll_clock = 0;
+static struct clk               *sclk_vpll_clock = 0;
 
 static struct clk               *mpll_clock = 0;
 static struct clk               *mali_parent_clock = 0;
@@ -46,14 +57,10 @@ static struct clk               *mali_clock = 0;
 
 int mali_gpu_clk 	=		160;
 static unsigned int GPU_MHZ	=		1000000;
-#ifdef CONFIG_CPU_S5PV310_EVT1
 #ifdef CONFIG_S5PV310_ASV
-int mali_gpu_vol     =               1100000;        /* 1.00V for ASV */
+int mali_gpu_vol     =               1100000;        /* 1.10V for ASV */
 #else
-int mali_gpu_vol     =               950000;        /* 0.95V */
-#endif
-#else
-int mali_gpu_vol     =               1050000;        /* 1.05V */
+int mali_gpu_vol     =               1100000;        /* 1.10V */
 #endif
 
 #if MALI_DVFS_ENABLED
@@ -90,7 +97,7 @@ int mali_regulator_get_usecount(void)
 {
 	struct regulator_dev *rdev;
 
-	if( g3d_regulator==NULL )
+	if( IS_ERR_OR_NULL(g3d_regulator) )
 	{
 		MALI_DEBUG_PRINT(1, ("error on mali_regulator_get_usecount : g3d_regulator is null\n"));
 		return 0;
@@ -101,7 +108,7 @@ int mali_regulator_get_usecount(void)
 
 void mali_regulator_disable(void)
 {
-	if( g3d_regulator==NULL )
+	if( IS_ERR_OR_NULL(g3d_regulator) )
 	{
 		MALI_DEBUG_PRINT(1, ("error on mali_regulator_disable : g3d_regulator is null\n"));
 		return;
@@ -112,7 +119,7 @@ void mali_regulator_disable(void)
 
 void mali_regulator_enable(void)
 {
-	if( g3d_regulator==NULL )
+	if( IS_ERR_OR_NULL(g3d_regulator) )
 	{
 		MALI_DEBUG_PRINT(1, ("error on mali_regulator_enable : g3d_regulator is null\n"));
 		return;
@@ -124,7 +131,7 @@ void mali_regulator_enable(void)
 void mali_regulator_set_voltage(int min_uV, int max_uV)
 {
 	int voltage;
-	if( g3d_regulator==NULL )
+	if( IS_ERR_OR_NULL(g3d_regulator) )
 	{
 		MALI_DEBUG_PRINT(1, ("error on mali_regulator_set_voltage : g3d_regulator is null\n"));
 		return;
@@ -137,31 +144,199 @@ void mali_regulator_set_voltage(int min_uV, int max_uV)
 }
 #endif  
 
-void mali_clk_set_rate(unsigned int clk, unsigned int mhz)
-{
-	unsigned long rate = (unsigned long)clk * (unsigned long)mhz;
-	MALI_DEBUG_PRINT(2, ("= clk_set_rate : %d , %d \n",clk, mhz ));
+mali_bool mali_clk_set_rate(unsigned int clk, unsigned int mhz)
+{ 
+        unsigned long rate =0;	
+#if 0
+	mali_bool bis_vpll = MALI_FALSE;
+	
+	//if (clk == 333)
+	bis_vpll = MALI_TRUE;
+
+	if (mali_clk_get(bis_vpll) == MALI_FALSE)
+		return MALI_FALSE;
+#endif
+	
+	rate = (unsigned long)clk * (unsigned long)mhz;
+	MALI_PRINT(("= clk_set_rate : %d , %d \n",clk, mhz ));
+
+#if 0
+	if (bis_vpll)
+	{
+		clk_set_rate(fout_vpll_clock, (unsigned int)clk * GPU_MHZ);
+		clk_set_parent(vpll_src_clock, ext_xtal_clock);
+		clk_set_parent(sclk_vpll_clock, fout_vpll_clock);
+
+		clk_set_parent(mali_parent_clock, sclk_vpll_clock);
+		clk_set_parent(mali_clock, mali_parent_clock);
+	}
+	else
+	{
+		clk_set_parent(mali_parent_clock, mpll_clock);
+		clk_set_parent(mali_clock, mali_parent_clock);
+	}
+#endif
+
+
 	clk_set_rate(mali_clock, rate);
 	rate = clk_get_rate(mali_clock);
+	
 	mali_gpu_clk = (int) (rate/mhz);
 	GPU_MHZ = mhz;
-	MALI_DEBUG_PRINT(1, ("= clk_get_rate: %d \n",mali_gpu_clk));
-}
+	MALI_PRINT(("= clk_get_rate: %d \n",mali_gpu_clk));
 
+	mali_clk_put(MALI_FALSE);
+	
+	return MALI_TRUE;
+}
 unsigned long mali_clk_get_rate(void)
 {
 	return clk_get_rate(mali_clock);
 }
 
-void mali_clk_put(void)
+void mali_clk_put(mali_bool binc_mali_clock)
 {
+#if 0
+	if (mali_parent_clock)
+	{
+		clk_put(mali_parent_clock);
+		mali_parent_clock = 0;
+	}
+	
+	if (mpll_clock)
+	{
+		clk_put(mpll_clock);
+		mpll_clock = 0;
+	}
+
+	if (sclk_vpll_clock)
+	{
+		clk_put(sclk_vpll_clock);
+		sclk_vpll_clock = 0;
+	}
+
+	if (fout_vpll_clock)
+	{
+		clk_put(fout_vpll_clock);
+		fout_vpll_clock = 0;
+	}
+
+	if (vpll_src_clock)
+	{
+		clk_put(vpll_src_clock);
+		vpll_src_clock = 0;
+	}
+	
+	if (ext_xtal_clock)
+	{
+		clk_put(ext_xtal_clock);
+		ext_xtal_clock = 0;
+	}
+
+	if (binc_mali_clock == MALI_TRUE && mali_clock)
+	{
+		clk_put(mali_clock);
+		mali_clock = 0;
+	}
+#endif
 	clk_put(mali_parent_clock);
 	clk_put(mpll_clock);
+
 }
+mali_bool mali_clk_get(mali_bool bis_vpll)
+{
+	if (bis_vpll == MALI_TRUE)
+	{
+		if (ext_xtal_clock == NULL)
+		{
+			ext_xtal_clock = clk_get(NULL,EXTXTALCLK_NAME);
+			if (IS_ERR(ext_xtal_clock)) {
+				MALI_PRINT( ("MALI Error : failed to get source ext_xtal_clock\n"));
+				return MALI_FALSE;
+			}
+		}
+
+		if (vpll_src_clock == NULL)
+		{
+			vpll_src_clock = clk_get(NULL,VPLLSRCCLK_NAME);
+			if (IS_ERR(vpll_src_clock)) {
+				MALI_PRINT( ("MALI Error : failed to get source vpll_src_clock\n"));
+				return MALI_FALSE;
+			}
+		}
+
+		if (fout_vpll_clock == NULL)
+		{
+			fout_vpll_clock = clk_get(NULL,FOUTVPLLCLK_NAME);
+			if (IS_ERR(fout_vpll_clock)) {
+				MALI_PRINT( ("MALI Error : failed to get source fout_vpll_clock\n"));
+				return MALI_FALSE;
+			}
+		}
+
+		if (sclk_vpll_clock == NULL)
+		{
+			sclk_vpll_clock = clk_get(NULL,SCLVPLLCLK_NAME);
+			if (IS_ERR(sclk_vpll_clock)) {
+				MALI_PRINT( ("MALI Error : failed to get source sclk_vpll_clock\n"));
+				return MALI_FALSE;
+			}
+		}
+
+		if (mali_parent_clock == NULL)
+		{
+			mali_parent_clock = clk_get(NULL, GPUMOUT1CLK_NAME);
+		
+			if (IS_ERR(mali_parent_clock)) {
+				MALI_PRINT( ( "MALI Error : failed to get source mali parent clock\n"));
+				return MALI_FALSE;
+			}
+		}
+	}
+	else // mpll
+	{
+		if (mpll_clock == NULL)
+		{
+			mpll_clock = clk_get(NULL,MPLLCLK_NAME);
+
+			if (IS_ERR(mpll_clock)) {
+				MALI_PRINT( ("MALI Error : failed to get source mpll clock\n"));
+				return MALI_FALSE;
+			}
+		}
+
+		if (mali_parent_clock == NULL)
+		{
+			mali_parent_clock = clk_get(NULL, GPUMOUT0CLK_NAME);
+		
+			if (IS_ERR(mali_parent_clock)) {
+				MALI_PRINT( ( "MALI Error : failed to get source mali parent clock\n"));
+				return MALI_FALSE;
+			}
+		}
+	}
+
+	// mali clock get always.
+	if (mali_clock == NULL)
+	{
+		mali_clock = clk_get(NULL, GPUCLK_NAME);
+
+		if (IS_ERR(mali_clock)) {
+			MALI_PRINT( ("MALI Error : failed to get source mali clock\n"));
+			return MALI_FALSE;
+		}
+	}
+
+	return MALI_TRUE;
+}
+
+
+
 
 static mali_bool init_mali_clock(void)
 {
 	mali_bool ret = MALI_TRUE;
+	
 	gpu_power_state = 0;
 	bPoweroff = 1;
 
@@ -191,10 +366,12 @@ static mali_bool init_mali_clock(void)
 		ret = MALI_FALSE;
 	goto err_gpu_clk;
 	}
-	
-	clk_set_parent(mali_parent_clock, mpll_clock);
-	clk_set_parent(mali_clock, mali_parent_clock);
-	clk_set_rate(mali_clock, (unsigned int)mali_gpu_clk * GPU_MHZ);
+
+	if (mali_clk_set_rate(mali_gpu_clk, GPU_MHZ) == MALI_FALSE)
+	{
+		ret = MALI_FALSE;
+		goto err_clock_get;
+	}
 
 	MALI_PRINT(("init_mali_clock mali_clock %p \n", mali_clock));
 
@@ -224,6 +401,7 @@ static mali_bool init_mali_clock(void)
 	MALI_DEBUG_PRINT(3,("::clk_put:: %s mali_parent_clock - normal\n", __FUNCTION__));
 	MALI_DEBUG_PRINT(3,("::clk_put:: %s mpll_clock  - normal\n", __FUNCTION__));
 
+	//mali_clk_put(MALI_FALSE);
 	clk_put(mali_parent_clock);
 	clk_put(mpll_clock);
 
@@ -234,6 +412,9 @@ static mali_bool init_mali_clock(void)
 err_regulator:
 	regulator_put(g3d_regulator);
 #endif
+	
+err_clock_get:
+	mali_clk_put(MALI_TRUE);
 
 err_gpu_clk:
 	MALI_DEBUG_PRINT(3, ("::clk_put:: %s mali_clock\n", __FUNCTION__));
@@ -270,6 +451,7 @@ static mali_bool deinit_mali_clock(void)
 
 	clk_put(mali_clock);	
 	mpll_clock = 0;
+	//mali_clk_put(MALI_TRUE);
 
 	return MALI_TRUE;
 }

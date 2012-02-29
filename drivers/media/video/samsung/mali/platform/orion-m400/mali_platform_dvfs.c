@@ -305,7 +305,7 @@ static mali_bool set_mali_dvfs_staus(u32 step,mali_bool boostup)
 #endif
     }
 
-	mali_clk_put();
+	//mali_clk_put();
 	//clk_put(mali_parent_clock);
 	//clk_put(mpll_clock);
 #if MALI_DVFS_CLK_DEBUG
@@ -347,7 +347,7 @@ static mali_bool set_mali_dvfs_staus(u32 step,mali_bool boostup)
 #else
     mali_clk_set_rate(mali_dvfs[MALI_DVFS_DEFAULT_STEP].clock, mali_dvfs[MALI_DVFS_DEFAULT_STEP].freq);
 #endif
-    mali_clk_put();
+    //mali_clk_put();
     //clk_put(mali_parent_clock);
     //clk_put(mpll_clock);
 
@@ -665,4 +665,12 @@ mali_bool mali_dvfs_handler(u32 utilization)
 
     /*add error handle here*/
     return MALI_TRUE;
+}
+
+void mali_default_step_set(int step, mali_bool boostup)
+{
+    mali_clk_set_rate(mali_dvfs[step].clock, mali_dvfs[step].freq);
+
+    if (maliDvfsStatus.currentStep == 1)
+	set_mali_dvfs_staus(step, boostup);
 }
