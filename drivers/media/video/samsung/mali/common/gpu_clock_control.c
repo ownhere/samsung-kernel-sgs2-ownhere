@@ -16,22 +16,22 @@
 
 #include "gpu_clock_control.h"
 
-int gpu_clock_control[3] = { 160, 266, 300 };
+int gpu_clock_control[2] = { 160, 267 };
 static ssize_t gpu_clock_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	return sprintf(buf, "Step0: %d\nStep1: %d\nStep2: %d", gpu_clock_control[0], gpu_clock_control[1], gpu_clock_control[2]);
+	return sprintf(buf, "Step0: %d\nStep1: %d\n", gpu_clock_control[0], gpu_clock_control[1]);
 }
 
 static ssize_t gpu_clock_store(struct device *dev, struct device_attribute *attr, const char *buf,
 									size_t count) {
 	unsigned int ret = -EINVAL;
 	int i = 0;
-	ret = sscanf(buf, "%d %d %d", &gpu_clock_control[0], &gpu_clock_control[1], &gpu_clock_control[2]);
-	if (ret != 3) {
+	ret = sscanf(buf, "%d %d", &gpu_clock_control[0], &gpu_clock_control[1]);
+	if (ret != 2) {
 		return -EINVAL;
 	}
 	else {
 		/* safety floor and ceiling - netarchy */
-		for( i = 0; i < 3; i++ ) {
+		for( i = 0; i < 2; i++ ) {
 			if (gpu_clock_control[i] < 10) {
 				gpu_clock_control[i] = 10;
 			}
