@@ -1,5 +1,6 @@
 #!/bin/sh
 
+export LANG=en_US
 prefix=""
 #if [[ "$1" =~ "clean" || "$1" =~ "install" ]]; then
 #	prefix="sudo "
