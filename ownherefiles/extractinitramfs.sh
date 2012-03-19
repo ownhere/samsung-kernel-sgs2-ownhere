@@ -24,7 +24,7 @@ if [ "$pos" == "" ];then
 	exit
 fi
 dd if=$zImage bs=$pos skip=1 | $zipfunc > ${zImage}.uncompress
-echo "${zImage} decompress to ${zImage}.uncompress"
+echo "${zImage} use ${zipfunc} decompress to ${zImage}.uncompress"
 
 start=`grep -a -b --only-matching '070701' ${zImage}.uncompress | head -1 | cut -f 1 -d :`
 end=`grep -a -b --only-matching 'TRAILER!!!' ${zImage}.uncompress | awk -F ':' '{pos=$1;if (pos<10000000) { if (pos>max) {max=pos}}}END{print max}'`
@@ -59,4 +59,4 @@ else
 	dd if=${zImage}.temp bs=$count count=1 of=${zImage}.initramfs.cpio
 	rm -f ${zImage}.temp
 fi
-echo "${zImage}'s initramfs extract to ${zImage}.initramfs.cpio"
+echo "${zImage}'s initramfs use ${zipfunc} extract to ${zImage}.initramfs.cpio"

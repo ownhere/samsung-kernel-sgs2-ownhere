@@ -47,7 +47,17 @@ else
 	#!!!!!!!!!!!!!!!!!
 	#add -march=armv7-a -mtune=cortex-a9 -mfpu=neon to Makefile KBUILD_CFLAGS
 	#!!!!!!!!!!!!!!!!!
+	if [ -e $PWD/arch/arm/boot/zImage ]; then
+		alreadypadding=`grep -a -b --only-matching "OWNHEREPADDING" $PWD/arch/arm/boot/zImage|wc -l`
+		if [ $alreadypadding -eq 0 ]; then
+			$PWD/ownherefiles/paddingsu.sh ${myinitramfs}
+			rm $PWD/arch/arm/boot/zImage
+		fi
+	fi
 	$prefix make -j `cat /proc/cpuinfo |grep -c ^processor` EXTRA_AFLAGS=-mfpu=neon ARCH=arm CROSS_COMPILE=${compiler} INSTALL_MOD_PATH=$PWD/${myinitramfs} CONFIG_INITRAMFS_SOURCE=$PWD/${myinitramfs} CONFIG_INITRAMFS_ROOT_UID=0 CONFIG_INITRAMFS_ROOT_GID=0 LOCALVERSION="-I9100-${branch}" $1 $2 $3 $4 $5 $6 $7 $8 $9
+	if [ -e $PWD/arch/arm/boot/zImage ]; then
+		$PWD/ownherefiles/paddingsu.sh ${myinitramfs}
+	fi
 
 	if [ "$1" == "modules_install" ]; then
 		$prefix find $PWD/${myinitramfs}/lib/modules -iname "*.ko" -exec mv {} $PWD/${myinitramfs}/lib/modules \;
