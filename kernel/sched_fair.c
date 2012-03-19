@@ -2532,11 +2532,6 @@ static inline void update_sd_lb_stats(struct sched_domain *sd, int this_cpu,
 	} while (group != sd->groups);
 }
 
-int __weak arch_sd_sibling_asym_packing(void)
-{
-       return 0*SD_ASYM_PACKING;
-}
-
 /**
  * fix_small_imbalance - Calculate the minor imbalance that exists
  *			amongst the groups of a sched_domain, during
