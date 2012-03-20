@@ -6,13 +6,25 @@
 
 config PLAT_SAMSUNG
 	bool
-	depends on ARCH_S3C2410 || ARCH_S3C24A0 || ARCH_S3C64XX || ARCH_S5P6450 || ARCH_S5PV210 || ARCH_S5PV310
+	depends on PLAT_S3C24XX || ARCH_S3C64XX || PLAT_S5P
 	select NO_IOPORT
+	select GENERIC_IRQ_CHIP
 	default y
 	help
 	  Base platform code for all Samsung SoC based systems
 
 if PLAT_SAMSUNG
+
+# vmalloc area and io map configurations
+
+comment "Base Address for SFR mapping"
+
+config S3C_ADDR_BASE
+	hex "S3C Base Address for SFR mapping"
+	default 0xF6000000
+	help
+	  This value will be base address for S3C SFR mapping and
+	  VMALLC_END should be less or euqal to this value.
 
 # boot configurations
 
@@ -95,6 +107,12 @@ config S3C_GPIO_PULL_UPDOWN
 	help
 	  Internal configuration to enable the correct GPIO pull helper
 
+config S3C_GPIO_PULL_S3C2443
+	bool
+	select S3C_GPIO_PULL_UPDOWN
+	help
+	  Internal configuration to enable the correct GPIO pull helper for S3C2443-style GPIO
+
 config S3C_GPIO_PULL_DOWN
 	bool
 	help
@@ -110,17 +128,6 @@ config S5P_GPIO_DRVSTR
 	help
 	  Internal configuration to get and set correct GPIO driver strength
 	  helper
-
-config S5P_GPIO_CONPDN
-	bool
-	help
-	  Internal configuration to get and set correct GPIO control powerdown state
-
-config S5P_GPIO_PUDPDN
-	bool
-	help
-	  Internal configuration to get and set correct GPIO control 
-	  powerdown pull up/down state
 
 config SAMSUNG_GPIO_EXTRA
 	int "Number of additional GPIO pins"
@@ -162,14 +169,13 @@ config S3C_DEV_ADC
 	bool "ADC 0 selection"
 	depends on S3C_ADC
 	help
-	 Say Y here if you want to use S3C SMDK ADC 0.
+	  Say Y here if you want to use S3C SMDK ADC 0.
 
 config S3C_DEV_ADC1
 	bool "ADC 1 selection"
 	depends on S3C_ADC
 	help
-	 Say Y here if you want to use S3C SMDK ADC 1.
-
+	  Say Y here if you want to use S3C SMDK ADC 1.
 endchoice
 
 # device definitions to compile in
@@ -194,7 +200,7 @@ config S3C_DEV_HSMMC3
 	help
 	  Compile in platform device definitions for HSMMC channel 3
 
-config S5P_DEV_MSHC
+config EXYNOS4_DEV_MSHC
 	bool
 	help
 	  Compile in platform device definitions for MSHC
@@ -205,75 +211,70 @@ config S3C_DEV_HWMON
 	    Compile in platform device definitions for HWMON
 
 config S3C_DEV_I2C1
-	bool "I2C1 Information"
+	bool
 	help
 	  Compile in platform device definitions for I2C channel 1
 
 config S3C_DEV_I2C2
-	bool "I2C2 Information"
-	depends on ARCH_S5PC100 || ARCH_S5PV210 || ARCH_S5PV310
+	bool
 	help
 	  Compile in platform device definitions for I2C channel 2
 
 config S3C_DEV_I2C3
-	bool "I2C3 Information"
-	depends on ARCH_S5PV310
+	bool
 	help
-	  Compile in platform device definitions for I2C channel 3
+	  Compile in platform device definition for I2C controller 3
 
 config S3C_DEV_I2C4
-	bool "I2C4 Information"
-	depends on ARCH_S5PV310
+	bool
 	help
-	  Compile in platform device definitions for I2C channel 4
+	  Compile in platform device definition for I2C controller 4
 
 config S3C_DEV_I2C5
-	bool "I2C5 Information"
-	depends on ARCH_S5PV310
+	bool
 	help
-	  Compile in platform device definitions for I2C channel 5
+	  Compile in platform device definition for I2C controller 5
 
 config S3C_DEV_I2C6
-	bool "I2C6 Information"
-	depends on ARCH_S5PV310
+	bool
 	help
-	  Compile in platform device definitions for I2C channel 6
+	  Compile in platform device definition for I2C controller 6
 
 config S3C_DEV_I2C7
-	bool "I2C7 Information"
-	depends on ARCH_S5PV310
+	bool
 	help
-	  Compile in platform device definitions for I2C channel 7
+	  Compile in platform device definition for I2C controller 7
 
 config S3C_DEV_I2C8_EMUL
+	depends on CPU_EXYNOS4210
 	bool "I2C8 Information GPIO bitbanging emulation"
-	depends on ARCH_S5PV310
 	help
 	  Compile in platform device definitions for I2C channel 8
 
 config S3C_DEV_I2C9_EMUL
 	bool "I2C9 Information GPIO bitbanging emulation"
-	depends on ARCH_S5PV310
+	depends on CPU_EXYNOS4210
 	help
 	  Compile in platform device definitions for I2C channel 9
 
-config S3C_DEV_I2C10_EMUL
-	bool "I2C10 Information GPIO bitbanging emulation"
-	depends on ARCH_S5PV310
-	help
-	  Compile in platform device definitions for I2C channel 10
-
 config S3C_DEV_I2C11_EMUL
 	bool "I2C11 Information GPIO bitbanging emulation"
-	depends on ARCH_S5PV310
+	depends on CPU_EXYNOS4210
 	help
 	  Compile in platform device definitions for I2C channel 11
 
-config S3C_DEV_I2C17_EMUL
-        bool "I2C17 Information GPIO bitbanging emulation"
-        depends on ARCH_S5PV310
-        help
-          Compile in platform device definitions for I2C channel 17
+config S3C_DEV_I2C14_EMUL
+	bool "I2C14 Information GPIO bitbanging emulation"
+	depends on CPU_EXYNOS4210
+	help
+	  Compile in platform device definitions for I2C channel 14
+
+config S3C_DEV_I2C16_EMUL
+	bool "I2C16 Information GPIO bitbanging emulation"
+	depends on CPU_EXYNOS4210
+	help
+	  Compile in platform device definitions for I2C channel 16
+
 config S3C_DEV_FB
 	bool
 	help
@@ -288,6 +289,12 @@ config S3C_DEV_USB_HSOTG
 	bool
 	help
 	  Compile in platform device definition for USB high-speed OtG
+
+config EXYNOS_DEV_SS_UDC
+	bool
+	help
+	  Compile in platform device definition for EXYNOS SuperSpeed USB 3.0
+	  Device controller
 
 config S3C_DEV_WDT
 	bool
@@ -310,15 +317,15 @@ config S3C_DEV_RTC
 	help
 	  Complie in platform device definition for RTC
 
-config S3C_DEV_GIB
-	bool
-	help
-	  Complie in platform device definition for GIB
-
 config SAMSUNG_DEV_ADC
 	bool
 	help
 	  Compile in platform device definition for ADC controller
+
+config SAMSUNG_DEV_IDE
+	bool
+	help
+	  Compile in platform device definitions for IDE
 
 config S3C64XX_DEV_SPI
 	bool
@@ -330,7 +337,36 @@ config S3C64XX_DEV_SPI
 config SAMSUNG_DEV_TS
 	bool
 	help
-	    Common in platform device definitions for touchscreen device
+	  Common in platform device definitions for touchscreen device
+
+config SAMSUNG_DEV_TS1
+	bool
+	help
+	  Common in platform device definitions for touchscreen-1 device
+
+config SAMSUNG_DEV_KEYPAD
+	bool
+	help
+	  Compile in platform device definitions for keypad
+
+config SAMSUNG_DEV_PWM
+	bool
+	default y if ARCH_S3C2410
+	help
+	  Compile in platform device definition for PWM Timer
+
+config SAMSUNG_DEV_BACKLIGHT
+	bool
+	depends on SAMSUNG_DEV_PWM
+	help
+	  Compile in platform device definition LCD backlight with PWM Timer
+
+config S3C24XX_PWM
+	bool "PWM device support"
+	select HAVE_PWM
+	help
+	  Support for exporting the PWM timer blocks via the pwm device
+	  system
 
 # DMA
 
@@ -409,7 +445,6 @@ comment "Power Domain"
 config SAMSUNG_PD
 	bool "Samsung Power Domain"
 	depends on PM_RUNTIME
-	default y
 	help
 	  Say Y here if you want to control Power Domain by Runtime PM.
 

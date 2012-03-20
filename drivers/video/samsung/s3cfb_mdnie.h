@@ -4,7 +4,7 @@
  * Header file for Samsung (MDNIE) driver
  *
  * Copyright (c) 2009 Samsung Electronics
- * 	http://www.samsungsemi.com/
+ *	http://www.samsungsemi.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,13 +17,19 @@
 #define S3C_MDNIE_PHY_BASE                              0x11CA0000
 #define S3C_MDNIE_MAP_SIZE                              0x00001000
 
-#define S3C_MDNIE_rR34					0x0088
-#define S3C_MDNIE_rR35					0x008C
-#define S3C_MDNIE_rR40					0x00A0
+#define S3C_MDNIE_rR34                                  0x0088
+#define S3C_MDNIE_rR35                                  0x008C
 
-#define	S3C_MDNIE_SIZE_MASK				(0x7FF<<0)
+#define S3C_MDNIE_rR0                                   0x0000
+#define S3C_MDNIE_rR1                                   0x0004
+#define S3C_MDNIE_rR3                                   0x000C
+#define S3C_MDNIE_rR4                                   0x0010
+#define S3C_MDNIE_rR5                                   0x0014
+#define S3C_MDNIE_rR6                                   0x0018
+#define S3C_MDNIE_rR8                                   0x0020
+#define S3C_MDNIE_rR9                                   0x0024
+#define S3C_MDNIE_rR28                                  0x00A0
 
-#if 0  /* C110 MDNIE ADDRESS */
 #define S3C_MDNIE_rR36                                  0x0090
 #define S3C_MDNIE_rR37                                  0x0094
 #define S3C_MDNIE_rR38                                  0x0098
@@ -104,9 +110,9 @@
 #define	S3C_MDNIE_ALGORITHM_MASK			(0xF<<4)
 #define S3C_MDNIE_REG_UNMASK				(0<<0)
 #define S3C_MDNIE_REG_MASK				(1<<0)
-/*R2*/
-#define S3C_MDNIE_HSIZE(n)				(((n)&0x7FF)<<0)
 /*R3*/
+#define S3C_MDNIE_HSIZE(n)				(((n)&0x7FF)<<0)
+/*R4*/
 #define S3C_MDNIE_VSIZE(n)				(((n)&0x7FF)<<0)
 #define	S3C_MDNIE_SIZE_MASK				(0x7FF<<0)
 
@@ -314,83 +320,18 @@
 #define S3C_MDNIE_PWM_CT_LPA				(0<<14) /* using LPA counter */
 #define S3C_MDNIE_PWM_CT_PWM				(1<<14) /* using PWM counter */
 #define S3C_MDNIE_PWM_CT(n)				(((n)&0x3F)<<0)
-#endif
 
-#define SIG_MDNIE_UI_MODE				0
-#define SIG_MDNIE_VIDEO_MODE			1
-#define SIG_MDNIE_VIDEO_WARM_MODE	2
-#define SIG_MDNIE_VIDEO_COLD_MODE	3
-#define SIG_MDNIE_CAMERA_MODE		4
-#define SIG_MDNIE_NAVI					5
-#define SIG_MDNIE_GALLERY				6
-#define SIG_MDNIE_BYPASS				7 
-
-#define SIG_MDNIE_DYNAMIC				0
-#define SIG_MDNIE_STANDARD				1
-#define SIG_MDNIE_MOVIE				2
-
-#ifdef CONFIG_TARGET_LOCALE_KOR
-#define SIG_MDNIE_DMB_MODE			20
-#define SIG_MDNIE_DMB_WARM_MODE	21
-#define SIG_MDNIE_DMB_COLD_MODE	22
-#endif	/* CONFIG_TARGET_LOCALE_KOR */
-
-#ifdef CONFIG_TARGET_LOCALE_NTT
-#define SIG_MDNIE_ISDBT_MODE		30
-#define SIG_MDNIE_ISDBT_WARM_MODE	31
-#define SIG_MDNIE_ISDBT_COLD_MODE	32
-#endif
-
-#define UI_STANDARD_MODE_PATH				"/system/etc/mdnie_tune_ui_standard_mode"
-#define UI_MOVIE_MODE_PATH				"/system/etc/mdnie_tune_ui_movie_mode"
-#define UI_DYNAMIC_MODE_PATH				"/system/etc/mdnie_tune_ui_dynamic_mode"
-#define VIDEO_MODE_PATH					"/system/etc/mdnie_tune_video_mode"
-#define VIDEO_WARM_MODE_PATH				"/system/etc/mdnie_tune_video_warm_mode"
-#define VIDEO_WARM_OUTDOOR_MODE_PATH	"/system/etc/mdnie_tune_video_warm_outdoor_mode"
-#define VIDEO_COLD_MODE_PATH				"/system/etc/mdnie_tune_video_cold_mode"
-#define VIDEO_COLD_OUTDOOR_MODE_PATH	"/system/etc/mdnie_tune_video_cold_outdoor_mode"
-#define CAMERA_MODE_PATH					"/system/etc/mdnie_tune_camera_mode"
-#define CAMERA_OUTDOOR_MODE_PATH		"/system/etc/mdnie_tune_camera_outdoor_mode"
-#define GALLERY_MODE_PATH					"/system/etc/mdnie_tune_gallery_mode"
-#define OUTDOOR_MODE_PATH					"/system/etc/mdnie_tune_outdoor_mode"
-#define BYPASS_MODE_PATH					"/system/etc/mdnie_tune_bypass_mode"   
-#define STANDARD_MODE_PATH				"/system/etc/mdnie_tune_standard_mode"   
-#define MOVIE_MODE_PATH					"/system/etc/mdnie_tune_movie_mode"   
-#define DYNAMIC_MODE_PATH					"/system/etc/mdnie_tune_dynamic_mode"   
-#ifdef CONFIG_TARGET_LOCALE_KOR
-#define DMB_MODE_PATH					"/system/etc/mdnie_tune_dmb_mode"
-#define DMB_OUTDOOR_MODE_PATH					"/system/etc/mdnie_tune_dmb_outdoor_mode"
-#define DMB_WARM_MODE_PATH			"/system/etc/mdnie_tune_dmb_warm_mode"
-#define DMB_WARM_OUTDOOR_MODE_PATH			"/system/etc/mdnie_tune_dmb_warm_outdoor_mode"
-#define DMB_COLD_MODE_PATH			"/system/etc/mdnie_tune_dmb_cold_mode"   
-#define DMB_COLD_OUTDOOR_MODE_PATH			"/system/etc/mdnie_tune_dmb_cold_outdoor_mode"
-#endif	/* CONFIG_TARGET_LOCALE_KOR */ 
-
-#ifdef CONFIG_TARGET_LOCALE_NTT
-#define ISDBT_MODE_PATH				"/system/etc/mdnie_tune_isdbt_mode"
-#define ISDBT_OUTDOOR_MODE_PATH		"/system/etc/mdnie_tune_isdbt_outdoor_mode"
-#define ISDBT_WARM_MODE_PATH		"/system/etc/mdnie_tune_isdbt_warm_mode"
-#define ISDBT_WARM_OUTDOOR_MODE_PATH	"/system/etc/mdnie_tune_isdbt_warm_outdoor_mode"
-#define ISDBT_COLD_MODE_PATH	"/system/etc/mdnie_tune_isdbt_cold_mode"   
-#define ISDBT_COLD_OUTDOOR_MODE_PATH	"/system/etc/mdnie_tune_isdbt_cold_outdoor_mode"
-#endif
-
-int s3c_mdnie_init(void);
-int s3c_mdnie_enable(void);
-int s3c_mdnie_disable(void);
-int s3c_mdnie_control(int cmd, void *arg);
+#define TRUE				1
+#define FALSE				0
 
 int s3c_mdnie_setup(void);
-
 int s3c_mdnie_init_global(struct s3cfb_global *s3cfb_ctrl);
-
 int s3c_mdnie_start(struct s3cfb_global *ctrl);
 int s3c_mdnie_off(void);
 int s3c_mdnie_stop(void);
-void mDNIe_User_Setting_Mode_Set(void);
-void mDNIe_Mode_Set(void);
 
-extern void init_mdnie_class(void);
-extern void mDNIe_Init_Set_Mode(void);
+int mdnie_write(unsigned int addr, unsigned int val);
+int s3c_mdnie_mask(void);
+int s3c_mdnie_unmask(void);
 
 #endif

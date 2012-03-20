@@ -32,6 +32,7 @@
 #include <linux/semaphore.h>
 #include <linux/vmalloc.h>
 #include <asm/page.h>
+#include <linux/sched.h>
 
 #include <plat/regs_jpeg.h>
 #include <mach/irqs.h>
@@ -117,8 +118,8 @@ static int jpeg_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int jpeg_ioctl(struct inode *inode, struct file *file,
-					unsigned int cmd, unsigned long arg)
+static long jpeg_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg)
 {
 	int ret;
 	struct jpeg_control	*ctrl;
@@ -163,6 +164,29 @@ static int jpeg_ioctl(struct inode *inode, struct file *file,
 
 	case IOCTL_GET_PHYADDR:
 		return jpeg_ctrl->mem.frame_data_addr;
+
+	case IOCTL_GET_PHYMEM_BASE:
+#ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_JPEG
+		if (copy_to_user((void *)arg, &jpeg_ctrl->mem.base, sizeof(unsigned int))) {
+			jpeg_err("IOCTL_GET_PHYMEM_BASE:::copy_to_user error\n");
+			return -1;
+		}
+		return 0;
+#else
+		return -1;
+#endif
+
+	case IOCTL_GET_PHYMEM_SIZE:
+#ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_JPEG
+		ret = CONFIG_VIDEO_SAMSUNG_MEMSIZE_JPEG * 1024;
+		if (copy_to_user((void *)arg, &ret, sizeof(unsigned int))) {
+			jpeg_err("IOCTL_GET_PHYMEM_SIZE:::copy_to_user error\n");
+			return -1;
+		}
+		return 0;
+#else
+		return -1;
+#endif
 
 	case IOCTL_SET_DEC_PARAM:
 		ret = copy_from_user(&ctrl->dec_param,
@@ -242,7 +266,7 @@ static const struct file_operations jpeg_fops = {
 	.owner = THIS_MODULE,
 	.open =	jpeg_open,
 	.release = jpeg_release,
-	.ioctl = jpeg_ioctl,
+	.unlocked_ioctl = jpeg_ioctl,
 	.mmap =	jpeg_mmap,
 };
 
@@ -270,7 +294,6 @@ static irqreturn_t jpeg_irq(int irq, void *dev_id)
 		default:
 			ctrl->irq_ret = ERR_UNKNOWN;
 		}
-
 		wake_up_interruptible(&ctrl->wq);
 	} else {
 		ctrl->irq_ret = ERR_UNKNOWN;
@@ -283,10 +306,10 @@ static irqreturn_t jpeg_irq(int irq, void *dev_id)
 static int jpeg_setup_controller(struct jpeg_control *ctrl)
 {
 #if defined(CONFIG_S5P_SYSMMU_JPEG)
-	sysmmu_on(SYSMMU_JPEG);
+	s5p_sysmmu_enable(jpeg_pm);
 	jpeg_dbg("sysmmu on\n");
 	/* jpeg hw uses kernel virtual address */
-	sysmmu_set_tablebase_pgd(SYSMMU_JPEG, __pa(swapper_pg_dir));
+	s5p_sysmmu_set_tablebase_pgd(jpeg_pm, __pa(swapper_pg_dir));
 #endif
 	atomic_set(&ctrl->in_use, 0);
 	mutex_init(&ctrl->lock);
@@ -364,7 +387,6 @@ static int jpeg_probe(struct platform_device *pdev)
 		ret = -ENOENT;
 		goto err_clk;
 	}
-
 	ret = jpeg_init_mem(&pdev->dev, &jpeg_ctrl->mem.base);
 	if (ret != 0) {
 		jpeg_err("failed to init. jpeg mem");
@@ -378,8 +400,8 @@ static int jpeg_probe(struct platform_device *pdev)
 		goto err_reg;
 	}
 
-#ifdef CONFIG_PM_RUNTIME
 	jpeg_pm = &pdev->dev;
+#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_enable(jpeg_pm);
 #endif
 	return 0;
@@ -406,7 +428,7 @@ err_alloc:
 static int jpeg_remove(struct platform_device *dev)
 {
 #if defined(CONFIG_S5P_SYSMMU_JPEG)
-	sysmmu_off(SYSMMU_JPEG);
+	s5p_sysmmu_disable(jpeg_pm);
 	jpeg_dbg("sysmmu off\n");
 #endif
 	free_irq(jpeg_ctrl->irq_no, dev);
@@ -449,6 +471,30 @@ static int jpeg_resume(struct platform_device *pdev)
 	return 0;
 }
 
+int jpeg_suspend_pd(struct device *dev)
+{
+	struct platform_device *pdev;
+	int ret;
+	pm_message_t state;
+
+	state.event = 0;
+	pdev = to_platform_device(dev);
+	ret = jpeg_suspend(pdev, state);
+
+	return 0;
+}
+
+int jpeg_resume_pd(struct device *dev)
+{
+	struct platform_device *pdev;
+	int ret;
+
+	pdev = to_platform_device(dev);
+	ret = jpeg_resume(pdev);
+
+	return 0;
+}
+
 #ifdef CONFIG_PM_RUNTIME
 static int jpeg_runtime_suspend(struct device *dev)
 {
@@ -462,8 +508,8 @@ static int jpeg_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops jpeg_pm_ops = {
-	.suspend	= jpeg_suspend,
-	.resume		= jpeg_resume,
+	.suspend	= jpeg_suspend_pd,
+	.resume		= jpeg_resume_pd,
 #ifdef CONFIG_PM_RUNTIME
 	.runtime_suspend = jpeg_runtime_suspend,
 	.runtime_resume = jpeg_runtime_resume,

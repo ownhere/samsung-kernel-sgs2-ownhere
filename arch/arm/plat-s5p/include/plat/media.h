@@ -16,20 +16,12 @@
 #include <linux/types.h>
 #include <asm/setup.h>
 
-/* 3 fimc indexes should be fixed as n, n+1 and n+2 */
-#define S3C_MDEV_FIMC0      0
-#define S3C_MDEV_FIMC1      1
-#define S3C_MDEV_FIMC2      2
-#define S3C_MDEV_TV         3
-#define S3C_MDEV_MFC        4
-#define S3C_MDEV_JPEG       5
-#define S3C_MDEV_PMEM       6
-#define S3C_MDEV_PMEM_GPU1  7
-#define S3C_MDEV_PMEM_ADSP  8
-#define S3C_MDEV_TEXSTREAM  9
-#define S3C_MDEV_FIMD       10
-#define S3C_MDEV_G2D        11
-#define S3C_MDEV_MAX        12
+#ifdef CONFIG_CMA
+#include <linux/cma.h>
+void s5p_cma_region_reserve(struct cma_region *regions_normal,
+			      struct cma_region *regions_secure,
+			      size_t align_secure, const char *map);
+#else
 
 struct s5p_media_device {
 	u32		id;
@@ -42,7 +34,7 @@ struct s5p_media_device {
 extern struct meminfo meminfo;
 extern dma_addr_t s5p_get_media_memory_bank(int dev_id, int bank);
 extern size_t s5p_get_media_memsize_bank(int dev_id, int bank);
-extern void s5p_reserve_bootmem(void);
-
+extern dma_addr_t s5p_get_media_membase_bank(int bank);
+extern void s5p_reserve_mem(size_t boundary);
+#endif /* CONFIG_CMA */
 #endif
-

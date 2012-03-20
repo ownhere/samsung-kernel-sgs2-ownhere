@@ -124,7 +124,7 @@ const unsigned short SEQ_SETTING[] = {
 	0x26, 0xa0, /* Display Condition LTPS signal generation: DOTCLK */
 
 	0x1d, 0xa0,
-	SLEEPMSEC, 300,
+//	SLEEPMSEC, 10,
 
 	0x14, 0x03,
 
@@ -242,7 +242,6 @@ static int ams369fg06_spi_write_driver(int addr, int data)
 	locked  = 1;
 	ret = spi_sync(lcd.g_spi, &msg);
 	locked = 0;
-
 	return ret ;
 #else
 	return spi_sync(g_spi, &msg);
@@ -265,8 +264,8 @@ static void ams369fg06_panel_send_sequence(const unsigned short *wbuf)
 		if ((wbuf[i] & DEFMASK) != SLEEPMSEC)
 			ams369fg06_spi_write(wbuf[i], wbuf[i+1]);
 		else
-			msleep(wbuf[i+1]);
-			/* mdelay(wbuf[i+1]); */
+			mdelay(wbuf[i+1]);
+			/* msleep(wbuf[i+1]); */
 		i += 2;
 	}
 }
@@ -280,21 +279,45 @@ void ams369fg06_ldi_init(void)
 void ams369fg06_ldi_enable(void)
 {
 	ams369fg06_panel_send_sequence(SEQ_DISPLAY_ON);
-	ams369fg06_panel_send_sequence(SEQ_STANDBY_OFF);
+	//ams369fg06_panel_send_sequence(SEQ_STANDBY_OFF);
 }
 
 void ams369fg06_ldi_disable(void)
 {
+
 	ams369fg06_panel_send_sequence(SEQ_DISPLAY_OFF);
 	/* For fixing LCD suspend problem */
 	ams369fg06_panel_send_sequence(SEQ_STANDBY_ON);
 }
+void ams369fg06_init_ldi(void)
+{
+	ams369fg06_ldi_init();
+	ams369fg06_ldi_enable();
+}
 
 void s3cfb_set_lcd_info(struct s3cfb_global *ctrl)
 {
-	ams369fg06.init_ldi = NULL;
+	ams369fg06.init_ldi = ams369fg06_ldi_init;
 	ctrl->lcd = &ams369fg06;
 }
+
+void ams369fg06_gpio_cfg(void)
+{
+	/* LCD _CS */
+	s3c_gpio_cfgpin(EXYNOS4_GPB(5), S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(EXYNOS4_GPB(5), S3C_GPIO_PULL_NONE);
+
+	
+	/* LCD_SCLK */
+	s3c_gpio_cfgpin(EXYNOS4_GPB(4), S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(EXYNOS4_GPB(4), S3C_GPIO_PULL_NONE);
+	
+	/* LCD_SDI */
+	s3c_gpio_cfgpin(EXYNOS4_GPB(7), S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(EXYNOS4_GPB(7), S3C_GPIO_PULL_NONE);
+
+}
+
 
 /* backlight operations and functions */
 #ifdef CONFIG_BACKLIGHT_AMS369FG06_AMOLED
@@ -305,6 +328,7 @@ static int s5p_bl_update_status(struct backlight_device *bd)
 	int level = 0;
 
 	if (!locked) {
+#if 0
 		if ((bl >= 0) && (bl <= 80))
 			level = 1;
 		else if ((bl > 80) && (bl <= 100))
@@ -315,9 +339,10 @@ static int s5p_bl_update_status(struct backlight_device *bd)
 			level = 4;
 		else if ((bl > 180) && (bl <= 200))
 			level = 5;
-		else if ((bl > 200) && (bl <= 255))
-			level = 6;
-
+		else if ((bl > 200) && (bl <= 255)){
+			level = 5;
+			bl = 200;
+			}
 		if (level) {
 			ams369fg06_spi_write(0x39, ((bl/64 + 1)<<4)&(bl/64+1));
 
@@ -361,6 +386,63 @@ static int s5p_bl_update_status(struct backlight_device *bd)
 				break;
 			}
 		} /* level check over */
+#else
+		if ((bl >= 0) && (bl <= 50))
+			level = 1;
+		else if ((bl > 50) && (bl <= 100))
+			level = 2;
+		else if ((bl > 100) && (bl <= 150))
+			level = 3;
+		else if ((bl > 150) && (bl <= 200))
+			level = 4;
+		else if ((bl > 200) && (bl <= 255))
+			level = 5;
+
+		if (level) {
+			//ams369fg06_spi_write(0x39, ((bl/64 + 1)<<4)&(bl/64+1));
+
+		switch (level) {
+		/* If bl is not halved, variation in brightness is
+	 	 * observed as a curve with the middle region being
+	 	 * brightest and the sides being darker. It is
+	 	 * required that brightness increases gradually
+	 	 * from left to right.*/
+	case 1:
+		ams369fg06_spi_write(0x46, 0x2F);
+		ams369fg06_spi_write(0x56, 0x2E);
+		ams369fg06_spi_write(0x66, 0x3F);
+
+		break;
+	case 2:
+		ams369fg06_spi_write(0x46, 0x37);
+		ams369fg06_spi_write(0x56, 0x36);
+		ams369fg06_spi_write(0x66, 0x4A);
+
+		break;
+	case 3:
+		ams369fg06_spi_write(0x46, 0x3E);
+		ams369fg06_spi_write(0x56, 0x3D);
+		ams369fg06_spi_write(0x66, 0x53);
+
+		break;
+	case 4:
+		ams369fg06_spi_write(0x46, 0x44);
+		ams369fg06_spi_write(0x56, 0x43);
+		ams369fg06_spi_write(0x66, 0x5C);
+
+		break;
+	case 5:
+		ams369fg06_spi_write(0x46, 0x47);
+		ams369fg06_spi_write(0x56, 0x45);
+		ams369fg06_spi_write(0x66, 0x5F);
+		break;
+	default:
+		break;
+	}
+} /* level check over */
+
+
+#endif
 	} else {
 		dbg("\nLOCKED!!!Brightness cannot be changed now!locked=%d",
 			locked);
@@ -380,10 +462,12 @@ static const struct backlight_ops s5p_bl_ops = {
 };
 #endif
 
-static int __init ams369fg06_probe(struct spi_device *spi)
+static int __devinit ams369fg06_probe(struct spi_device *spi)
 {
 	int ret;
-
+#ifdef CONFIG_BACKLIGHT_AMS369FG06_AMOLED
+	struct backlight_properties props;
+#endif
 	spi->bits_per_word = 16;
 	ret = spi_setup(spi);
 #ifdef CONFIG_BACKLIGHT_AMS369FG06_AMOLED
@@ -393,9 +477,10 @@ static int __init ams369fg06_probe(struct spi_device *spi)
 	 * control is not being done since Eclair interface is
 	 * looking for "pwm-backlight" for backlight brightness
 	 * control*/
+	memset(&props, 0, sizeof(struct backlight_properties));
+	props.max_brightness = 255;
 	lcd.bl_dev = backlight_device_register("pwm-backlight",
-					&spi->dev, &lcd, &s5p_bl_ops);
-	lcd.bl_dev->props.max_brightness = 255;
+					&spi->dev, &lcd, &s5p_bl_ops, &props);
 
 	dev_set_drvdata(&spi->dev, &lcd);
 #else

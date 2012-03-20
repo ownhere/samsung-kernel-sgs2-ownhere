@@ -8,19 +8,26 @@
 ifneq ($(KERNELRELEASE), )
 
 MOD_NAME = Si4709_driver
-obj-$(CONFIG_FM_SI4709) := $(MOD_NAME).o
-
 EXTRA_CFLAGS := -I$(PRJROOT)/modules/include
 
+ifneq	($(CONFIG_FM_SI4705),)
+obj-$(CONFIG_FM_SI4705) := $(MOD_NAME).o
+$(MOD_NAME)-y := Si4705_dev.o \
+				Si4709_i2c_drv.o \
+				Si4705_main.o
+else
+MOD_NAME = Si4709_driver
+obj-$(CONFIG_FM_SI4709) := $(MOD_NAME).o
 $(MOD_NAME)-y := Si4709_dev.o \
 				Si4709_i2c_drv.o \
-				Si4709_main.o 
+				Si4709_main.o
+endif
 
 else
 
 ifndef KDIR
 	KDIR :=$(PRJROOT)/linux-2.6.29
-endif 
+endif
 
 all:
 	@$(MAKE) --no-print-directory -C $(KDIR) \

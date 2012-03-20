@@ -47,15 +47,38 @@ struct mfc_enc_ctx {
 	unsigned int frameskip;
 	unsigned int framerate;
 	unsigned int bitrate;
+	unsigned int iperiodval;
+	unsigned int vuiinfoval;
+	unsigned int vuiextendsar;
+
+	unsigned int frame_skip_enable;
+	unsigned int vui_info_enable;
+	unsigned int hier_p_enable;
+
+	/* change flag */
+	unsigned int setflag;
+	unsigned int FrameTypeCngTag;
+	unsigned int FrameRateCngTag;
+	unsigned int BitRateCngTag;
+	unsigned int FrameSkipCngTag;
+	unsigned int VUIInfoCngTag;
+	unsigned int IPeriodCngTag;
+	unsigned int HierPCngTag;
 
 	void *e_priv;
 };
 
+#define CHG_FRAME_PACKING	0x00000001
+#define CHG_I_PERIOD		0x00000002
 struct mfc_enc_h264 {
+	unsigned int change;
 	unsigned int vui_enable;
 	unsigned int hier_p_enable;
 
 	unsigned int i_period;
+
+	unsigned int sei_gen;		/* H */
+	struct mfc_frame_packing fp;	/* H */
 };
 
 int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args);

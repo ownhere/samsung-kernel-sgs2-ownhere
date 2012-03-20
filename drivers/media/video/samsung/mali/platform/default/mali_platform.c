@@ -8,51 +8,34 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+/**
+ * @file mali_platform.c
+ * Platform specific Mali driver functions for a default platform
+ */
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
 #include "mali_platform.h"
 
 
-_mali_osk_errcode_t mali_platform_init(_mali_osk_resource_t *resource)
-{
-#if MALI_DVFS_ENABLED
-    if(!init_mali_dvfs_staus())
-        MALI_DEBUG_PRINT(1, ("mali_platform_init failed\n"));        
-#endif
-    MALI_SUCCESS;
-}
-
-_mali_osk_errcode_t mali_platform_deinit(_mali_osk_resource_type_t *type)
-{
-#if MALI_DVFS_ENABLED
-    deinit_mali_dvfs_staus();
-#endif
-    MALI_SUCCESS;
-}
-
-_mali_osk_errcode_t mali_platform_powerdown(u32 cores)
+_mali_osk_errcode_t mali_platform_init(void)
 {
     MALI_SUCCESS;
 }
 
-_mali_osk_errcode_t mali_platform_powerup(u32 cores)
+_mali_osk_errcode_t mali_platform_deinit(void)
+{
+    MALI_SUCCESS;
+}
+
+_mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 {
     MALI_SUCCESS;
 }
 
 void mali_gpu_utilization_handler(u32 utilization)
 {
-#if MALI_DVFS_ENABLED
-    if(!mali_dvfs_handler(utilization))
-        MALI_DEBUG_PRINT(1,( "error on mali dvfs status in utilization\n"));
-#endif
-	MALI_DEBUG_PRINT( 1, ("==>PLATFORM mali400-pmm : utilization %d \% \n", utilization * 100 / 255 ) );
 }
 
-#if MALI_POWER_MGMT_TEST_SUITE
-u32 pmu_get_power_up_down_info(void)
+void set_mali_parent_power_domain(void* dev)
 {
-	return 4095;
-
 }
-#endif

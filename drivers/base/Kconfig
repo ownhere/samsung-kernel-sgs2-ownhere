@@ -70,8 +70,7 @@ config PREVENT_FIRMWARE_BUILD
 	  If unsure say Y here.
 
 config FW_LOADER
-	tristate "Userspace firmware loading support" if EMBEDDED
-	depends on HOTPLUG
+	tristate "Userspace firmware loading support" if EXPERT
 	default y
 	---help---
 	  This option is provided for the case where no in-kernel-tree modules
@@ -168,5 +167,15 @@ config DEBUG_DEVRES
 config SYS_HYPERVISOR
 	bool
 	default n
+
+config DMA_SHARED_BUFFER
+	bool "Buffer framework to be shared between drivers"
+	default n
+	depends on ANON_INODES
+	help
+	  This option enables the framework for buffer-sharing between
+	  multiple drivers. A buffer is associated with a file using driver
+	  APIs extension; the file's descriptor can then be passed on to other
+	  driver.
 
 endmenu

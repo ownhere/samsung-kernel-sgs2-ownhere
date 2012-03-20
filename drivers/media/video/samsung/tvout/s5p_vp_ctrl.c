@@ -16,12 +16,12 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 
-#ifdef CONFIG_CPU_S5PV210
-#include <mach/pd.h>
-#endif
-
 #include "hw_if/hw_if.h"
 #include "s5p_tvout_ctrl.h"
+
+#if defined(CONFIG_BUSFREQ)
+#include <mach/cpufreq.h>
+#endif
 
 #define INTERLACED	0
 #define PROGRESSIVE	1
@@ -103,6 +103,8 @@ struct s5p_vp_ctrl_private_data {
 
 	struct s5p_tvout_clk_info	clk;
 	char				*pow_name;
+
+	struct device *dev;
 };
 
 static struct s5p_vp_ctrl_private_data s5p_vp_ctrl_private = {
@@ -144,6 +146,8 @@ static struct s5p_vp_ctrl_private_data s5p_vp_ctrl_private = {
 
 	.running			= false
 };
+
+extern int s5p_vp_get_top_field_address(u32* top_y_addr, u32* top_c_addr);
 
 static u8 s5p_vp_ctrl_get_src_scan_mode(void)
 {
@@ -212,6 +216,18 @@ static void s5p_vp_ctrl_set_src_dst_win(
 	s5p_vp_set_dest_position(dst_win.x, dst_win.y);
 	s5p_vp_set_src_dest_size(
 		src_win.w, src_win.h, dst_win.w, dst_win.h, ipc);
+}
+
+int s5p_vp_ctrl_get_src_addr(u32* top_y_addr, u32* top_c_addr)
+{
+	if (s5p_vp_ctrl_private.running)
+		s5p_vp_get_top_field_address(top_y_addr, top_c_addr);
+	else {
+		*top_y_addr = 0;
+		*top_c_addr = 0;
+	}
+
+	return 0;
 }
 
 static int s5p_vp_ctrl_set_src_addr(
@@ -359,27 +375,17 @@ static void s5p_vp_ctrl_internal_stop(void)
 static void s5p_vp_ctrl_clock(bool on)
 {
 	if (on) {
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_enable(s5p_vp_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_get();
 #endif
 		clk_enable(s5p_vp_ctrl_private.clk.ptr);
 
 	} else {
 		clk_disable(s5p_vp_ctrl_private.clk.ptr);
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_disable(s5p_vp_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_put();
 #endif
 	}
-
-	mdelay(50);
 }
 
 
@@ -531,6 +537,9 @@ void s5p_vp_ctrl_stop(void)
 	}
 
 		s5p_vp_ctrl_private.running = false;
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
+	exynos4_busfreq_lock_free(DVFS_LOCK_ID_TV);
+#endif
 	}
 }
 
@@ -568,6 +577,16 @@ int s5p_vp_ctrl_start(void)
 	case TVOUT_720P_60:
 		s5p_vp_ctrl_private.pp_param.csc_t = VP_CSC_HD_SD;
 		break;
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_720P_60_SBS_HALF:
+	case TVOUT_720P_59_SBS_HALF:
+	case TVOUT_720P_50_TB:
+	case TVOUT_1080P_24_TB:
+	case TVOUT_1080P_23_TB:
+		s5p_vp_ctrl_private.pp_param.csc_t = VP_CSC_HD_SD;
+		break;
+
+#endif
 
 	default:
 		break;
@@ -630,6 +649,13 @@ int s5p_vp_ctrl_start(void)
 		} else
 #endif
 		{
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
+			if ((disp == TVOUT_1080P_60) || (disp == TVOUT_1080P_59)
+					|| (disp == TVOUT_1080P_50)) {
+				if (exynos4_busfreq_lock(DVFS_LOCK_ID_TV, BUS_L0))
+					printk(KERN_ERR "%s: failed lock DVFS\n", __func__);
+			}
+#endif
 			s5p_vp_ctrl_clock(1);
 		}
 		s5p_vp_ctrl_private.running = true;

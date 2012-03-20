@@ -69,7 +69,8 @@ ump_memory_backend * ump_vcm_memory_backend_create(const int max_allocation)
 	
 	info->num_vcm_blocks = 0;
 	
-	init_MUTEX(&info->mutex);
+
+	sema_init(&info->mutex, 1);
 
 	backend = kmalloc(sizeof(ump_memory_backend), GFP_KERNEL);
 	if (NULL == backend)

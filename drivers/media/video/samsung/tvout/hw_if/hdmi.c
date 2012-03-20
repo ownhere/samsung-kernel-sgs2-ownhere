@@ -15,20 +15,21 @@
 
 #include <mach/map.h>
 #include <mach/regs-hdmi.h>
-
-#ifdef CONFIG_CPU_S5PV210
-#include <mach/pd.h>
-#endif
+#include <mach/regs-pmu.h>
 
 #include "../s5p_tvout_common_lib.h"
 #include "hw_if.h"
 
 #undef tvout_dbg
 
-#ifdef CONFIG_HDMI_DEBUG
-#define tvout_dbg(fmt, ...)					\
-		printk(KERN_INFO "\t\t[HDMI] %s(): " fmt,	\
-			__func__, ##__VA_ARGS__)
+#ifdef CONFIG_TVOUT_DEBUG
+#define tvout_dbg(fmt, ...)						\
+do {									\
+	if (unlikely(tvout_dbg_flag & (1 << DBG_FLAG_HDMI))) {		\
+		printk(KERN_INFO "\t\t[HDMI] %s(): " fmt,		\
+			__func__, ##__VA_ARGS__);			\
+	}								\
+} while (0)
 #else
 #define tvout_dbg(fmt, ...)
 #endif
@@ -92,6 +93,283 @@ void __iomem	*i2c_hdmi_phy_base;
 irqreturn_t	(*s5p_hdmi_isr_ftn[HDMI_IRQ_TOTAL_NUM])(int irq, void *);
 spinlock_t	lock_hdmi;
 
+#ifdef	CONFIG_HDMI_PHY_32N
+static u8 phy_config[][3][32] = {
+	{/* freq = 25.200 MHz */
+		{
+		    0x01, 0x51, 0x2a, 0x75, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0xfc, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xf4, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0x52, 0x69, 0x75, 0x57, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0x3b, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0x52, 0x3f, 0x35, 0x63, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0xbd, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xa3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 25.175 MHz */
+		{
+		    0x01, 0xd1, 0x1f, 0x50, 0x40, 0x20, 0x1e, 0x08,
+		    0x81, 0xa0, 0xbd, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xf4, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x51, 0x15, 0x40, 0x2b, 0x08,
+		    0x81, 0xa0, 0xec, 0xd8, 0x45, 0xa0, 0x34, 0x80,
+		    0x08, 0x80, 0x32, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x1f, 0x30, 0x23, 0x20, 0x1e, 0x08,
+		    0x81, 0xa0, 0xbd, 0xd8, 0x45, 0xa0, 0x34, 0x80,
+		    0x08, 0x80, 0x32, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xa3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 27 MHz */
+		{
+		    0x01, 0x51, 0x2d, 0x75, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0xa0, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xe3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x38, 0x74, 0x57, 0x08, 0x04, 0x08,
+		    0x80, 0x80, 0x52, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xb4, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x22, 0x31, 0x63, 0x08, 0xfc, 0x08,
+		    0x86, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x98, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 27.027 MHz */
+		{
+		    0x01, 0xd1, 0x2d, 0x72, 0x40, 0x64, 0x12, 0x08,
+		    0x43, 0xa0, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xe3, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x38, 0x74, 0x57, 0x50, 0x31, 0x01,
+		    0x80, 0x80, 0x52, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xb6, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd4, 0x87, 0x31, 0x63, 0x64, 0x1b, 0x20,
+		    0x19, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x98, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 54 MHz */
+		{
+		    0x01, 0x51, 0x2d, 0x35, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xe4, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x38, 0x35, 0x53, 0x08, 0x04, 0x08,
+		    0x88, 0xa0, 0x52, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xb6, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x22, 0x11, 0x61, 0x08, 0xfc, 0x08,
+		    0x86, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x98, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 54.054 MHz */
+		{
+		    0x01, 0xd1, 0x2d, 0x32, 0x40, 0x64, 0x12, 0x08,
+		    0x43, 0xa0, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xe3, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd2, 0x70, 0x34, 0x53, 0x50, 0x31, 0x08,
+		    0x80, 0x80, 0x52, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xb6, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd4, 0x87, 0x11, 0x61, 0x64, 0x1b, 0x20,
+		    0x19, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x98, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 74.250 MHz */
+		{
+		    0x01, 0xd1, 0x1f, 0x10, 0x40, 0x40, 0xf8, 0x08,
+		    0x81, 0xa0, 0xba, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x3c, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xa5, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x11, 0x51, 0x40, 0xd6, 0x08,
+		    0x81, 0xa0, 0xe8, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x84, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x2e, 0x12, 0x61, 0x40, 0x34, 0x08,
+		    0x82, 0xa0, 0x16, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xb9, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 74.176 MHz */
+		{
+		    0x01, 0xd1, 0x1f, 0x10, 0x40, 0x5b, 0xef, 0x08,
+		    0x81, 0xa0, 0xb9, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xa6, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x14, 0x51, 0x5b, 0xa7, 0x08,
+		    0x84, 0xa0, 0xe8, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x85, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd2, 0x5d, 0x12, 0x61, 0x5b, 0xcd, 0x10,
+		    0x43, 0xa0, 0x16, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xba, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 148.500 MHz  - Pre-emph + Higher Tx amp. */
+		{
+		    0x01, 0xd1, 0x1f, 0x00, 0x40, 0x40, 0xf8, 0x08,
+		    0x81, 0xa0, 0xba, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x3c, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x4b, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x01, 0x50, 0x40, 0xd6, 0x08,
+		    0x81, 0xa0, 0xe8, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x09, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x2e, 0x02, 0x60, 0x40, 0x34, 0x08,
+		    0x82, 0xa0, 0x16, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xdd, 0x24, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 148.352 MHz */
+		{
+		    0x01, 0xd2, 0x3e, 0x00, 0x40, 0x5b, 0xef, 0x08,
+		    0x81, 0xa0, 0xb9, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x3c, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x4b, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x04, 0x10, 0x5b, 0xa7, 0x08,
+		    0x84, 0xa0, 0xe8, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x09, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd2, 0x5d, 0x02, 0x20, 0x5b, 0xcd, 0x10,
+		    0x43, 0xa0, 0x16, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x04, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xdd, 0x24, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 108.108 MHz */
+		{
+		    0x01, 0xd1, 0x2d, 0x12, 0x40, 0x64, 0x12, 0x08,
+		    0x43, 0xa0, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc7, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd2, 0x70, 0x14, 0x51, 0x50, 0x31, 0x08,
+		    0x80, 0x80, 0x5e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x6c, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd4, 0x87, 0x01, 0x60, 0x64, 0x1b, 0x20,
+		    0x19, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x2f, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 72 MHz */
+		{
+		    0x01, 0x51, 0x1e, 0x15, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0xb4, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xab, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0x52, 0x4b, 0x15, 0x51, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0xe1, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x89, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0x51, 0x2d, 0x15, 0x61, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc7, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 25 MHz */
+		{
+		    0x01, 0xd1, 0x2a, 0x72, 0x40, 0x3c, 0xd8, 0x08,
+		    0x86, 0xa0, 0xfa, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xf6, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x27, 0x51, 0x55, 0x40, 0x08, 0x08,
+		    0x81, 0xa0, 0xea, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc5, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd2, 0x1f, 0x30, 0x63, 0x40, 0x20, 0x08,
+		    0x81, 0x80, 0xbc, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x08, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xa4, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 65 MHz */
+		{
+		    0x01, 0xd1, 0x36, 0x34, 0x40, 0x0c, 0x04, 0x08,
+		    0x82, 0xa0, 0x45, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xbd, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x22, 0x11, 0x51, 0x30, 0xf2, 0x08,
+		    0x86, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x97, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x29, 0x12, 0x61, 0x40, 0xd0, 0x08,
+		    0x87, 0xa0, 0xf4, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x7e, 0x24, 0x01, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 108 MHz */
+		{
+		    0x01, 0x51, 0x2d, 0x15, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0x0e, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xc7, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x38, 0x14, 0x51, 0x08, 0x04, 0x08,
+		    0x80, 0x80, 0x52, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x6c, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x22, 0x01, 0x60, 0x08, 0xfc, 0x08,
+		    0x86, 0xa0, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0x5a, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x2f, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	}, {/* freq = 162 MHz */
+		{
+		    0x01, 0x54, 0x87, 0x05, 0x40, 0x01, 0x00, 0x08,
+		    0x82, 0x80, 0xcb, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0x2f, 0x25, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x2a, 0x02, 0x50, 0x40, 0x18, 0x08,
+		    0x86, 0xa0, 0xfd, 0xd8, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xf3, 0x24, 0x03, 0x00, 0x00, 0x01, 0x00,
+		}, {
+		    0x01, 0xd1, 0x33, 0x04, 0x60, 0x40, 0xd0, 0x08,
+		    0x85, 0xa0, 0x32, 0xd9, 0x45, 0xa0, 0xac, 0x80,
+		    0xad, 0x80, 0x11, 0x84, 0x02, 0x22, 0x44, 0x86,
+		    0x54, 0xca, 0x24, 0x03, 0x00, 0x00, 0x01, 0x00,
+		},
+	},
+};
+#else
 static const u8 phy_config[][3][32] = {
 	{ /* freq = 25.200 MHz */
 		{
@@ -367,8 +645,9 @@ static const u8 phy_config[][3][32] = {
 		},
 	},
 };
+#endif
 
-
+#ifndef CONFIG_HDMI_PHY_32N
 static void s5p_hdmi_reg_core_reset(void)
 {
 	writeb(0x0, hdmi_base + S5P_HDMI_CORE_RSTOUT);
@@ -377,6 +656,7 @@ static void s5p_hdmi_reg_core_reset(void)
 
 	writeb(0x1, hdmi_base + S5P_HDMI_CORE_RSTOUT);
 }
+#endif
 
 static s32 s5p_hdmi_i2c_phy_interruptwait(void)
 {
@@ -473,7 +753,7 @@ static s32 s5p_hdmi_i2c_phy_read(u8 addr, u8 nbytes, u8 *buffer)
 
 			while (readb(i2c_hdmi_phy_base + HDMI_I2C_STAT) &
 					I2C_START)
-				msleep(1);
+				usleep_range(1000, 1000);
 
 			proc = false;
 			break;
@@ -553,7 +833,7 @@ static s32 s5p_hdmi_i2c_phy_write(u8 addr, u8 nbytes, u8 *buffer)
 
 			while (readb(i2c_hdmi_phy_base + HDMI_I2C_STAT) &
 					I2C_START)
-				msleep(1);
+				usleep_range(1000, 1000);
 
 			proc = false;
 			break;
@@ -599,13 +879,12 @@ static void s5p_hdmi_print_phy_config(void)
 		else
 			printk("\n");
 	}
-	printk("\n\n");
 }
 #else
 static inline void s5p_hdmi_print_phy_config(void) {}
 #endif
 
-#ifdef CONFIG_SND_S5P_SPDIF
+#ifdef CONFIG_SND_SAMSUNG_SPDIF
 static void s5p_hdmi_audio_set_config(
 		enum s5p_tvout_audio_codec_type audio_codec)
 {
@@ -680,7 +959,8 @@ static void s5p_hdmi_audio_irq_enable(u32 irq_en)
 static void s5p_hdmi_audio_i2s_config(
 		enum s5p_tvout_audio_codec_type audio_codec,
 		u32 sample_rate, u32 bits_per_sample,
-		u32 frame_size_code)
+		u32 frame_size_code,
+		struct s5p_hdmi_audio *audio)
 {
 	u32 data_num, bit_ch, sample_frq;
 
@@ -718,11 +998,18 @@ static void s5p_hdmi_audio_i2s_config(
 
 	/* Configuration I2S input ports. Configure I2S_PIN_SEL_0~4 */
 	writeb(S5P_HDMI_I2S_SEL_SCLK(5) | S5P_HDMI_I2S_SEL_LRCK(6),
-		hdmi_base + S5P_HDMI_I2S_PIN_SEL_0);
-	writeb(S5P_HDMI_I2S_SEL_SDATA1(1) | S5P_HDMI_I2S_SEL_SDATA2(4),
-		hdmi_base + S5P_HDMI_I2S_PIN_SEL_1);
+			hdmi_base + S5P_HDMI_I2S_PIN_SEL_0);
+	if (audio->channel == 2)
+		/* I2S 2 channel */
+		writeb(S5P_HDMI_I2S_SEL_SDATA1(1) | S5P_HDMI_I2S_SEL_SDATA2(4),
+				hdmi_base + S5P_HDMI_I2S_PIN_SEL_1);
+	else
+		/* I2S 5.1 channel */
+		writeb(S5P_HDMI_I2S_SEL_SDATA1(3) | S5P_HDMI_I2S_SEL_SDATA2(4),
+				hdmi_base + S5P_HDMI_I2S_PIN_SEL_1);
+
 	writeb(S5P_HDMI_I2S_SEL_SDATA3(1) | S5P_HDMI_I2S_SEL_SDATA2(2),
-		hdmi_base + S5P_HDMI_I2S_PIN_SEL_2);
+			hdmi_base + S5P_HDMI_I2S_PIN_SEL_2);
 	writeb(S5P_HDMI_I2S_SEL_DSD(0), hdmi_base + S5P_HDMI_I2S_PIN_SEL_3);
 
 	/* I2S_CON_1 & 2 */
@@ -743,8 +1030,16 @@ static void s5p_hdmi_audio_i2s_config(
 		hdmi_base + S5P_HDMI_I2S_CH_ST_0);
 	writeb(S5P_HDMI_I2S_CD_PLAYER,
 		hdmi_base + S5P_HDMI_I2S_CH_ST_1);
-	writeb(S5P_HDMI_I2S_SET_SOURCE_NUM(0),
-		hdmi_base + S5P_HDMI_I2S_CH_ST_2);
+
+	if (audio->channel == 2)
+		/* Audio channel to 5.1 */
+		writeb(S5P_HDMI_I2S_SET_SOURCE_NUM(0),
+				hdmi_base + S5P_HDMI_I2S_CH_ST_2);
+	else
+		writeb(S5P_HDMI_I2S_SET_SOURCE_NUM(0) |
+				S5P_HDMI_I2S_SET_CHANNEL_NUM(0x6),
+				hdmi_base + S5P_HDMI_I2S_CH_ST_2);
+
 	writeb(S5P_HDMI_I2S_CLK_ACCUR_LEVEL_2 |
 		S5P_HDMI_I2S_SET_SAMPLING_FREQ(sample_frq),
 		hdmi_base + S5P_HDMI_I2S_CH_ST_3);
@@ -779,7 +1074,7 @@ static int s5p_hdmi_phy_control(bool on, u8 addr, u8 offset, u8 *read_buffer)
 	read_buffer[addr] = buff[1];
 
 	if (s5p_hdmi_i2c_phy_write(PHY_I2C_ADDRESS, 2, buff) != 0)
-		return EINVAL;
+		return -EINVAL;
 
 	return 0;
 }
@@ -805,12 +1100,8 @@ static bool s5p_hdmi_phy_is_enable(void)
 {
 	u32 reg;
 
-#ifdef CONFIG_CPU_S5PV310
-	reg = readl(S5PV310_VA_PMU + 0x0700);
-#endif
-
-#ifdef CONFIG_CPU_S5PV210
-	reg = readl(S3C_VA_SYS + 0xE804);
+#ifdef CONFIG_ARCH_EXYNOS4
+	reg = readl(S5P_HDMI_PHY_CONTROL);
 #endif
 
 	return reg & (1 << 0);
@@ -820,27 +1111,17 @@ static void s5p_hdmi_phy_enable(bool on)
 {
 	u32 reg;
 
-#ifdef CONFIG_CPU_S5PV310
-	reg = readl(S5PV310_VA_PMU + 0x0700);
+#ifdef CONFIG_ARCH_EXYNOS4
+	reg = readl(S5P_HDMI_PHY_CONTROL);
 
 	if (on)
 		reg |= (1 << 0);
 	else
 		reg &= ~(1 << 0);
 
-	writeb(reg, S5PV310_VA_PMU + 0x0700);
+	writeb(reg, S5P_HDMI_PHY_CONTROL);
 #endif
 
-#ifdef CONFIG_CPU_S5PV210
-	reg = readl(S3C_VA_SYS + 0xE804);
-
-	if (on)
-		reg |= (1 << 0);
-	else
-		reg &= ~(1 << 0);
-
-	writeb(reg, S3C_VA_SYS + 0xE804);
-#endif
 }
 
 void s5p_hdmi_reg_sw_reset(void)
@@ -965,28 +1246,44 @@ s32 s5p_hdmi_phy_config(
 	if (s5p_hdmi_i2c_phy_write(PHY_I2C_ADDRESS, size, buffer) != 0)
 		return -1;
 
+#ifdef CONFIG_HDMI_PHY_32N
+	buffer[0] = PHY_REG_MODE_SET_DONE;
+	buffer[1] = 0x80;
+
+	if (s5p_hdmi_i2c_phy_write(PHY_I2C_ADDRESS, 2, buffer) != 0) {
+		tvout_err("s5p_hdmi_i2c_phy_write failed.\n");
+		return -1;
+	}
+#else
 	buffer[0] = 0x01;
 
 	if (s5p_hdmi_i2c_phy_write(PHY_I2C_ADDRESS, 1, buffer) != 0) {
 		tvout_err("s5p_hdmi_i2c_phy_write failed.\n");
 		return -1;
 	}
+#endif
 
 	s5p_hdmi_print_phy_config();
 
+#ifndef CONFIG_HDMI_PHY_32N
 	s5p_hdmi_reg_core_reset();
+#endif
 
+#ifdef CONFIG_HDMI_PHY_32N
+	do {
+		reg = readb(hdmi_base + S5P_HDMI_PHY_STATUS0);
+	} while (!(reg & S5P_HDMI_PHY_STATUS_READY));
+#else
 	do {
 		reg = readb(hdmi_base + S5P_HDMI_PHY_STATUS);
 	} while (!(reg & S5P_HDMI_PHY_STATUS_READY));
+#endif
 
 	writeb(I2C_CLK_PEND_INT, i2c_hdmi_phy_base + HDMI_I2C_CON);
 	writeb(I2C_IDLE, i2c_hdmi_phy_base + HDMI_I2C_STAT);
 
 	return 0;
 }
-
-
 
 void s5p_hdmi_set_gcp(enum s5p_hdmi_color_depth	depth, u8 *gcp)
 {
@@ -1017,23 +1314,39 @@ void s5p_hdmi_reg_acr(u8 *acr)
 	writeb(4, hdmi_base + S5P_HDMI_ACR_CON);
 }
 
-void s5p_hdmi_reg_asp(u8 *asp)
+void s5p_hdmi_reg_asp(u8 *asp, struct s5p_hdmi_audio *audio)
 {
-	writeb(S5P_HDMI_AUD_NO_DST_DOUBLE | S5P_HDMI_AUD_TYPE_SAMPLE |
-		S5P_HDMI_AUD_MODE_TWO_CH | S5P_HDMI_AUD_SP_ALL_DIS,
-		hdmi_base + S5P_HDMI_ASP_CON);
+	if (audio->channel == 2)
+		writeb(S5P_HDMI_AUD_NO_DST_DOUBLE | S5P_HDMI_AUD_TYPE_SAMPLE |
+			S5P_HDMI_AUD_MODE_TWO_CH | S5P_HDMI_AUD_SP_ALL_DIS,
+			hdmi_base + S5P_HDMI_ASP_CON);
+	else
+		writeb(S5P_HDMI_AUD_MODE_MULTI_CH | S5P_HDMI_AUD_SP_AUD2_EN |
+			S5P_HDMI_AUD_SP_AUD1_EN | S5P_HDMI_AUD_SP_AUD0_EN,
+			hdmi_base + S5P_HDMI_ASP_CON);
 
 	writeb(S5P_HDMI_ASP_SP_FLAT_AUD_SAMPLE,
 		hdmi_base + S5P_HDMI_ASP_SP_FLAT);
 
-	writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
-		hdmi_base + S5P_HDMI_ASP_CHCFG0);
-	writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
-		hdmi_base + S5P_HDMI_ASP_CHCFG1);
-	writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
-		hdmi_base + S5P_HDMI_ASP_CHCFG2);
-	writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
-		hdmi_base + S5P_HDMI_ASP_CHCFG3);
+	if (audio->channel == 2) {
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG0);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG1);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG2);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG3);
+	} else {
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM0R | S5P_HDMI_SPK0L_SEL_I_PCM0L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG0);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM1L | S5P_HDMI_SPK0L_SEL_I_PCM1R,
+				hdmi_base + S5P_HDMI_ASP_CHCFG1);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM2R | S5P_HDMI_SPK0L_SEL_I_PCM2L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG2);
+		writeb(S5P_HDMI_SPK0R_SEL_I_PCM3R | S5P_HDMI_SPK0L_SEL_I_PCM3L,
+				hdmi_base + S5P_HDMI_ASP_CHCFG3);
+	}
 }
 
 void s5p_hdmi_reg_gcp(u8 i_p, u8 *gcp)
@@ -1068,6 +1381,348 @@ void s5p_hdmi_reg_gmp(u8 *gmp)
 {
 }
 
+#ifdef CONFIG_HDMI_14A_3D
+
+#define VENDOR_HEADER00			0x81
+#define VENDOR_HEADER01			0x01
+#define VENDOR_HEADER02			0x05
+#define VENDOR_INFOFRAME_HEADER		(0x1 + 0x01 + 0x06)
+#define VENDOR_PACKET_BYTE_LENGTH 0x06
+#define TRANSMIT_EVERY_VSYNC		(1<<1)
+
+void s5p_hdmi_reg_infoframe(struct s5p_hdmi_infoframe *info,
+	u8 *data, u8 type_3D)
+{
+	u32 start_addr = 0, sum_addr = 0;
+	u8 sum;
+	u32 uSpdCon;
+	u8 ucChecksum, i;
+
+	switch (info->type) {
+	case HDMI_VSI_INFO:
+		writeb((u8)VENDOR_HEADER00, hdmi_base + S5P_HDMI_VSI_HEADER0);
+		writeb((u8)VENDOR_HEADER01, hdmi_base + S5P_HDMI_VSI_HEADER1);
+
+		if (type_3D == HDMI_3D_FP_FORMAT) {
+			writeb((u8)VENDOR_HEADER02,
+				hdmi_base + S5P_HDMI_VSI_HEADER2);
+			ucChecksum = VENDOR_HEADER00 +
+				VENDOR_HEADER01 + VENDOR_HEADER02;
+
+			for (i = 0; i < VENDOR_PACKET_BYTE_LENGTH; i++)
+				ucChecksum += readb(hdmi_base +
+					S5P_HDMI_VSI_DATA01+4*i);
+
+			writeb((u8)0x2a, hdmi_base + S5P_HDMI_VSI_DATA00);
+			writeb((u8)0x03, hdmi_base + S5P_HDMI_VSI_DATA01);
+			writeb((u8)0x0c, hdmi_base + S5P_HDMI_VSI_DATA02);
+			writeb((u8)0x00, hdmi_base + S5P_HDMI_VSI_DATA03);
+			writeb((u8)0x40, hdmi_base + S5P_HDMI_VSI_DATA04);
+			writeb((u8)0x00, hdmi_base + S5P_HDMI_VSI_DATA05);
+
+		} else if (type_3D == HDMI_3D_TB_FORMAT) {
+			writeb((u8)VENDOR_HEADER02, hdmi_base +
+				S5P_HDMI_VSI_HEADER2);
+			ucChecksum = VENDOR_HEADER00 +
+				VENDOR_HEADER01 + VENDOR_HEADER02;
+
+			for (i = 0; i < VENDOR_PACKET_BYTE_LENGTH; i++)
+				ucChecksum += readb(hdmi_base +
+					S5P_HDMI_VSI_DATA01+4*i);
+
+			writeb((u8)0xca, hdmi_base + S5P_HDMI_VSI_DATA00);
+			writeb((u8)0x03, hdmi_base + S5P_HDMI_VSI_DATA01);
+			writeb((u8)0x0c, hdmi_base + S5P_HDMI_VSI_DATA02);
+			writeb((u8)0x00, hdmi_base + S5P_HDMI_VSI_DATA03);
+			writeb((u8)0x40, hdmi_base + S5P_HDMI_VSI_DATA04);
+			writeb((u8)0x60, hdmi_base + S5P_HDMI_VSI_DATA05);
+
+		} else if (type_3D == HDMI_3D_SSH_FORMAT) {
+			writeb((u8)0x06, hdmi_base + S5P_HDMI_VSI_HEADER2);
+			ucChecksum = VENDOR_HEADER00 + VENDOR_HEADER01 + 0x06;
+
+			for (i = 0; i < 7; i++)
+				ucChecksum += readb(hdmi_base +
+					S5P_HDMI_VSI_DATA01+4*i);
+
+			writeb((u8)0x99, hdmi_base + S5P_HDMI_VSI_DATA00);
+			writeb((u8)0x03, hdmi_base + S5P_HDMI_VSI_DATA01);
+			writeb((u8)0x0c, hdmi_base + S5P_HDMI_VSI_DATA02);
+			writeb((u8)0x00, hdmi_base + S5P_HDMI_VSI_DATA03);
+			writeb((u8)0x40, hdmi_base + S5P_HDMI_VSI_DATA04);
+			writeb((u8)0x80, hdmi_base + S5P_HDMI_VSI_DATA05);
+			writeb((u8)0x10, hdmi_base + S5P_HDMI_VSI_DATA06);
+
+		} else {
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_HEADER2);
+			ucChecksum = VENDOR_HEADER00 + VENDOR_HEADER01 + 0x06;
+
+			for (i = 0; i < 7; i++)
+				ucChecksum += readb(hdmi_base +
+					S5P_HDMI_VSI_DATA01+4*i);
+
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA00);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA01);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA02);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA03);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA04);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA05);
+			writeb((u8)0x0, hdmi_base + S5P_HDMI_VSI_DATA06);
+			tvout_dbg("2D format is supported.\n");
+			return ;
+		}
+
+		uSpdCon = readb(hdmi_base + S5P_HDMI_VSI_CON);
+		uSpdCon = (uSpdCon&(~(3<<0)))|(TRANSMIT_EVERY_VSYNC);
+		writeb((u8)uSpdCon, hdmi_base + S5P_HDMI_VSI_CON);
+		break;
+	case HDMI_AVI_INFO:
+		writeb((u8)0x82, hdmi_base + S5P_HDMI_AVI_HEADER0);
+		writeb((u8)0x02, hdmi_base + S5P_HDMI_AVI_HEADER1);
+		writeb((u8)0x0d, hdmi_base + S5P_HDMI_AVI_HEADER2);
+
+		sum_addr	= S5P_HDMI_AVI_CHECK_SUM;
+		start_addr	= S5P_HDMI_AVI_BYTE1;
+		break;
+	case HDMI_SPD_INFO:
+		sum_addr	= S5P_HDMI_SPD_DATA00;
+		start_addr	= S5P_HDMI_SPD_DATA01 + 4;
+		/* write header */
+		writeb((u8)info->type, hdmi_base + S5P_HDMI_SPD_HEADER0);
+		writeb((u8)info->version, hdmi_base + S5P_HDMI_SPD_HEADER1);
+		writeb((u8)info->length, hdmi_base + S5P_HDMI_SPD_HEADER2);
+		break;
+	case HDMI_AUI_INFO:
+		writeb((u8)0x84, hdmi_base + S5P_HDMI_AUI_HEADER0);
+		writeb((u8)0x01, hdmi_base + S5P_HDMI_AUI_HEADER1);
+		writeb((u8)0x0a, hdmi_base + S5P_HDMI_AUI_HEADER2);
+		sum_addr	= S5P_HDMI_AUI_CHECK_SUM;
+		start_addr	= S5P_HDMI_AUI_BYTE1;
+		break;
+	case HDMI_MPG_INFO:
+		sum_addr	= S5P_HDMI_MPG_CHECK_SUM;
+		start_addr	= S5P_HDMI_MPG_BYTE1;
+		break;
+	default:
+		tvout_dbg("undefined infoframe\n");
+		return;
+	}
+
+	/* calculate checksum */
+	sum = (u8)info->type + info->version + info->length;
+	sum = s5p_hdmi_checksum(sum, info->length, data);
+
+	/* write checksum */
+	writeb(sum, hdmi_base + sum_addr);
+	/* write data */
+	hdmi_write_l(data, hdmi_base, start_addr, info->length);
+}
+
+void s5p_hdmi_reg_tg(struct s5p_hdmi_v_format *v)
+{
+	u8 tg;
+	struct s5p_hdmi_v_frame	*frame = &(v->frame);
+
+	hdmi_write_16(v->tg_H_FSZ, hdmi_base + S5P_HDMI_TG_H_FSZ_L);
+	hdmi_write_16(v->tg_HACT_ST, hdmi_base + S5P_HDMI_TG_HACT_ST_L);
+	hdmi_write_16(v->tg_HACT_SZ, hdmi_base + S5P_HDMI_TG_HACT_SZ_L);
+
+	hdmi_write_16(v->tg_V_FSZ, hdmi_base + S5P_HDMI_TG_V_FSZ_L);
+	hdmi_write_16(v->tg_VACT_SZ, hdmi_base + S5P_HDMI_TG_VACT_SZ_L);
+	hdmi_write_16(v->tg_VACT_ST, hdmi_base + S5P_HDMI_TG_VACT_ST_L);
+	hdmi_write_16(v->tg_VACT_ST2, hdmi_base + S5P_HDMI_TG_VACT_ST2_L);
+	hdmi_write_16(v->tg_VACT_ST3, hdmi_base + S5P_HDMI_TG_VACT_ST3_L);
+	hdmi_write_16(v->tg_VACT_ST4, hdmi_base + S5P_HDMI_TG_VACT_ST4_L);
+
+	hdmi_write_16(v->tg_VSYNC_BOT_HDMI, hdmi_base +
+		S5P_HDMI_TG_VSYNC_BOT_HDMI_L);
+	hdmi_write_16(v->tg_VSYNC_TOP_HDMI, hdmi_base +
+		S5P_HDMI_TG_VSYNC_TOP_HDMI_L);
+	hdmi_write_16(v->tg_FIELD_TOP_HDMI, hdmi_base +
+		S5P_HDMI_TG_FIELD_TOP_HDMI_L);
+	hdmi_write_16(v->tg_FIELD_BOT_HDMI, hdmi_base +
+		S5P_HDMI_TG_FIELD_BOT_HDMI_L);
+
+	/* write reg default value */
+	hdmi_write_16(v->tg_VSYNC, hdmi_base + S5P_HDMI_TG_VSYNC_L);
+	hdmi_write_16(v->tg_VSYNC2, hdmi_base + S5P_HDMI_TG_VSYNC2_L);
+	hdmi_write_16(v->tg_FIELD_CHG, hdmi_base + S5P_HDMI_TG_FIELD_CHG_L);
+
+	tg = readb(hdmi_base + S5P_HDMI_TG_CMD);
+
+	hdmi_bit_set(frame->interlaced, tg, S5P_HDMI_FIELD);
+
+	writeb(tg, hdmi_base + S5P_HDMI_TG_CMD);
+}
+
+void s5p_hdmi_reg_v_timing(struct s5p_hdmi_v_format *v)
+{
+	u32 uTemp32;
+
+	struct s5p_hdmi_v_frame	*frame = &(v->frame);
+
+	uTemp32 = frame->vH_Line;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_H_LINE_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_H_LINE_1);
+
+	uTemp32 = frame->vV_Line;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_LINE_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_LINE_1);
+
+	uTemp32 = frame->vH_SYNC_START;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_H_SYNC_START_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_H_SYNC_START_1);
+
+	uTemp32 = frame->vH_SYNC_END;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_H_SYNC_END_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_H_SYNC_END_1);
+
+	uTemp32 = frame->vV1_Blank;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V1_BLANK_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V1_BLANK_1);
+
+	uTemp32 = frame->vV2_Blank;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V2_BLANK_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V2_BLANK_1);
+
+	uTemp32 = frame->vHBlank;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_H_BLANK_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_H_BLANK_1);
+
+	uTemp32 = frame->VBLANK_F0;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F0_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F0_1);
+
+	uTemp32 = frame->VBLANK_F1;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F1_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F1_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F2_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F2_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F3_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F3_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F4_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F4_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_BLANK_F5_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_BLANK_F5_1);
+
+	uTemp32 = frame->vVSYNC_LINE_BEF_1;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_BEF_1_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_BEF_1_1);
+
+	uTemp32 = frame->vVSYNC_LINE_BEF_2;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_BEF_2_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_BEF_2_1);
+
+	uTemp32 = frame->vVSYNC_LINE_AFT_1;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_1_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_1_1);
+
+	uTemp32 = frame->vVSYNC_LINE_AFT_2;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_2_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_2_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_3_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_3_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_4_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_4_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_5_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_5_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_6_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_V_SYNC_LINE_AFT_6_1);
+
+	uTemp32 = frame->vVSYNC_LINE_AFT_PXL_1;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_1_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_1_1);
+
+	uTemp32 = frame->vVSYNC_LINE_AFT_PXL_2;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_2_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_2_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_3_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_3_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_4_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_4_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_5_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_5_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_6_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base +
+		S5P_HDMI_V_SYNC_LINE_AFT_PXL_6_1);
+
+	uTemp32 = frame->vVACT_SPACE_1;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_1_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_1_1);
+
+	uTemp32 = frame->vVACT_SPACE_2;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_2_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_2_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_3_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_3_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_4_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_4_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_5_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_5_1);
+
+	uTemp32 = 0xffff;
+	writeb((u8)(uTemp32&0xff), hdmi_base + S5P_HDMI_VACT_SPACE_6_0);
+	writeb((u8)(uTemp32 >> 8), hdmi_base + S5P_HDMI_VACT_SPACE_6_1);
+
+	writeb(frame->Hsync_polarity, hdmi_base + S5P_HDMI_HSYNC_POL);
+
+	writeb(frame->Vsync_polarity, hdmi_base + S5P_HDMI_VSYNC_POL);
+
+	writeb(frame->interlaced, hdmi_base + S5P_HDMI_INT_PRO_MODE);
+}
+
+void s5p_hdmi_reg_bluescreen_clr(u16 b, u16 g, u16 r)
+{
+	writeb((u8)(b>>8), hdmi_base + S5P_HDMI_BLUE_SCREEN_B_0);
+	writeb((u8)(b&0xff), hdmi_base + S5P_HDMI_BLUE_SCREEN_B_0);
+	writeb((u8)(g>>8), hdmi_base + S5P_HDMI_BLUE_SCREEN_G_0);
+	writeb((u8)(g&0xff), hdmi_base + S5P_HDMI_BLUE_SCREEN_G_1);
+	writeb((u8)(r>>8), hdmi_base + S5P_HDMI_BLUE_SCREEN_R_0);
+	writeb((u8)(r&0xff), hdmi_base + S5P_HDMI_BLUE_SCREEN_R_1);
+}
+
+#else
 void s5p_hdmi_reg_infoframe(struct s5p_hdmi_infoframe *info, u8 *data)
 {
 	u32 start_addr = 0, sum_addr = 0;
@@ -1118,8 +1773,8 @@ void s5p_hdmi_reg_tg(struct s5p_hdmi_v_frame *frame)
 	u8 tg;
 
 	hdmi_write_16(frame->h_total, hdmi_base + S5P_HDMI_TG_H_FSZ_L);
-	hdmi_write_16(frame->h_blank, hdmi_base + S5P_HDMI_TG_HACT_ST_L);
-	hdmi_write_16(frame->h_active, hdmi_base + S5P_HDMI_TG_HACT_SZ_L);
+	hdmi_write_16((frame->h_blank)-1, hdmi_base + S5P_HDMI_TG_HACT_ST_L);
+	hdmi_write_16((frame->h_active)+1, hdmi_base + S5P_HDMI_TG_HACT_SZ_L);
 
 	hdmi_write_16(frame->v_total, hdmi_base + S5P_HDMI_TG_V_FSZ_L);
 	hdmi_write_16(frame->v_active, hdmi_base + S5P_HDMI_TG_VACT_SZ_L);
@@ -1195,6 +1850,7 @@ void s5p_hdmi_reg_bluescreen_clr(u8 cb_b, u8 y_g, u8 cr_r)
 	writeb(y_g, hdmi_base + S5P_HDMI_BLUE_SCREEN_1);
 	writeb(cr_r, hdmi_base + S5P_HDMI_BLUE_SCREEN_2);
 }
+#endif
 
 void s5p_hdmi_reg_bluescreen(bool en)
 {
@@ -1230,7 +1886,7 @@ void s5p_hdmi_reg_enable(bool en)
 {
 	u8 reg;
 
-	reg = readl(hdmi_base + S5P_HDMI_CON_0);
+	reg = readb(hdmi_base + S5P_HDMI_CON_0);
 
 	if (en)
 		reg |= S5P_HDMI_EN;
@@ -1238,24 +1894,42 @@ void s5p_hdmi_reg_enable(bool en)
 		reg &= ~(S5P_HDMI_EN | S5P_HDMI_ASP_EN);
 
 	writeb(reg, hdmi_base + S5P_HDMI_CON_0);
+
+	if (!en) {
+		do {
+			reg = readb(hdmi_base + S5P_HDMI_CON_0);
+		} while (reg & S5P_HDMI_EN);
+	}
 }
 
 u8 s5p_hdmi_reg_intc_status(void)
 {
+#ifdef CONFIG_HDMI_14A_3D
+	return readb(hdmi_base + S5P_HDMI_INTC_FLAG0);
+#else
 	return readb(hdmi_base + S5P_HDMI_INTC_FLAG);
+#endif
 }
 
 u8 s5p_hdmi_reg_intc_get_enabled(void)
 {
+#ifdef CONFIG_HDMI_14A_3D
+	return readb(hdmi_base + S5P_HDMI_INTC_CON0);
+#else
 	return readb(hdmi_base + S5P_HDMI_INTC_CON);
+#endif
 }
 
 void s5p_hdmi_reg_intc_clear_pending(enum s5p_hdmi_interrrupt intr)
 {
 	u8 reg;
-
+#ifdef CONFIG_HDMI_14A_3D
+	reg = readb(hdmi_base + S5P_HDMI_INTC_FLAG0);
+	writeb(reg | (1 << intr), hdmi_base + S5P_HDMI_INTC_FLAG0);
+#else
 	reg = readb(hdmi_base + S5P_HDMI_INTC_FLAG);
 	writeb(reg | (1 << intr), hdmi_base + S5P_HDMI_INTC_FLAG);
+#endif
 }
 
 
@@ -1295,7 +1969,11 @@ u8 s5p_hdmi_reg_get_hpd_status(void)
 
 void s5p_hdmi_reg_hpd_gen(void)
 {
+#ifdef CONFIG_HDMI_14A_3D
+	writeb(0xFF, hdmi_base + S5P_HDMI_HPD_GEN0);
+#else
 	writeb(0xFF, hdmi_base + S5P_HDMI_HPD_GEN);
+#endif
 }
 
 int s5p_hdmi_reg_intc_set_isr(irqreturn_t (*isr)(int, void *), u8 num)
@@ -1319,6 +1997,7 @@ int s5p_hdmi_reg_intc_set_isr(irqreturn_t (*isr)(int, void *), u8 num)
 
 	return 0;
 }
+EXPORT_SYMBOL(s5p_hdmi_reg_intc_set_isr);
 
 void s5p_hdmi_reg_intc_enable(enum s5p_hdmi_interrrupt intr, u8 en)
 {
@@ -1337,8 +2016,11 @@ void s5p_hdmi_reg_intc_enable(enum s5p_hdmi_interrrupt intr, u8 en)
 		if (!reg)
 			reg &= ~S5P_HDMI_INTC_EN_GLOBAL;
 	}
-
+#ifdef CONFIG_HDMI_14A_3D
+	writeb(reg, hdmi_base + S5P_HDMI_INTC_CON0);
+#else
 	writeb(reg, hdmi_base + S5P_HDMI_INTC_CON);
+#endif
 }
 
 void s5p_hdmi_reg_audio_enable(u8 en)
@@ -1348,7 +2030,11 @@ void s5p_hdmi_reg_audio_enable(u8 en)
 	mod = readb(hdmi_base + S5P_HDMI_MODE_SEL);
 
 	if (en) {
+#ifndef CONFIG_HDMI_EARJACK_MUTE
 		if (mod & S5P_HDMI_DVI_MODE_EN)
+#else
+		if ((mod & S5P_HDMI_DVI_MODE_EN) || hdmi_audio_ext)
+#endif
 			return;
 
 		con |= S5P_HDMI_ASP_EN;
@@ -1363,44 +2049,40 @@ void s5p_hdmi_reg_audio_enable(u8 en)
 
 int s5p_hdmi_audio_init(
 		enum s5p_tvout_audio_codec_type audio_codec,
-		u32 sample_rate, u32 bits, u32 frame_size_code)
+		u32 sample_rate, u32 bits, u32 frame_size_code,
+		struct s5p_hdmi_audio *audio)
 {
-#ifdef CONFIG_SND_S5P_SPDIF
+#ifdef CONFIG_SND_SAMSUNG_SPDIF
 	s5p_hdmi_audio_set_config(audio_codec);
 	s5p_hdmi_audio_set_repetition_time(audio_codec, bits, frame_size_code);
 	s5p_hdmi_audio_irq_enable(S5P_HDMI_SPDIFIN_IRQ_OVERFLOW_EN);
 	s5p_hdmi_audio_clock_enable();
 #else
 	s5p_hdmi_audio_i2s_config(audio_codec, sample_rate, bits,
-				frame_size_code);
+				frame_size_code, audio);
 #endif
 	return 0;
 }
 
 void s5p_hdmi_reg_mute(bool en)
 {
-	static u8 prev_audio;
-	u8 reg;
-
 	s5p_hdmi_reg_bluescreen(en);
-#if 0
-	if (en) {
-		reg = readb(hdmi_base + S5P_HDMI_CON_0);
-		prev_audio = reg & S5P_HDMI_ASP_EN;
-	} else
-		if (!prev_audio)
-			return;
-#endif
+
 	s5p_hdmi_reg_audio_enable(!en);
 }
 
 irqreturn_t s5p_hdmi_irq(int irq, void *dev_id)
 {
 	u8 state, num = 0;
+	unsigned long spin_flags;
 
-	spin_lock_irq(&lock_hdmi);
+	spin_lock_irqsave(&lock_hdmi, spin_flags);
 
+#ifdef CONFIG_HDMI_14A_3D
+	state = readb(hdmi_base + S5P_HDMI_INTC_FLAG0);
+#else
 	state = readb(hdmi_base + S5P_HDMI_INTC_FLAG);
+#endif
 
 	if (!state) {
 		tvout_err("undefined irq : %d\n", state);
@@ -1412,14 +2094,15 @@ irqreturn_t s5p_hdmi_irq(int irq, void *dev_id)
 		if (!(state & (1 << num)))
 			continue;
 
-		if (s5p_hdmi_isr_ftn[num])
+		if (s5p_hdmi_isr_ftn[num]) {
+			tvout_dbg("call by s5p_hdmi_isr_ftn num : %d\n", num);
 			(s5p_hdmi_isr_ftn[num])(num, NULL);
-		else
+		} else
 			tvout_dbg("unregistered irq : %d\n", num);
 	}
 
 irq_handled:
-	spin_unlock_irq(&lock_hdmi);
+	spin_unlock_irqrestore(&lock_hdmi, spin_flags);
 
 	return IRQ_HANDLED;
 }

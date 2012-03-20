@@ -15,16 +15,11 @@
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#ifdef CONFIG_CPU_FREQ
+
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
 #include <mach/cpufreq.h>
 #endif
-
-
-#if defined(CONFIG_ARCH_S5PV310)
 #include <mach/regs-mfc.h>
-#elif defined(CONFIG_ARCH_S5PV210)
-#include <plat/regs-mfc.h>
-#endif
 
 #include "mfc_enc.h"
 #include "mfc_cmd.h"
@@ -108,6 +103,11 @@ int get_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 	write_reg(init_arg->cmn.in_mb_refresh & 0xFFFF, MFC_ENC_CIR_CTRL);
 	/* memory structure of the current frame - 0 -> Linear  or 3 -> Tile mode */
 	write_reg(enc_ctx->framemap, MFC_ENC_MAP_FOR_CUR);
+
+#if defined(CONFIG_CPU_EXYNOS4212) || defined(CONFIG_CPU_EXYNOS4412)
+	if (init_arg->cmn.in_frame_map == NV21_LINEAR)
+		 write_reg(1, MFC_ENC_NV21_SEL);
+#endif
 
 	/* padding control & value */
 	reg = read_reg(MFC_ENC_PADDING_CTRL);
@@ -215,7 +215,7 @@ int h263_get_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 	reg |= ((init_arg->cmn.in_rc_qbound_min & 0x3F) << 0);
 	write_reg(reg, MFC_ENC_RC_QBOUND);
 
-	if (init_arg->cmn.in_rc_fr_en > 0) {
+	if (init_arg->cmn.in_rc_fr_en == 0) {
 		shm = read_shm(ctx, P_B_FRAME_QP);
 		shm &= ~(0xFFF << 0);
 		shm |= ((init_arg->cmn.in_vop_quant_p & 0x3F) << 0);
@@ -312,7 +312,7 @@ int mpeg4_get_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 
 	write_reg(init_mpeg4_arg->in_quart_pixel, MFC_ENC_MPEG4_QUART_PXL);
 
-	if (init_arg->cmn.in_rc_fr_en > 0) {
+	if (init_arg->cmn.in_rc_fr_en == 0) {
 		shm = read_shm(ctx, P_B_FRAME_QP);
 		shm &= ~(0xFFF << 0);
 		shm |= ((init_mpeg4_arg->in_vop_quant_b & 0x3F) << 6);
@@ -452,15 +452,12 @@ int h264_get_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 	/** num of ref. pictures of P */
 	reg &= ~(0x3 << 5);
 	reg |= ((init_h264_arg->in_ref_num_p & 0x3) << 5);
-	/** max number of ref. pictures */
-	reg &= ~(0x1F << 0);
-	reg |= ((init_h264_arg->in_reference_num & 0x1F) << 0);
 	write_reg(reg, MFC_ENC_H264_NUM_OF_REF);
 
 	/* 8x8 transform enable */
 	write_reg(init_h264_arg->in_transform8x8_mode & 0x1, MFC_ENC_H264_TRANS_FLAG);
 
-	if ((init_arg->cmn.in_rc_fr_en > 0) && (init_h264_arg->in_rc_mb_en > 0)) {
+	if ((init_arg->cmn.in_rc_fr_en == 0) && (init_h264_arg->in_rc_mb_en == 0)) {
 		shm = read_shm(ctx, P_B_FRAME_QP);
 		shm &= ~(0xFFF << 0);
 		shm |= ((init_h264_arg->in_vop_quant_b & 0x3F) << 6);
@@ -476,10 +473,11 @@ int h264_get_init_arg(struct mfc_inst_ctx *ctx, void *arg)
  */
 static int pre_seq_start(struct mfc_inst_ctx *ctx)
 {
-	/*
 	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
-	unsigned int reg;
-	*/
+
+	/* Set stream buffer addr */
+	write_reg(mfc_mem_base_ofs(enc_ctx->streamaddr) >> 11, MFC_ENC_SI_CH1_SB_ADR);
+	write_reg(enc_ctx->streamsize, MFC_ENC_SI_CH1_SB_SIZE);
 
 	return 0;
 }
@@ -487,9 +485,13 @@ static int pre_seq_start(struct mfc_inst_ctx *ctx)
 static int h264_pre_seq_start(struct mfc_inst_ctx *ctx)
 {
 	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+	struct mfc_enc_h264 *h264 = (struct mfc_enc_h264 *)enc_ctx->e_priv;
+	unsigned int shm;
+
+	pre_seq_start(ctx);
+
 	/*
 	unsigned int reg;
-	unsigned int shm;
 	*/
 
 	#if 0
@@ -534,9 +536,17 @@ static int h264_pre_seq_start(struct mfc_inst_ctx *ctx)
 	}
 	#endif
 
-	/* Set stream buffer addr */
-	write_reg(mfc_mem_base_ofs(enc_ctx->streamaddr) >> 11, MFC_ENC_SI_CH1_SB_ADR);
-	write_reg(enc_ctx->streamsize, MFC_ENC_SI_CH1_SB_SIZE);
+	write_shm(ctx, h264->sei_gen << 1, SEI_ENABLE);
+
+	if (h264->change & CHG_FRAME_PACKING) {
+		/* change type value to meet standard */
+		shm = (h264->fp.arrangement_type - 3) & 0x3;
+		/* only valid when type is temporal interleaving (5) */
+		shm |= ((h264->fp.current_frame_is_frame0_flag & 0x1) << 2);
+		write_shm(ctx, shm, FRAME_PACK_ENC_INFO);
+
+		h264->change &= ~(CHG_FRAME_PACKING);
+	}
 
 	return 0;
 }
@@ -597,6 +607,8 @@ static int set_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 #else
 	init_arg->cmn.out_u_addr.strm_ref_y = mfc_mem_data_ofs(enc_ctx->streamaddr, 1);
 	init_arg->cmn.out_u_addr.mv_ref_yc = 0;
+	init_arg->cmn.out_p_addr.strm_ref_y = mfc_mem_base_ofs(enc_ctx->streamaddr);
+	init_arg->cmn.out_p_addr.mv_ref_yc = 0;
 #endif
 
 	/*
@@ -680,14 +692,74 @@ static int set_dpbs(struct mfc_inst_ctx *ctx)
  */
 static int pre_frame_start(struct mfc_inst_ctx *ctx)
 {
+	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+
+	if (enc_ctx->setflag == 1) {
+		if (enc_ctx->FrameTypeCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - Frame Type : %d\n", enc_ctx->forceframe);
+
+			write_reg(enc_ctx->forceframe, MFC_ENC_SI_CH1_FRAME_INS);
+		}
+
+		if (enc_ctx->FrameRateCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - Frame rate : %d\n", enc_ctx->framerate);
+
+			write_shm(ctx, 1000 * enc_ctx->framerate, NEW_RC_FRAME_RATE);
+			write_shm(ctx, ((1 << 31)|(enc_ctx->framerate << 16)|(1 & 0xFFFF)), VOP_TIMING);
+			write_reg(1000 * enc_ctx->framerate, MFC_ENC_RC_FRAME_RATE);
+			write_shm(ctx, (0x1 << 1), ENC_PARAM_CHANGE);
+		}
+
+		if (enc_ctx->BitRateCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - Bit rate : %d\n", enc_ctx->bitrate);
+
+			write_shm(ctx, enc_ctx->bitrate, NEW_RC_BIT_RATE);
+			write_reg(enc_ctx->bitrate, MFC_ENC_RC_BIT_RATE);
+			write_shm(ctx, (0x1 << 2), ENC_PARAM_CHANGE);
+		}
+	}
+
 	return 0;
 }
 
+static int h264_pre_frame_start(struct mfc_inst_ctx *ctx)
+{
+	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+	struct mfc_enc_h264 *h264 = (struct mfc_enc_h264 *)enc_ctx->e_priv;
+	unsigned int shm;
+
+	pre_frame_start(ctx);
+
+	if (h264->change & CHG_FRAME_PACKING) {
+		/* change type value to meet standard */
+		shm = (h264->fp.arrangement_type - 3) & 0x3;
+		/* only valid when type is temporal interleaving (5) */
+		shm |= ((h264->fp.current_frame_is_frame0_flag & 0x1) << 2);
+		write_shm(ctx, shm, FRAME_PACK_ENC_INFO);
+
+		h264->change &= ~(CHG_FRAME_PACKING);
+	}
+
+	return 0;
+}
 /*
  * [9] post_frame_start() implementations
  */
 static int post_frame_start(struct mfc_inst_ctx *ctx)
 {
+	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+
+	if (enc_ctx->setflag == 1) {
+		enc_ctx->setflag = 0;
+
+		enc_ctx->FrameTypeCngTag = 0;
+		enc_ctx->FrameRateCngTag = 0;
+		enc_ctx->BitRateCngTag = 0;
+
+		write_shm(ctx, 0, ENC_PARAM_CHANGE);	//RC_BIT_RATE_CHANGE = 4
+		write_reg(0, MFC_ENC_SI_CH1_FRAME_INS);
+	}
+
 	return 0;
 }
 
@@ -710,7 +782,7 @@ static int set_exe_arg(struct mfc_inst_ctx *ctx, void *arg)
 /*
  * [12] get_codec_cfg() implementations
  */
-static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int get_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	//struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
 	int ret = 0;
@@ -725,7 +797,7 @@ static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 	switch (type) {
 
 	default:
-		mfc_err("invalid get config type: 0x%08x\n", type);
+		mfc_dbg("not common cfg, try to codec specific: 0x%08x\n", type);
 		ret = 1;
 
 		break;
@@ -737,13 +809,13 @@ static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 /*
  * [13] set_codec_cfg() implementations
  */
-static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
-	//struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
 	int ret = 0;
 
 	mfc_dbg("type: 0x%08x", type);
-
 	/*
 	MFC_ENC_SETCONF_FRAME_TYPE	= ENC_SET,
 	MFC_ENC_SETCONF_CHANGE_FRAME_RATE,
@@ -757,10 +829,199 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 	*/
 
 	switch (type) {
+		case MFC_ENC_SETCONF_FRAME_TYPE:
+			mfc_dbg("MFC_ENC_SETCONF_FRAME_TYPE : %d\n", ctx->state);
 
+			if (ctx->state < INST_STATE_INIT) {
+				mfc_err("MFC_ENC_SETCONF_CHANGE_FRAME_TYPE : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if ((usercfg->basic.values[0] >= DONT_CARE) && (usercfg->basic.values[0] <= NOT_CODED))	{
+				mfc_dbg("Frame Type : %d\n", usercfg->basic.values[0]);
+				enc_ctx->forceframe = usercfg->basic.values[0];
+				enc_ctx->FrameTypeCngTag = 1;
+				enc_ctx->setflag = 1;
+			} else {
+				mfc_warn("FRAME_TYPE should be between 0 and 2\n");
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_CHANGE_FRAME_RATE:
+			mfc_dbg("MFC_ENC_SETCONF_CHANGE_FRAME_RATE : %d\n", ctx->state);
+
+			if (ctx->state < INST_STATE_INIT) {
+				mfc_err("MFC_ENC_SETCONF_CHANGE_FRAME_RATE : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0] > 0) {
+				mfc_dbg("Frame rate : %d\n", usercfg->basic.values[0]);
+				enc_ctx->framerate = usercfg->basic.values[0];
+				enc_ctx->FrameRateCngTag = 1;
+				enc_ctx->setflag = 1;
+			} else {
+				mfc_warn("MFCSetConfig, FRAME_RATE should be biger than 0\n");
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_CHANGE_BIT_RATE:
+			mfc_dbg("MFC_ENC_SETCONF_CHANGE_BIT_RATE : %d\n", ctx->state);
+
+			if (ctx->state < INST_STATE_INIT) {
+				mfc_err("MFC_ENC_SETCONF_CHANGE_BIT_RATE : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0] > 0) {
+				mfc_dbg("Bit rate : %d\n", usercfg->basic.values[0]);
+				enc_ctx->bitrate = usercfg->basic.values[0];
+				enc_ctx->BitRateCngTag = 1;
+				enc_ctx->setflag = 1;
+			} else {
+				mfc_warn("MFCSetConfig, BIT_RATE should be biger than 0\n");
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_ALLOW_FRAME_SKIP:
+			mfc_dbg("MFC_ENC_SETCONF_ALLOW_FRAME_SKIP : %d\n", ctx->state);
+
+			if ((ctx->state < INST_STATE_CREATE) || (ctx->state > INST_STATE_EXE)) {
+				mfc_err("MFC_ENC_SETCONF_ALLOW_FRAME_SKIP : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0] > 0) {
+				mfc_dbg("Allow_frame_skip enable : %d\n", usercfg->basic.values[0]);
+				enc_ctx->frame_skip_enable = usercfg->basic.values[0];
+				if (enc_ctx->frame_skip_enable == 2)
+					enc_ctx->frameskip = usercfg->basic.values[1];
+				enc_ctx->FrameSkipCngTag = 1;
+				enc_ctx->setflag = 1;
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_VUI_INFO:
+			mfc_dbg("MFC_ENC_SETCONF_VUI_INFO : %d\n", ctx->state);
+
+			if ((ctx->state < INST_STATE_CREATE) || (ctx->state > INST_STATE_EXE)) {
+				mfc_err("MFC_ENC_SETCONF_VUI_INFO_SET : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0] > 0) {
+				mfc_dbg("VUI_info enable : %d\n", usercfg->basic.values[1]);
+				enc_ctx->vuiinfoval = usercfg->basic.values[0];
+				if (enc_ctx->vuiinfoval == 255)
+					enc_ctx->vuiextendsar = usercfg->basic.values[1];
+				enc_ctx->vui_info_enable = 1;
+				enc_ctx->VUIInfoCngTag = 1;
+				enc_ctx->setflag = 1;
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_I_PERIOD:
+			mfc_dbg("MFC_ENC_SETCONF_I_PERIOD : %d\n", ctx->state);
+
+			if ((ctx->state < INST_STATE_CREATE) || (ctx->state > INST_STATE_EXE)) {
+				mfc_err("MFC_ENC_SETCONF_I_PERIOD_CHANGE : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0]) {
+				mfc_dbg("I_PERIOD value : %d\n", usercfg->basic.values[0]);
+				enc_ctx->iperiodval = usercfg->basic.values[0];
+				enc_ctx->IPeriodCngTag = 1;
+				enc_ctx->setflag = 1;
+			}
+
+			break;
+
+		case MFC_ENC_SETCONF_HIER_P:
+			mfc_dbg("MFC_ENC_SETCONF_FRAME_TYPE : %d\n", ctx->state);
+
+			if ((ctx->state < INST_STATE_CREATE) || (ctx->state > INST_STATE_EXE)) {
+				mfc_err("MFC_ENC_SETCONF_HIER_P_SET : state is invalid\n");
+				return MFC_STATE_INVALID;
+			}
+
+			if (usercfg->basic.values[0]) {
+				mfc_dbg("HIER_P enable : %d\n", usercfg->basic.values[0]);
+				enc_ctx->hier_p_enable = usercfg->basic.values[0];
+				enc_ctx->HierPCngTag = 1;
+				enc_ctx->setflag = 1;
+			}
+
+			break;
+
+		default:
+			mfc_dbg("not common cfg, try to codec specific: 0x%08x\n", type);
+			ret = 1;
+
+			break;
+	}
+
+	return ret;
+}
+
+static int h264_set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
+{
+	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
+	struct mfc_enc_h264 *h264 = (struct mfc_enc_h264 *)enc_ctx->e_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
+	int ret;
+
+	mfc_dbg("type: 0x%08x", type);
+	mfc_dbg("ctx->state: 0x%08x", ctx->state);
+
+	ret = set_codec_cfg(ctx, type, arg);
+	if (ret <= 0)
+		return ret;
+
+	ret = 0;
+
+	switch (type) {
+	case MFC_ENC_SETCONF_SEI_GEN:
+		mfc_dbg("ctx->state: 0x%08x", ctx->state);
+
+		if (ctx->state >= INST_STATE_INIT) {
+			mfc_dbg("invalid instance state: 0x%08x\n", type);
+			return MFC_STATE_INVALID;
+		}
+
+		if (usercfg->basic.values[0] > 0)
+			h264->sei_gen = 1;
+		else
+			h264->sei_gen = 0;
+
+		break;
+
+	case MFC_ENC_SETCONF_FRAME_PACKING:
+		if (ctx->state >= INST_STATE_EXE) {
+			mfc_dbg("invalid instance state: 0x%08x\n", type);
+			return MFC_STATE_INVALID;
+		}
+
+		if ((usercfg->basic.values[0] < 3) || (usercfg->basic.values[0] > 5) ) {
+			mfc_err("invalid param: FRAME_PACKING: %d\n",
+				usercfg->basic.values[0]);
+			return MFC_ENC_GET_CONF_FAIL;
+		}
+
+		h264->fp.arrangement_type = usercfg->basic.values[0] & 0x7F;
+		h264->fp.current_frame_is_frame0_flag = usercfg->basic.values[1] & 0x1;
+
+		h264->change |= CHG_FRAME_PACKING;
+
+		break;
 	default:
 		mfc_dbg("invalid set cfg type: 0x%08x\n", type);
-		ret = 1;
+		ret = -2;
 
 		break;
 	}
@@ -811,12 +1072,12 @@ static struct mfc_enc_info h264_enc = {
 		.set_codec_bufs		= h264_set_codec_bufs,
 		.set_dpbs		= NULL,
 		.get_exe_arg		= NULL,
-		.pre_frame_start	= pre_frame_start,
+		.pre_frame_start	= h264_pre_frame_start,
 		.post_frame_start	= post_frame_start,
 		.multi_data_frame	= multi_data_frame,
 		.set_exe_arg		= set_exe_arg,
 		.get_codec_cfg		= get_codec_cfg,
-		.set_codec_cfg		= set_codec_cfg,
+		.set_codec_cfg		= h264_set_codec_cfg,
 	},
 };
 
@@ -829,7 +1090,7 @@ static struct mfc_enc_info mpeg4_enc = {
 		.alloc_ctx_buf		= alloc_ctx_buf,
 		.alloc_desc_buf		= NULL,
 		.get_init_arg		= mpeg4_get_init_arg,
-		.pre_seq_start		= h264_pre_seq_start,
+		.pre_seq_start		= pre_seq_start,
 		.post_seq_start		= post_seq_start,
 		.set_init_arg		= set_init_arg,
 		.set_codec_bufs		= h264_set_codec_bufs,
@@ -853,7 +1114,7 @@ static struct mfc_enc_info h263_enc = {
 		.alloc_ctx_buf		= alloc_ctx_buf,
 		.alloc_desc_buf		= NULL,
 		.get_init_arg		= h263_get_init_arg,
-		.pre_seq_start		= h264_pre_seq_start,
+		.pre_seq_start		= pre_seq_start,
 		.post_seq_start		= post_seq_start,
 		.set_init_arg		= set_init_arg,
 		.set_codec_bufs		= h264_set_codec_bufs,
@@ -881,8 +1142,9 @@ static int mfc_set_encoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 {
 	struct list_head *pos;
 	struct mfc_enc_info *encoder;
-	int codecid = -1;
 	struct mfc_enc_ctx *enc_ctx;
+
+	ctx->codecid = -1;
 
 	/* find and set codec private */
 	list_for_each(pos, &mfc_encoders) {
@@ -891,9 +1153,6 @@ static int mfc_set_encoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 		if (encoder->codectype == codectype) {
 			if (encoder->codecid < 0)
 				break;
-
-			ctx->type = ENCODER;
-			ctx->c_ops = (struct codec_operations *)&encoder->c_ops;
 
 			/* Allocate Encoder Context memory */
 			enc_ctx = kzalloc(sizeof(struct mfc_enc_ctx), GFP_KERNEL);
@@ -912,13 +1171,18 @@ static int mfc_set_encoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 				return -ENOMEM;
 			}
 
-			codecid = encoder->codecid;
+			ctx->codecid = encoder->codecid;
+			ctx->type = ENCODER;
+			ctx->c_ops = (struct codec_operations *)&encoder->c_ops;
 
 			break;
 		}
 	}
 
-	return codecid;
+	if (ctx->codecid < 0)
+		mfc_err("couldn't find proper encoder codec type: %d\n", codectype);
+
+	return ctx->codecid;
 }
 
 int set_strm_ref_buf(struct mfc_inst_ctx *ctx)
@@ -1009,16 +1273,35 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	int ret;
 	unsigned char *in_vir;
 
-
-	ctx->codecid = mfc_set_encoder(ctx, init_arg->cmn.in_codec_type);
-	if (ctx->codecid < 0) {
-		mfc_err("unsupported encoding codec: %d", init_arg->cmn.in_codec_type);
+	ret = mfc_set_encoder(ctx, init_arg->cmn.in_codec_type);
+	if (ret < 0) {
+		mfc_err("failed to setup encoder codec\n");
 		ret = MFC_ENC_INIT_FAIL;
 		goto err_handling;
 	}
 
 	ctx->width = init_arg->cmn.in_width;
 	ctx->height = init_arg->cmn.in_height;
+
+	if (ctx->height > MAX_VER_SIZE) {
+		if (ctx->height > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_handling;
+		}
+
+		if (ctx->width > MAX_VER_SIZE) {
+			mfc_err("Not support resolutioni: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_handling;
+		}
+	} else {
+		if (ctx->width > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_handling;
+		}
+	}
 
 	enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
 
@@ -1031,7 +1314,7 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 		precfg = list_entry(pos, struct mfc_pre_cfg, list);
 
 		if (ctx->c_ops->set_codec_cfg) {
-			ret = ctx->c_ops->set_codec_cfg(ctx, precfg->type, precfg->value);
+			ret = ctx->c_ops->set_codec_cfg(ctx, precfg->type, precfg->values);
 			if (ret < 0)
 				mfc_warn("cannot set preset config type: 0x%08x: %d",
 					precfg->type, ret);
@@ -1040,6 +1323,9 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 		list_del(&precfg->list);
 		kfree(precfg);
 	}
+	INIT_LIST_HEAD(&ctx->presetcfgs);
+
+	mfc_set_inst_state(ctx, INST_STATE_SETUP);
 
 	/*
 	 * allocate context buffer
@@ -1095,10 +1381,48 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	 * execute pre sequence start operation
 	 */
 	if (ctx->c_ops->pre_seq_start) {
-		if (ctx->c_ops->pre_seq_start(ctx) < 0) {
-			mfc_err("Pre-Sequence Start Faild");
-			ret = MFC_ENC_INIT_FAIL;
-			goto err_handling;
+		if (ctx->c_ops->pre_seq_start) {
+			if (ctx->c_ops->pre_seq_start(ctx) < 0) {
+				mfc_err("Pre-Sequence Start Failed");
+				ret = MFC_ENC_INIT_FAIL;
+				goto err_handling;
+			}
+		}
+	}
+
+	if (enc_ctx->setflag == 1) {
+		if (enc_ctx->FrameSkipCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - Allow_frame_skip enable : %d - number : %d \n",
+					enc_ctx->frame_skip_enable, enc_ctx->frameskip);
+
+			if (enc_ctx->frame_skip_enable == 2)
+				write_shm(ctx,
+					((enc_ctx->frame_skip_enable << 1)| (enc_ctx->frameskip << 16) | read_shm(ctx, EXT_ENC_CONTROL)),
+					EXT_ENC_CONTROL);
+			else
+				write_shm(ctx, ((enc_ctx->frame_skip_enable << 1)|read_shm(ctx, EXT_ENC_CONTROL)), EXT_ENC_CONTROL);
+		}
+
+		if (enc_ctx->VUIInfoCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - VUI_info enable : %d\n", enc_ctx->vui_info_enable);
+
+			write_shm(ctx, enc_ctx->vuiinfoval, ASPECT_RATIO_IDC);
+			write_shm(ctx, enc_ctx->vuiextendsar, EXTENDED_SAR);
+			write_shm(ctx, ((enc_ctx->vui_info_enable << 15)|read_shm(ctx, EXT_ENC_CONTROL)), EXT_ENC_CONTROL);	//ASPECT_RATIO_VUI_ENABLE = 1<<15
+		}
+
+		if (enc_ctx->IPeriodCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - I_PERIOD : %d\n", enc_ctx->iperiodval);
+			write_shm(ctx, enc_ctx->iperiodval, NEW_I_PERIOD);
+			write_shm(ctx, ((1<<16)|enc_ctx->iperiodval), H264_I_PERIOD);
+			write_reg(enc_ctx->iperiodval, MFC_ENC_PIC_TYPE_CTRL);
+			write_shm(ctx, (0x1 << 0), ENC_PARAM_CHANGE);
+		}
+
+		if (enc_ctx->HierPCngTag == 1) {
+			mfc_dbg("Encoding Param Setting - HIER_P enable : %d\n", enc_ctx->hier_p_enable);
+
+			write_shm(ctx, ((enc_ctx->hier_p_enable << 4)|read_shm(ctx, EXT_ENC_CONTROL)), EXT_ENC_CONTROL);	//HIERARCHICAL_P_ENABLE = 1<<4
 		}
 	}
 
@@ -1129,15 +1453,15 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 		mfc_mem_cache_inv(in_vir, init_arg->cmn.out_header_size);
 		mfc_dbg("cache invalidate\n");
 	}
-
-#ifdef CONFIG_CPU_FREQ
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
 	/* Fix MFC & Bus Frequency for High resolution for better performance */
-	if (ctx->width >= 1920 || ctx->height >= 1080){
-		if (atomic_read(&ctx->dev->busfreq_lock_cnt) == 0){
+	if (ctx->width >= MAX_HOR_RES || ctx->height >= MAX_VER_RES) {
+		if (atomic_read(&ctx->dev->busfreq_lock_cnt) == 0) {
 			/* For fixed MFC & Bus Freq to 200 & 400 MHz for 1080p Contents */
-			s5pv310_busfreq_lock(DVFS_LOCK_ID_MFC,BUS_L0);
+			exynos4_busfreq_lock(DVFS_LOCK_ID_MFC, BUS_L0);
 			mfc_dbg("[%s] Bus Freq Locked L0  \n",__func__);
 		}
+
 		atomic_inc(&ctx->dev->busfreq_lock_cnt);
 		ctx->busfreq_flag = true;
 	}
@@ -1161,6 +1485,18 @@ int mfc_init_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 
 	mfc_set_inst_state(ctx, INST_STATE_INIT);
 
+	if (enc_ctx->setflag == 1) {
+		enc_ctx->setflag = 0;
+		enc_ctx->FrameSkipCngTag = 0;
+		enc_ctx->VUIInfoCngTag = 0;
+		enc_ctx->HierPCngTag = 0;
+
+		if (enc_ctx->IPeriodCngTag == 1) {
+			write_shm(ctx, 0, ENC_PARAM_CHANGE);
+			enc_ctx->IPeriodCngTag = 0;
+		}
+	}
+
 	mfc_print_buf();
 
 	return MFC_OK;
@@ -1173,12 +1509,12 @@ err_handling:
 
 	mfc_free_buf_inst(ctx->id);
 
-	if (!enc_ctx) {
+	if (enc_ctx) {
 		kfree(enc_ctx->e_priv);
 		enc_ctx->e_priv = NULL;
 	}
 
-	if (!ctx->c_priv) {
+	if (ctx->c_priv) {
 		kfree(ctx->c_priv);
 		ctx->c_priv = NULL;
 	}
@@ -1188,7 +1524,6 @@ err_handling:
 
 static int mfc_encoding_frame(struct mfc_inst_ctx *ctx, struct mfc_enc_exe_arg *exe_arg)
 {
-	struct mfc_enc_ctx *enc_ctx = (struct mfc_enc_ctx *)ctx->c_priv;
 	int ret;
 #ifdef CONFIG_VIDEO_MFC_VCM_UMP
 	void *ump_handle;
@@ -1199,8 +1534,8 @@ static int mfc_encoding_frame(struct mfc_inst_ctx *ctx, struct mfc_enc_exe_arg *
 	write_shm(ctx, exe_arg->in_frametag, SET_FRAME_TAG);
 
 	/* Set stream buffer addr */
-	write_reg(mfc_mem_base_ofs(enc_ctx->streamaddr) >> 11, MFC_ENC_SI_CH1_SB_ADR);
-	write_reg(enc_ctx->streamsize, MFC_ENC_SI_CH1_SB_SIZE);
+	write_reg(exe_arg->in_strm_st >> 11, MFC_ENC_SI_CH1_SB_ADR);
+	write_reg((exe_arg->in_strm_end - exe_arg->in_strm_st), MFC_ENC_SI_CH1_SB_SIZE);
 
 	#if 0
 	/* force I frame or Not-coded frame */
@@ -1232,14 +1567,13 @@ static int mfc_encoding_frame(struct mfc_inst_ctx *ctx, struct mfc_enc_exe_arg *
 	#endif
 
 	/* Set current frame buffer addr */
-	#if 1
-	/* RainAde : to access FIMC CMA region for zero copy solution */
-	write_reg((exe_arg->in_Y_addr - mfc_mem_base(1))>> 11, MFC_ENC_SI_CH1_CUR_Y_ADR);
+#if (MFC_MAX_MEM_PORT_NUM == 2)
+	write_reg((exe_arg->in_Y_addr - mfc_mem_base(1)) >> 11, MFC_ENC_SI_CH1_CUR_Y_ADR);
 	write_reg((exe_arg->in_CbCr_addr - mfc_mem_base(1)) >> 11, MFC_ENC_SI_CH1_CUR_C_ADR);
-	#else
-	write_reg(mfc_mem_base_ofs(exe_arg->in_Y_addr) >> 11, MFC_ENC_SI_CH1_CUR_Y_ADR);
-	write_reg(mfc_mem_base_ofs(exe_arg->in_CbCr_addr) >> 11, MFC_ENC_SI_CH1_CUR_C_ADR);
-	#endif
+#else
+	write_reg((exe_arg->in_Y_addr - mfc_mem_base(0)) >> 11, MFC_ENC_SI_CH1_CUR_Y_ADR);
+	write_reg((exe_arg->in_CbCr_addr - mfc_mem_base(0)) >> 11, MFC_ENC_SI_CH1_CUR_C_ADR);
+#endif
 
 	#if 0
 	write_reg(1, MFC_ENC_STR_BF_U_EMPTY);
@@ -1249,7 +1583,7 @@ static int mfc_encoding_frame(struct mfc_inst_ctx *ctx, struct mfc_enc_exe_arg *
 	write_reg(0x1 << 1, MFC_ENC_SF_BUF_CTRL);
 	#endif
 
-	if(ctx->buf_cache_type == CACHE){
+	if (ctx->buf_cache_type == CACHE) {
 		flush_all_cpu_caches();
 		outer_flush_all();
 	}
@@ -1329,7 +1663,17 @@ int mfc_exec_encoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 
 	mfc_set_inst_state(ctx, INST_STATE_EXE);
 
+	if (ctx->c_ops->pre_frame_start) {
+		if (ctx->c_ops->pre_frame_start(ctx) < 0)
+			return MFC_ENC_INIT_FAIL;
+	}
+
 	ret = mfc_encoding_frame(ctx, exe_arg);
+
+	if (ctx->c_ops->post_frame_start) {
+		if (ctx->c_ops->post_frame_start(ctx) < 0)
+			return MFC_ENC_INIT_FAIL;
+	}
 
 	mfc_set_inst_state(ctx, INST_STATE_EXE_DONE);
 

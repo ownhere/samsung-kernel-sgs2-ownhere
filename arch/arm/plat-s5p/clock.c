@@ -21,6 +21,8 @@
 #include <linux/io.h>
 #include <asm/div64.h>
 
+#include <mach/regs-clock.h>
+
 #include <plat/clock.h>
 #include <plat/clock-clksrc.h>
 #include <plat/s5p-clock.h>
@@ -36,7 +38,11 @@ struct clk clk_ext_xtal_mux = {
 struct clk clk_xusbxti = {
 	.name		= "xusbxti",
 	.id		= -1,
-	.rate		= 24000000,
+};
+
+struct clk clk_xxti = {
+	.name		= "xxti",
+	.id		= -1,
 };
 
 struct clk s5p_clk_27m = {
@@ -72,6 +78,7 @@ struct clk clk_fout_mpll = {
 struct clk clk_fout_epll = {
 	.name		= "fout_epll",
 	.id		= -1,
+	.parent		= &clk_ext_xtal_mux,
 	.ctrlbit	= (1 << 31),
 };
 
@@ -87,14 +94,6 @@ struct clk clk_fout_vpll = {
 	.name		= "fout_vpll",
 	.id		= -1,
 	.ctrlbit	= (1 << 31),
-};
-
-/* ARM clock */
-struct clk clk_arm = {
-	.name		= "armclk",
-	.id		= -1,
-	.rate		= 0,
-	.ctrlbit	= 0,
 };
 
 /* Possible clock sources for APLL Mux */
@@ -157,6 +156,59 @@ int s5p_gatectrl(void __iomem *reg, struct clk *clk, int enable)
 	return 0;
 }
 
+int s5p_epll_enable(struct clk *clk, int enable)
+{
+	unsigned int ctrlbit = clk->ctrlbit;
+	unsigned int epll_con = __raw_readl(S5P_EPLL_CON) & ~ctrlbit;
+
+	if (enable)
+		__raw_writel(epll_con | ctrlbit, S5P_EPLL_CON);
+	else
+		__raw_writel(epll_con, S5P_EPLL_CON);
+
+	return 0;
+}
+
+unsigned long s5p_epll_get_rate(struct clk *clk)
+{
+	return clk->rate;
+}
+
+int s5p_spdif_set_rate(struct clk *clk, unsigned long rate)
+{
+	struct clk *pclk;
+	int ret;
+
+	pclk = clk_get_parent(clk);
+	if (IS_ERR(pclk))
+		return -EINVAL;
+
+	ret = pclk->ops->set_rate(pclk, rate);
+	clk_put(pclk);
+
+	return ret;
+}
+
+unsigned long s5p_spdif_get_rate(struct clk *clk)
+{
+	struct clk *pclk;
+	int rate;
+
+	pclk = clk_get_parent(clk);
+	if (IS_ERR(pclk))
+		return -EINVAL;
+
+	rate = pclk->ops->get_rate(pclk);
+	clk_put(pclk);
+
+	return rate;
+}
+
+struct clk_ops s5p_sclk_spdif_ops = {
+	.set_rate	= s5p_spdif_set_rate,
+	.get_rate	= s5p_spdif_get_rate,
+};
+
 static struct clk *s5p_clks[] __initdata = {
 	&clk_ext_xtal_mux,
 	&clk_48m,
@@ -166,9 +218,9 @@ static struct clk *s5p_clks[] __initdata = {
 	&clk_fout_epll,
 	&clk_fout_dpll,
 	&clk_fout_vpll,
-	&clk_arm,
 	&clk_vpll,
 	&clk_xusbxti,
+	&clk_xxti,
 };
 
 void __init s5p_register_clocks(unsigned long xtal_freq)

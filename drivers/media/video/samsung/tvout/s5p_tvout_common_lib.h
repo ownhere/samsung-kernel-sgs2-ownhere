@@ -29,21 +29,31 @@
 		printk(KERN_ERR "[%s] %s(): " fmt,		\
 			DRV_NAME, __func__, ##__VA_ARGS__)
 
+#define CONFIG_TVOUT_DEBUG
+
 #ifndef tvout_dbg
-#ifdef CONFIG_TV_DEBUG
+#ifdef CONFIG_TVOUT_DEBUG
 #define tvout_dbg(fmt, ...)					\
+do {								\
+	if (unlikely(tvout_dbg_flag & (1 << DBG_FLAG_TVOUT))) {	\
 		printk(KERN_INFO "[%s] %s(): " fmt,		\
-			DRV_NAME, __func__, ##__VA_ARGS__)
+			DRV_NAME, __func__, ##__VA_ARGS__);	\
+	}							\
+} while (0)
 #else
 #define tvout_dbg(fmt, ...)
 #endif
 #endif
 
 #define S5PTV_FB_CNT	2
+#define S5PTV_VP_BUFF_CNT	4
+#define S5PTV_VP_BUFF_SIZE	(4*1024*1024)
 
 #define to_tvout_plat(d) (to_platform_device(d)->dev.platform_data)
 
 #define HDMI_START_NUM 0x1000
+
+#define	CONFIG_SAMSUNG_WORKAROUND_HPD_GLANCE
 
 enum s5p_tvout_disp_mode {
 	TVOUT_NTSC_M = 0,
@@ -73,8 +83,24 @@ enum s5p_tvout_disp_mode {
 	TVOUT_1080I_60,
 	TVOUT_1080I_50,
 	TVOUT_1080I_59,
+#ifdef CONFIG_HDMI_14A_3D
+	TVOUT_720P_60_SBS_HALF,
+	TVOUT_720P_59_SBS_HALF,
+	TVOUT_720P_50_TB,
+	TVOUT_1080P_24_TB,
+	TVOUT_1080P_23_TB,
+#endif
 	TVOUT_INIT_DISP_VALUE
 };
+
+#ifdef CONFIG_HDMI_14A_3D
+enum s5p_tvout_3d_type {
+	HDMI_3D_FP_FORMAT,
+	HDMI_3D_SSH_FORMAT,
+	HDMI_3D_TB_FORMAT,
+	HDMI_2D_FORMAT,
+};
+#endif
 
 enum s5p_tvout_o_mode {
 	TVOUT_COMPOSITE,
@@ -87,6 +113,13 @@ enum s5p_tvout_o_mode {
 enum s5p_mixer_burst_mode {
 	MIXER_BURST_8 = 0,
 	MIXER_BURST_16 = 1
+};
+
+enum s5ptv_audio_channel {
+	TVOUT_AUDIO_2CH = 0,
+	TVOUT_AUDIO_5_1CH = 1,
+	TVOUT_AUDIO_2CH_VAL = 2,
+	TVOUT_AUDIO_5_1CH_VAL = 5,
 };
 
 enum s5ptvfb_data_path_t {
@@ -149,6 +182,26 @@ struct s5p_tvout_status {
 	struct clk *sclk_pixel;
 	struct clk *sclk_dac;
 	struct clk *sclk_hdmi;
+	spinlock_t tvout_lock;
+};
+
+struct s5p_tvout_vp_buff {
+	unsigned int        phy_base;
+	unsigned int        vir_base;
+	unsigned int        size;
+};
+
+struct s5p_tvout_vp_bufferinfo {
+	struct s5p_tvout_vp_buff    vp_buffs[S5PTV_VP_BUFF_CNT];
+	unsigned int                copy_buff_idxs[S5PTV_VP_BUFF_CNT - 1];
+	unsigned int                curr_copy_idx;
+	unsigned int                vp_access_buff_idx;
+	unsigned int                size;
+};
+
+struct s5ptv_vp_buf_info {
+	unsigned int                buff_cnt;
+	struct s5p_tvout_vp_buff    *buffs;
 };
 
 struct reg_mem_info {
@@ -167,6 +220,17 @@ struct s5p_tvout_clk_info {
 	char		*name;
 	struct clk	*ptr;
 };
+
+#ifdef CONFIG_TVOUT_DEBUG
+enum tvout_dbg_flag_bit_num {
+	DBG_FLAG_HDCP = 0,
+	DBG_FLAG_TVOUT,
+	DBG_FLAG_HPD,
+	DBG_FLAG_HDMI
+};
+
+extern int tvout_dbg_flag;
+#endif
 
 extern struct s5p_tvout_status s5ptv_status;
 
@@ -192,6 +256,7 @@ extern void s5p_tvout_pm_runtime_put(void);
 extern void s5p_hdmi_ctrl_clock(bool on);
 extern bool on_stop_process;
 extern bool on_start_process;
+extern struct s5p_tvout_vp_bufferinfo s5ptv_vp_buff;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 extern unsigned int suspend_status;
 extern int s5p_hpd_get_status(void);

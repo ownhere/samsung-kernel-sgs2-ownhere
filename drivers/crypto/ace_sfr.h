@@ -1,7 +1,7 @@
 /*
  * Header file for Advanced Crypto Engine - SFR definitions
  *
- * Copyright (c) 2010  Samsung Electronics
+ * Copyright (c) 2011  Samsung Electronics
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ extern "C" {
 *****************************************************************/
 #if defined(CONFIG_ARCH_S5PV210)
 #define ACE_SFR_BASE		(0xEA000000)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_SFR_BASE		(0x10830000)
 #else
 #error No ARCH is defined.
@@ -44,7 +44,7 @@ extern "C" {
 #define ACE_TDES_OFFSET		(0x5000)
 #define ACE_HASH_OFFSET		(0x6000)
 #define ACE_PKA_OFFSET		(0x7000)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_FC_OFFSET		(0x0)
 #define ACE_AES_OFFSET		(0x200)
 #define ACE_TDES_OFFSET		(0x300)
@@ -172,7 +172,7 @@ extern "C" {
 
 #define ACE_HASH_PRELEN_HIGH	(ACE_HASH_OFFSET + 0xC0)
 #define ACE_HASH_PRELEN_LOW	(ACE_HASH_OFFSET + 0xC4)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_HASH_CONTROL	(ACE_HASH_OFFSET + 0x00)
 #define ACE_HASH_CONTROL2	(ACE_HASH_OFFSET + 0x04)
 #define ACE_HASH_FIFO_MODE	(ACE_HASH_OFFSET + 0x08)
@@ -282,12 +282,12 @@ extern "C" {
 
 /* ACE_FC_FIFOCTRL */
 #define ACE_FC_SELHASH_MASK		(3 << 0)
-#define ACE_FC_SELHASH_EXOUT		(0 << 0)	// independent source
-#define ACE_FC_SELHASH_BCIN		(1 << 0)	// block cipher input
-#define ACE_FC_SELHASH_BCOUT		(2 << 0)	// block cipher output
+#define ACE_FC_SELHASH_EXOUT		(0 << 0)	/*independent source*/
+#define ACE_FC_SELHASH_BCIN		(1 << 0)	/*block cipher input*/
+#define ACE_FC_SELHASH_BCOUT		(2 << 0)	/*block cipher output*/
 #define ACE_FC_SELBC_MASK		(1 << 2)
-#define ACE_FC_SELBC_AES		(0 << 2)	// AES
-#define ACE_FC_SELBC_DES		(1 << 2)	// DES
+#define ACE_FC_SELBC_AES		(0 << 2)	/* AES */
+#define ACE_FC_SELBC_DES		(1 << 2)	/* DES */
 
 /* ACE_FC_GLOBAL */
 #define ACE_FC_SSS_RESET		(1 << 0)
@@ -345,8 +345,8 @@ extern "C" {
 #define ACE_AES_OPERMODE_CBC		(1 << 1)
 #define ACE_AES_OPERMODE_CTR		(2 << 1)
 #define ACE_AES_FIFO_MASK		(1 << 3)
-#define ACE_AES_FIFO_OFF		(0 << 3)	// CPU mode
-#define ACE_AES_FIFO_ON			(1 << 3)	// FIFO mode
+#define ACE_AES_FIFO_OFF		(0 << 3)	/* CPU mode */
+#define ACE_AES_FIFO_ON			(1 << 3)	/* FIFO mode */
 #define ACE_AES_KEYSIZE_MASK		(3 << 4)
 #define ACE_AES_KEYSIZE_128		(0 << 4)
 #define ACE_AES_KEYSIZE_192		(1 << 4)
@@ -391,11 +391,11 @@ extern "C" {
 #define ACE_TDES_OPERMODE_CBC		(1 << 1)
 #define ACE_TDES_SEL_MASK		(3 << 3)
 #define ACE_TDES_SEL_DES		(0 << 3)
-#define ACE_TDES_SEL_TDESEDE		(1 << 3)	// TDES EDE mode
-#define ACE_TDES_SEL_TDESEEE		(3 << 3)	// TDES EEE mode
+#define ACE_TDES_SEL_TDESEDE		(1 << 3)	/* TDES EDE mode */
+#define ACE_TDES_SEL_TDESEEE		(3 << 3)	/* TDES EEE mode */
 #define ACE_TDES_FIFO_MASK		(1 << 5)
-#define ACE_TDES_FIFO_OFF		(0 << 5)	// CPU mode
-#define ACE_TDES_FIFO_ON		(1 << 5)	// FIFO mode
+#define ACE_TDES_FIFO_OFF		(0 << 5)	/* CPU mode */
+#define ACE_TDES_FIFO_ON		(1 << 5)	/* FIFO mode */
 #define ACE_TDES_SWAP_MASK		(0xF << 6)
 #define ACE_TDES_SWAPKEY_OFF		(0 << 6)
 #define ACE_TDES_SWAPKEY_ON		(1 << 6)
@@ -431,7 +431,7 @@ extern "C" {
 #define ACE_HASH_ENGSEL_SHA256HMAC	(0x5 << 0)
 #if defined(CONFIG_ARCH_S5PV210)
 #define ACE_HASH_ENGSEL_PRNG		(0x4 << 0)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_HASH_ENGSEL_PRNG		(0x8 << 0)
 #endif
 #define ACE_HASH_STARTBIT_ON		(1 << 4)
@@ -440,7 +440,7 @@ extern "C" {
 /* Hash control 2 */
 #if defined(CONFIG_ARCH_S5PV210)
 #define ACE_HASH_PAUSE_ON		(1 << 3)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_HASH_PAUSE_ON		(1 << 0)
 #endif
 
@@ -452,7 +452,7 @@ extern "C" {
 /* Hash control - byte swap */
 #if defined(CONFIG_ARCH_S5PV210)
 #define ACE_HASH_SWAP_MASK		(0x7 << 1)
-#elif defined(CONFIG_ARCH_S5PV310)
+#elif defined(CONFIG_ARCH_EXYNOS4) || defined(CONFIG_ARCH_EXYNOS5)
 #define ACE_HASH_SWAP_MASK		(0xF << 0)
 #endif
 #define ACE_HASH_SWAPKEY_OFF		(0 << 0)

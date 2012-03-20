@@ -22,11 +22,9 @@
 
 #include <linux/mmc/host.h>
 
-#include <plat/gpio-cfg.h>
 #include <plat/sdhci.h>
 #include <plat/regs-sdhci.h>
-
-#include <linux/regulator/consumer.h>
+#include <plat/gpio-cfg.h>
 
 #include "sdhci.h"
 
@@ -48,14 +46,12 @@ struct sdhci_s3c {
 	struct resource		*ioarea;
 	struct s3c_sdhci_platdata *pdata;
 	unsigned int		cur_clk;
-	int                     ext_cd_irq;
-	int                     ext_cd_gpio;
+	int			ext_cd_irq;
+	int			ext_cd_gpio;
+	int			ext_cd_gpio_invert;
 
 	struct clk		*clk_io;
 	struct clk		*clk_bus[MAX_BUS_CLK];
-	
-	struct workqueue_struct *regulator_workq;
-	struct delayed_work	regul_work;
 };
 
 static inline struct sdhci_s3c *to_s3c(struct sdhci_host *host)
@@ -102,12 +98,6 @@ static unsigned int sdhci_s3c_get_max_clk(struct sdhci_host *host)
 	unsigned int rate, max;
 	int clk;
 
-	if(host->quirks & SDHCI_QUIRK_BROKEN_CLOCK_DIVIDER) {
-		rate = clk_round_rate(ourhost->clk_bus[ourhost->cur_clk],
-			UINT_MAX);
-		return rate;
-	}
-
 	/* note, a reset will reset the clock source */
 
 	sdhci_s3c_check_sclk(host);
@@ -142,9 +132,13 @@ static unsigned int sdhci_s3c_consider_clock(struct sdhci_s3c *ourhost,
 	if (!clksrc)
 		return UINT_MAX;
 
-	if(ourhost->host->quirks & SDHCI_QUIRK_BROKEN_CLOCK_DIVIDER) {
-		rate = clk_round_rate(clksrc,wanted);
-		return (wanted - rate);
+	/*
+	 * Clock divider's step is different as 1 from that of host controller
+	 * when 'clk_type' is S3C_SDHCI_CLK_DIV_EXTERNAL.
+	 */
+	if (ourhost->pdata->clk_type) {
+		rate = clk_round_rate(clksrc, wanted);
+		return wanted - rate;
 	}
 
 	rate = clk_get_rate(clksrc);
@@ -176,14 +170,10 @@ static void sdhci_s3c_set_clock(struct sdhci_host *host, unsigned int clock)
 	int best_src = 0;
 	int src;
 	u32 ctrl;
-	unsigned int timeout;
 
 	/* don't bother if the clock is going off. */
-	if (clock == 0) {
-		writew(0, host->ioaddr + SDHCI_CLOCK_CONTROL);
-		host->clock = clock;
+	if (clock == 0)
 		return;
-	}
 
 	for (src = 0; src < MAX_BUS_CLK; src++) {
 		delta = sdhci_s3c_consider_clock(ourhost, src, clock);
@@ -224,31 +214,12 @@ static void sdhci_s3c_set_clock(struct sdhci_host *host, unsigned int clock)
 		if (ourhost->pdata->cfg_card)
 			(ourhost->pdata->cfg_card)(ourhost->pdev, host->ioaddr,
 						   &ios, NULL);
-	}
+#ifdef CONFIG_MACH_MIDAS
+		/* call cfg_gpio with 4bit data bus */
+		if (ourhost->pdata->cfg_gpio)
+			ourhost->pdata->cfg_gpio(ourhost->pdev, 4);
 
-	if(host->quirks & SDHCI_QUIRK_BROKEN_CLOCK_DIVIDER) {
-		writew(0, host->ioaddr + SDHCI_CLOCK_CONTROL);
-		clk_set_rate(ourhost->clk_bus[ourhost->cur_clk], clock);
-
-		writew(SDHCI_CLOCK_INT_EN, host->ioaddr + SDHCI_CLOCK_CONTROL);
-
-		/* Wait max 20 ms */
-		timeout = 20;
-		while (!((sdhci_readw(host, SDHCI_CLOCK_CONTROL))
-			& SDHCI_CLOCK_INT_STABLE)) {
-			if (timeout == 0) {
-				printk(KERN_ERR "%s: Internal clock never "
-					"stabilised.\n", mmc_hostname(host->mmc));
-				return;
-			}
-			timeout--;
-			mdelay(1);
-		}
-
-		writew(SDHCI_CLOCK_INT_EN | SDHCI_CLOCK_CARD_EN,
-				host->ioaddr + SDHCI_CLOCK_CONTROL);
-
-		host->clock = clock;
+#endif
 	}
 }
 
@@ -267,10 +238,6 @@ static unsigned int sdhci_s3c_get_min_clock(struct sdhci_host *host)
 	unsigned int delta, min = UINT_MAX;
 	int src;
 
-	if(host->quirks & SDHCI_QUIRK_BROKEN_CLOCK_DIVIDER)
-		return clk_round_rate(ourhost->clk_bus[ourhost->cur_clk],
-			400000);
-
 	for (src = 0; src < MAX_BUS_CLK; src++) {
 		delta = sdhci_s3c_consider_clock(ourhost, src, 0);
 		if (delta == UINT_MAX)
@@ -282,184 +249,241 @@ static unsigned int sdhci_s3c_get_min_clock(struct sdhci_host *host)
 	return min;
 }
 
-/**
- * sdhci_s3c_get_ro - callback for get_ro
- * @host: The SDHCI host being changed
- *
- * If the WP pin is connected with GPIO, can get the value which indicates
- * the card is locked or not.
-*/
-static int sdhci_s3c_get_ro(struct mmc_host *mmc)
-{
-	struct sdhci_s3c *ourhost = to_s3c(mmc_priv(mmc));
-
-	return 0;
-
-	return gpio_get_value(ourhost->pdata->wp_gpio);
-}
-
-/**
- * sdhci_s3c_cfg_wp - configure GPIO for WP pin
- * @gpio_num: GPIO number which connected with WP line from SD/MMC slot
- *
- * Configure GPIO for using WP line
-*/
-static void sdhci_s3c_cfg_wp(unsigned int gpio_num)
-{
-	s3c_gpio_cfgpin(gpio_num, S3C_GPIO_INPUT);
-	s3c_gpio_setpull(gpio_num, S3C_GPIO_PULL_UP);
-}
-
-static void sdhci_s3c_set_ios(struct sdhci_host *host,
-			      struct mmc_ios *ios)
+/* sdhci_cmu_get_max_clk - callback to get maximum clock frequency.*/
+static unsigned int sdhci_cmu_get_max_clock(struct sdhci_host *host)
 {
 	struct sdhci_s3c *ourhost = to_s3c(host);
-	struct s3c_sdhci_platdata *pdata = ourhost->pdata;
-	int width;
-	u8 tmp;
 
-	sdhci_s3c_check_sclk(host);
+	return clk_round_rate(ourhost->clk_bus[ourhost->cur_clk], UINT_MAX);
+}
 
-	if (ios->power_mode != MMC_POWER_OFF) {
-		switch (ios->bus_width) {
-		case MMC_BUS_WIDTH_8:
-			width = 8;
-			tmp = readb(host->ioaddr + SDHCI_HOST_CONTROL);
-			writeb(tmp | SDHCI_CTRL_8BITBUS,
-				host->ioaddr + SDHCI_HOST_CONTROL);
-			printk("%s: Enable 8Bit Data bus. ## ", mmc_hostname(host->mmc));
-			break;
-		case MMC_BUS_WIDTH_4:
-			width = 4;
-			break;
-		case MMC_BUS_WIDTH_1:
-			width = 1;
-			break;
-		default:
-			BUG();
-		}
+/* sdhci_cmu_get_min_clock - callback to get minimal supported clock value. */
+static unsigned int sdhci_cmu_get_min_clock(struct sdhci_host *host)
+{
+	struct sdhci_s3c *ourhost = to_s3c(host);
 
-		if (pdata->cfg_gpio)
-			pdata->cfg_gpio(ourhost->pdev, width);
+	/*
+	 * initial clock can be in the frequency range of
+	 * 100KHz-400KHz, so we set it as max value.
+	 */
+	return clk_round_rate(ourhost->clk_bus[ourhost->cur_clk], 400000);
+}
+
+/* sdhci_cmu_set_clock - callback on clock change.*/
+static void sdhci_cmu_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	struct sdhci_s3c *ourhost = to_s3c(host);
+
+	/* don't bother if the clock is going off */
+	if (clock == 0)
+		return;
+
+	sdhci_s3c_set_clock(host, clock);
+
+	clk_set_rate(ourhost->clk_bus[ourhost->cur_clk], clock);
+
+	host->clock = clock;
+}
+
+/**
+ * sdhci_s3c_platform_8bit_width - support 8bit buswidth
+ * @host: The SDHCI host being queried
+ * @width: MMC_BUS_WIDTH_ macro for the bus width being requested
+ *
+ * We have 8-bit width support but is not a v3 controller.
+ * So we add platform_8bit_width() and support 8bit width.
+ */
+static int sdhci_s3c_platform_8bit_width(struct sdhci_host *host, int width)
+{
+	u8 ctrl;
+	struct sdhci_s3c *ourhost = to_s3c(host);
+
+	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+
+	switch (width) {
+	case MMC_BUS_WIDTH_8:
+		ctrl |= SDHCI_CTRL_8BITBUS;
+		ctrl &= ~SDHCI_CTRL_4BITBUS;
+		/* call cfg_gpio with 8bit data bus */
+		if (ourhost->pdata->cfg_gpio)
+			ourhost->pdata->cfg_gpio(ourhost->pdev, 8);
+		break;
+	case MMC_BUS_WIDTH_4:
+		ctrl |= SDHCI_CTRL_4BITBUS;
+		ctrl &= ~SDHCI_CTRL_8BITBUS;
+		/* call cfg_gpio with 4bit data bus */
+		if (ourhost->pdata->cfg_gpio)
+			ourhost->pdata->cfg_gpio(ourhost->pdev, 4);
+		break;
+	default:
+		ctrl &= ~SDHCI_CTRL_8BITBUS;
+		ctrl &= ~SDHCI_CTRL_4BITBUS;
+		/* call cfg_gpio with 1bit data bus */
+		if (ourhost->pdata->cfg_gpio)
+			ourhost->pdata->cfg_gpio(ourhost->pdev, 1);
+		break;
 	}
 
-	if (pdata->cfg_card)
-		pdata->cfg_card(ourhost->pdev, host->ioaddr,
-				ios, host->mmc->card);
+	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
-	mdelay(1);
+	return 0;
 }
+
+#ifdef CONFIG_MACH_MIDAS
+/* midas board control the vdd for tflash by gpio,
+   not regulator directly.
+   so, code related vdd control should be added */
+static void sdhci_s3c_vtf_on_off(int on_off)
+{
+#ifdef CONFIG_MIDAS_COMMON
+	int gpio = GPIO_TF_EN;
+#else
+	int gpio = EXYNOS4212_GPJ0(7);
+#endif
+
+	if (on_off) {
+		gpio_set_value(gpio, 1);
+	} else {
+		gpio_set_value(gpio, 0);
+	}
+}
+
+
+static int sdhci_s3c_get_card_exist(struct sdhci_host *host)
+{
+	struct sdhci_s3c *sc;
+	int status;
+
+	sc = sdhci_priv(host);
+
+	status = gpio_get_value(sc->ext_cd_gpio);
+	if (sc->pdata->ext_cd_gpio_invert)
+		status = !status;
+
+	return status;
+}
+#endif
 
 static struct sdhci_ops sdhci_s3c_ops = {
 	.get_max_clock		= sdhci_s3c_get_max_clk,
 	.set_clock		= sdhci_s3c_set_clock,
-	.get_min_clock          = sdhci_s3c_get_min_clock,
-	.set_ios		= sdhci_s3c_set_ios,
+	.get_min_clock		= sdhci_s3c_get_min_clock,
+	.platform_8bit_width	= sdhci_s3c_platform_8bit_width,
+#ifdef CONFIG_MACH_MIDAS
+	.set_power		= sdhci_s3c_vtf_on_off,
+#endif
 };
-
-void sdhci_s3c_force_presence_change(struct platform_device *pdev)
-{
-        struct sdhci_host *host = platform_get_drvdata(pdev);
-	printk(KERN_DEBUG "%s : Enter",__FUNCTION__);
-	mmc_detect_change(host->mmc, msecs_to_jiffies(0));
-}
-EXPORT_SYMBOL_GPL(sdhci_s3c_force_presence_change);
-
-static void sdhci_s3c_requlator_work(struct work_struct *work)
-{
-	struct sdhci_s3c *sc =
-		container_of(work, struct sdhci_s3c, regul_work.work);
-	struct sdhci_host *host = sc->host;
-
-	if (host->vmmc) {
-		if (!gpio_get_value(sc->ext_cd_gpio)) {
-			regulator_enable(host->vmmc);
-		} else {
-			regulator_disable(host->vmmc);
-		}
-	}
-}
 
 static void sdhci_s3c_notify_change(struct platform_device *dev, int state)
 {
-	struct sdhci_host *host;
-	struct sdhci_s3c *sc;
+	struct sdhci_host *host = platform_get_drvdata(dev);
 	unsigned long flags;
 
-	local_irq_save(flags);
-	
-	host = platform_get_drvdata(dev);
-	
-	sc = sdhci_priv(host);
-	
 	if (host) {
+		spin_lock_irqsave(&host->lock, flags);
 		if (state) {
 			dev_dbg(&dev->dev, "card inserted.\n");
-			pr_info("%s : card inserted\n", __func__);
-			host->flags &= ~SDHCI_DEVICE_DEAD;
 			host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
-			if (sc->regulator_workq)
-				queue_delayed_work(sc->regulator_workq, \
-					&sc->regul_work, 0);			
-			tasklet_schedule(&host->card_tasklet);
+#ifdef CONFIG_MACH_MIDAS_01_BD
+			sdhci_s3c_vtf_on_off(1);
+#endif
 		} else {
 			dev_dbg(&dev->dev, "card removed.\n");
-			pr_info("%s : card removed\n", __func__);
-			host->flags |= SDHCI_DEVICE_DEAD;
 			host->quirks &= ~SDHCI_QUIRK_BROKEN_CARD_DETECTION;
-			if (sc->regulator_workq)
-				queue_delayed_work(sc->regulator_workq, \
-					&sc->regul_work, 0);			
-			tasklet_schedule(&host->card_tasklet);
+#ifdef CONFIG_MACH_MIDAS_01_BD
+			sdhci_s3c_vtf_on_off(0);
+#endif
 		}
+		tasklet_schedule(&host->card_tasklet);
+		spin_unlock_irqrestore(&host->lock, flags);
 	}
-	local_irq_restore(flags);
 }
 
-static irqreturn_t sdhci_s3c_gpio_card_detect_isr(int irq, void *dev_id)
+static irqreturn_t sdhci_s3c_gpio_card_detect_thread(int irq, void *dev_id)
 {
 	struct sdhci_s3c *sc = dev_id;
 	int status = gpio_get_value(sc->ext_cd_gpio);
-
 	if (sc->pdata->ext_cd_gpio_invert)
 		status = !status;
 
-	sdhci_s3c_notify_change(sc->pdev, status);
+	if (sc->host->mmc) {
+		if (status)
+			mmc_host_sd_set_present(sc->host->mmc);
+		else
+			mmc_host_sd_clear_present(sc->host->mmc);
 
+		pr_debug("SDcard present state=%d.\n",
+			 mmc_host_sd_present(sc->host->mmc));
+	}
+
+	sdhci_s3c_notify_change(sc->pdev, status);
 	return IRQ_HANDLED;
 }
 
-extern struct class *sec_class;
-static struct device *tflash_detection_cmd_dev;
+static void sdhci_s3c_setup_card_detect_gpio(struct sdhci_s3c *sc)
+{
+	struct s3c_sdhci_platdata *pdata = sc->pdata;
+	struct device *dev = &sc->pdev->dev;
 
-static ssize_t tflash_detection_cmd_show(struct device *dev, struct device_attribute *attr, char *buf)
+	if (sc->ext_cd_gpio > 0) {
+		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
+		if (sc->ext_cd_irq &&
+		    request_threaded_irq(sc->ext_cd_irq, NULL,
+					 sdhci_s3c_gpio_card_detect_thread,
+					 IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+					 dev_name(dev), sc) == 0) {
+			int status = gpio_get_value(sc->ext_cd_gpio);
+			if (pdata->ext_cd_gpio_invert)
+				status = !status;
+
+			if (status)
+				mmc_host_sd_set_present(sc->host->mmc);
+			else
+				mmc_host_sd_clear_present(sc->host->mmc);
+
+			/* T-Flash EINT for CD SHOULD be wakeup source */
+			irq_set_irq_wake(sc->ext_cd_irq, 1);
+
+			sdhci_s3c_notify_change(sc->pdev, status);
+		} else {
+			dev_warn(dev, "cannot request irq for card detect\n");
+			sc->ext_cd_irq = 0;
+		}
+	}
+}
+
+extern struct class *sec_class;
+static struct device *sd_detection_cmd_dev;
+
+static ssize_t sd_detection_cmd_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
 	struct sdhci_s3c *sc = dev_get_drvdata(dev);
 	unsigned int detect;
+
 	if (sc && sc->ext_cd_gpio)
 		detect = gpio_get_value(sc->ext_cd_gpio);
 	else {
-		pr_info("%s : External  SD detect pin Error\n", __func__);
+		pr_info("%s : External SD detect pin Error\n", __func__);
 		return  sprintf(buf, "Error\n");
 	}
 
 	if (sc->pdata->ext_cd_gpio_invert) {
-		pr_info("%s : Invert External  SD detect pin\n", __func__);
+		pr_info("%s : Invert External SD detect pin\n", __func__);
 		detect = !detect;
 	}
 
 	pr_info("%s : detect = %d.\n", __func__,  detect);
 	if (detect) {
-		printk(KERN_DEBUG "sdhci: card inserted.\n");
+		pr_debug("sdhci: card inserted.\n");
 		return sprintf(buf, "Insert\n");
 	} else {
-		printk(KERN_DEBUG "sdhci: card removed.\n");
+		pr_debug("sdhci: card removed.\n");
 		return sprintf(buf, "Remove\n");
 	}
 }
- 
-static DEVICE_ATTR(tftest, 0444, tflash_detection_cmd_show, NULL);
 
+static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
 
 static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 {
@@ -498,7 +522,7 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	sc->host = host;
 	sc->pdev = pdev;
 	sc->pdata = pdata;
-	sc->ext_cd_gpio = -1;
+	sc->ext_cd_gpio = -1; /* invalid gpio number */
 
 	platform_set_drvdata(pdev, host);
 
@@ -527,8 +551,14 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 
 		clks++;
 		sc->clk_bus[ptr] = clk;
-		clk_enable(clk);
+
+		/*
+		 * save current clock index to know which clock bus
+		 * is used later in overriding functions.
+		 */
 		sc->cur_clk = ptr;
+
+		clk_enable(clk);
 
 		dev_info(dev, "clock source %d: %s (%ld Hz)\n",
 			 ptr, name, clk_get_rate(clk));
@@ -566,6 +596,7 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 
 	/* Setup quirks for the controller */
 	host->quirks |= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC;
+	host->quirks |= SDHCI_QUIRK_NO_HISPD_BIT;
 
 #ifndef CONFIG_MMC_SDHCI_S3C_DMA
 
@@ -580,8 +611,21 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	 * SDHCI block, or a missing configuration that needs to be set. */
 	host->quirks |= SDHCI_QUIRK_NO_BUSY_IRQ;
 
+	/* This host supports the Auto CMD12 */
+	host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
+
 	if (pdata->cd_type == S3C_SDHCI_CD_NONE)
 		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
+
+	if (pdata->cd_type == S3C_SDHCI_CD_PERMANENT)
+		host->mmc->caps = MMC_CAP_NONREMOVABLE;
+
+	if (pdata->host_caps)
+		host->mmc->caps |= pdata->host_caps;
+
+	/* if vmmc_name is in pdata */
+	if (pdata->vmmc_name)
+		host->vmmc_name = pdata->vmmc_name;
 
 	host->quirks |= (SDHCI_QUIRK_32BIT_DMA_ADDR |
 			 SDHCI_QUIRK_32BIT_DMA_SIZE);
@@ -589,99 +633,98 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	/* HSMMC on Samsung SoCs uses SDCLK as timeout clock */
 	host->quirks |= SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK;
 
-	/* IF SD controller's WP pin donsn't connected with SD card and there is an
-	 * allocated GPIO for getting WP data form SD card, use this quirk and send
-	 * the GPIO number in pdata->wp_gpio. */
-	if (pdata->has_wp_gpio && gpio_is_valid(pdata->wp_gpio)) {
-		sdhci_s3c_ops.get_ro = sdhci_s3c_get_ro;
-		host->quirks |= SDHCI_QUIRK_NO_WP_BIT;
-		sdhci_s3c_cfg_wp(pdata->wp_gpio);
+	/*
+	 * If controller does not have internal clock divider,
+	 * we can use overriding functions instead of default.
+	 */
+	if (pdata->clk_type) {
+		sdhci_s3c_ops.set_clock = sdhci_cmu_set_clock;
+		sdhci_s3c_ops.get_min_clock = sdhci_cmu_get_min_clock;
+		sdhci_s3c_ops.get_max_clock = sdhci_cmu_get_max_clock;
 	}
 
-	host->quirks |= SDHCI_QUIRK_NO_HISPD_BIT;
-
-#ifdef CONFIG_ARCH_S5PV310
-	host->quirks |= SDHCI_QUIRK_NONSTANDARD_CLOCK;
-	host->quirks |= SDHCI_QUIRK_BROKEN_CLOCK_DIVIDER;
-#endif
-
-	if(pdata->host_caps)
+	/* It supports additional host capabilities if needed */
+	if (pdata->host_caps)
 		host->mmc->caps |= pdata->host_caps;
 
-/* Fill External GPIO Value */
-	if (pdata->cd_type == S3C_SDHCI_CD_PERMANENT) {
-		pr_info("%s : S3C_SDHCI_CD_PERMANENT\n", __func__);
-		if(gpio_is_valid(pdata->ext_cd_gpio)) {
-			pr_info("%s : MMC GPIO Level is %d\n", __func__
-				, gpio_get_value(pdata->ext_cd_gpio));
-			gpio_request(pdata->ext_cd_gpio, "SDHCI EXT CD");
-			sc->ext_cd_gpio = gpio_get_value(pdata->ext_cd_gpio);
+	/* for BCM WIFI */
+	if (pdata->pm_flags)
+		host->mmc->pm_flags |= pdata->pm_flags;
 
-		}					
-		}					
+#ifdef CONFIG_MACH_MIDAS_01_BD
+	/* before calling shhci_add_host, you should turn vdd_tflash on */
+	sdhci_s3c_vtf_on_off(1);
+#endif
 
 	if (pdata->cd_type == S3C_SDHCI_CD_GPIO &&
-		gpio_is_valid(pdata->ext_cd_gpio)) {
-		pr_info("%s : S3C_SDHCI_CD_GPIO\n", __func__);
-		gpio_request(pdata->ext_cd_gpio, "SDHCI EXT CD");
-		sc->ext_cd_gpio = pdata->ext_cd_gpio;
+	    gpio_is_valid(pdata->ext_cd_gpio)) {
+		if (gpio_request(pdata->ext_cd_gpio, "SDHCI EXT CD") == 0) {
+			sc->ext_cd_gpio = pdata->ext_cd_gpio;
+			sc->ext_cd_gpio_invert = pdata->ext_cd_gpio_invert;
 
-		sc->regulator_workq = create_singlethread_workqueue("ktflash_requlatord");
-		if (!sc->regulator_workq) {
-			pr_info("%s : ERROR: workqueue for Tflash's regulator.\n"
-				"Regulator for Tflash will be always ON\n",
-				__func__);
-		}
-		INIT_DELAYED_WORK(&sc->regul_work, sdhci_s3c_requlator_work);
-		
-		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
-		
-		if (sc->ext_cd_irq &&
-			request_irq(sc->ext_cd_irq, sdhci_s3c_gpio_card_detect_isr,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				dev_name(&pdev->dev), sc)) {
-			dev_err(&pdev->dev, "cannot request irq for card detect\n");
-			sc->ext_cd_irq = 0;
-		}
+			mmc_host_sd_set_present(host->mmc);
+			if (sd_detection_cmd_dev == NULL &&
+					sc->ext_cd_gpio) {
+				sd_detection_cmd_dev =
+					device_create(sec_class, NULL, 0,
+							NULL, "sdcard");
+				if (IS_ERR(sd_detection_cmd_dev))
+					pr_err("Fail to create sysfs dev\n");
 
-		if (tflash_detection_cmd_dev == NULL && sc->ext_cd_gpio) {
-			
-			tflash_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "tctest");
-			if (IS_ERR(tflash_detection_cmd_dev))
-				pr_err("%s : Failed to create device(ts)!\n", __func__);
-	
-			if (device_create_file(tflash_detection_cmd_dev, &dev_attr_tftest) < 0)
-				pr_err("%s : Failed to create device file(%s)!\n", __func__, dev_attr_tftest.attr.name);
-			
-			dev_set_drvdata(tflash_detection_cmd_dev, sc);
-		}
+				if (device_create_file(sd_detection_cmd_dev,
+							&dev_attr_status) < 0)
+					pr_err("Fail to create sysfs file\n");
 
-		/* T-Flash EINT for CD SHOULD be wakeup source */
-		set_irq_wake(sc->ext_cd_irq, 1);
+				dev_set_drvdata(sd_detection_cmd_dev, sc);
+			}
+#ifdef CONFIG_MIDAS_COMMON
+			/* set TF_EN gpio as OUTPUT */
+			gpio_request(GPIO_TF_EN, "TF_EN");
+			gpio_direction_output(GPIO_TF_EN, 1);
+			s3c_gpio_cfgpin(GPIO_TF_EN, S3C_GPIO_SFN(1));
+			s3c_gpio_setpull(GPIO_TF_EN, S3C_GPIO_PULL_NONE);
+#endif
+		} else {
+			dev_err(dev, "cannot request gpio for card detect\n");
+		}
 	}
-	
-	/* Call sdhci_host */
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
 		goto err_add_host;
 	}
-	if (pdata->cd_type == S3C_SDHCI_CD_PERMANENT) {
-		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
-		host->mmc->caps |= MMC_CAP_NONREMOVABLE;
-	}
 
-	/* pdata->ext_cd_init might call sdhci_s3c_notify_change immediately,
-	   so it can be called only after sdhci_add_host() */
+	/* if it is set SDHCI_QUIRK_BROKEN_CARD_DETECTION before calling
+	   sdhci_add_host, in sdhci_add_host, MMC_CAP_NEEDS_POLL flag will
+	   be set. The flag S3C_SDHCI_CD_PERMANENT dose not need to
+	   detect a card by polling. */
+	if (pdata->cd_type == S3C_SDHCI_CD_PERMANENT || \
+		pdata->cd_type == S3C_SDHCI_CD_GPIO)
+		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
+
+	/* The following two methods of card detection might call
+	   sdhci_s3c_notify_change() immediately, so they can be called
+	   only after sdhci_add_host(). Setup errors are ignored. */
 	if (pdata->cd_type == S3C_SDHCI_CD_EXTERNAL && pdata->ext_cd_init) {
-		pr_info("%s : S3C_SDHCI_CD_EXTERNAL and external init\n", __func__);
 		pdata->ext_cd_init(&sdhci_s3c_notify_change);
+#ifdef CONFIG_MACH_PX
+		if (pdata->ext_pdev)
+			pdata->ext_pdev(pdev);
+#endif
 	}
-
 	if (pdata->cd_type == S3C_SDHCI_CD_GPIO &&
-		gpio_is_valid(pdata->ext_cd_gpio)) {
-		host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
-	}
+	    gpio_is_valid(pdata->ext_cd_gpio))
+		sdhci_s3c_setup_card_detect_gpio(sc);
+
+#ifdef CONFIG_MACH_MIDAS_01_BD
+	/* if card dose not exist, it should turn vtf off */
+	if (pdata->cd_type == S3C_SDHCI_CD_GPIO &&
+			sdhci_s3c_get_card_exist(host))
+		sdhci_s3c_vtf_on_off(1);
+	else
+		sdhci_s3c_vtf_on_off(0);
+#endif
 
 	return 0;
 
@@ -707,15 +750,27 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 
 static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
 {
+	struct s3c_sdhci_platdata *pdata = pdev->dev.platform_data;
 	struct sdhci_host *host =  platform_get_drvdata(pdev);
 	struct sdhci_s3c *sc = sdhci_priv(host);
 	int ptr;
 
+	if (pdata->cd_type == S3C_SDHCI_CD_EXTERNAL && pdata->ext_cd_cleanup)
+		pdata->ext_cd_cleanup(&sdhci_s3c_notify_change);
+
+	if (sc->ext_cd_irq)
+		free_irq(sc->ext_cd_irq, sc);
+
+	if (gpio_is_valid(sc->ext_cd_gpio))
+		gpio_free(sc->ext_cd_gpio);
+
 	sdhci_remove_host(host, 1);
 
 	for (ptr = 0; ptr < 3; ptr++) {
-		clk_disable(sc->clk_bus[ptr]);
-		clk_put(sc->clk_bus[ptr]);
+		if (sc->clk_bus[ptr]) {
+			clk_disable(sc->clk_bus[ptr]);
+			clk_put(sc->clk_bus[ptr]);
+		}
 	}
 	clk_disable(sc->clk_io);
 	clk_put(sc->clk_io);
@@ -727,8 +782,6 @@ static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
 	sdhci_free_host(host);
 	platform_set_drvdata(pdev, NULL);
 
-	destroy_workqueue(sc->regulator_workq);
-
 	return 0;
 }
 
@@ -739,39 +792,33 @@ static int sdhci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
 	struct sdhci_host *host = platform_get_drvdata(dev);
 
 	sdhci_suspend_host(host, pm);
-	
+
+#ifdef CONFIG_MACH_MIDAS_01_BD
+	/* turn vdd_tflash off */
+	sdhci_s3c_vtf_on_off(0);
+#endif
 	return 0;
 }
 
 static int sdhci_s3c_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
-	sdhci_resume_host(host);
-	
-#if defined(CONFIG_WIMAX_CMC) && defined(CONFIG_TARGET_LOCALE_NA)
-      	struct s3c_sdhci_platdata *pdata = dev->dev.platform_data;
-	u32 ier;
-	if (pdata->enable_intr_on_resume) {
-                ier = sdhci_readl(host, SDHCI_INT_ENABLE);
-                ier |= SDHCI_INT_CARD_INT;
-                sdhci_writel(host, ier, SDHCI_INT_ENABLE);
-                sdhci_writel(host, ier, SDHCI_SIGNAL_ENABLE);
-        } 
-#endif
 
+#ifdef CONFIG_MACH_MIDAS_01_BD
+	/* turn vdd_tflash off if a card exists*/
+	if (sdhci_s3c_get_card_exist(host))
+		sdhci_s3c_vtf_on_off(1);
+	else
+		sdhci_s3c_vtf_on_off(0);
+
+#endif
+	sdhci_resume_host(host);
 	return 0;
 }
 
 #else
-static int sdhci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
-{
-	return 0;
-}
-
-static int sdhci_s3c_resume(struct platform_device *dev)
-{
-	return 0;
-}
+#define sdhci_s3c_suspend NULL
+#define sdhci_s3c_resume NULL
 #endif
 
 static struct platform_driver sdhci_s3c_driver = {

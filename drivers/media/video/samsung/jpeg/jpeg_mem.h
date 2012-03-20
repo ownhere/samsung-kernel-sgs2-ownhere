@@ -13,9 +13,12 @@
 #ifndef __JPEG_MEM_H__
 #define __JPEG_MEM_H__
 
+// JYSHIN for google demo 20101014
 #define MAX_JPEG_WIDTH		3264
 #define MAX_JPEG_HEIGHT		2448
 
+//#define MAX_JPEG_WIDTH	3072
+//#define MAX_JPEG_HEIGHT	2048
 #ifdef CONFIG_UMP_VCM_ALLOC
 #include <plat/s5p-vcm.h>
 #include "ump_kernel_interface.h"

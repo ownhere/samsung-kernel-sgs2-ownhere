@@ -11,10 +11,12 @@
  */
 
 #include <linux/io.h>
+#include <linux/sched.h>
 
 #include <mach/regs-mixer.h>
 
 #include "../s5p_tvout_common_lib.h"
+#include "../s5p_tvout_ctrl.h"
 #include "hw_if.h"
 
 #undef tvout_dbg
@@ -30,6 +32,8 @@
 void __iomem	*mixer_base;
 spinlock_t	lock_mixer;
 
+
+extern int s5p_vp_ctrl_get_src_addr(u32* top_y_addr, u32* top_c_addr);
 int s5p_mixer_set_show(enum s5p_mixer_layer layer, bool show)
 {
 	u32 mxr_config;
@@ -456,6 +460,17 @@ int s5p_mixer_init_display_mode(enum s5p_tvout_disp_mode mode,
 		temp_reg |= MIXER_RGB709_16_235<<9;
 		break;
 
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_720P_60_SBS_HALF:
+	case TVOUT_720P_59_SBS_HALF:
+	case TVOUT_720P_50_TB:
+		temp_reg |= S5P_MXR_CFG_HD;
+		temp_reg &= ~S5P_MXR_CFG_HD_1080I;
+		temp_reg |= S5P_MXR_CFG_PROGRASSIVE;
+		temp_reg |= MIXER_RGB709_16_235<<9;
+		break;
+#endif
+
 	case TVOUT_1080I_50:
 	case TVOUT_1080I_59:
 	case TVOUT_1080I_60:
@@ -475,6 +490,15 @@ int s5p_mixer_init_display_mode(enum s5p_tvout_disp_mode mode,
 		temp_reg |= MIXER_RGB709_16_235<<9;
 		break;
 
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_1080P_24_TB:
+	case TVOUT_1080P_23_TB:
+		temp_reg |= S5P_MXR_CFG_HD;
+		temp_reg |= S5P_MXR_CFG_HD_1080P;
+		temp_reg |= S5P_MXR_CFG_PROGRASSIVE;
+		temp_reg |= MIXER_RGB709_16_235<<9;
+		break;
+#endif
 	default:
 		tvout_err("invalid mode parameter = %d\n", mode);
 		return -1;
@@ -724,6 +748,23 @@ void s5p_mixer_set_underflow_int_enable(enum s5p_mixer_layer layer, bool en)
 	}
 }
 
+void s5p_mixer_set_vsync_interrupt(bool en)
+{
+	if (en) {
+		writel(S5P_MXR_INT_STATUS_VSYNC_CLEARED, mixer_base +
+			S5P_MXR_INT_STATUS);
+		writel((readl(mixer_base + S5P_MXR_INT_EN) |
+			S5P_MXR_INT_EN_VSYNC_ENABLE),
+			mixer_base + S5P_MXR_INT_EN);
+	} else {
+		writel((readl(mixer_base + S5P_MXR_INT_EN) &
+			~S5P_MXR_INT_EN_VSYNC_ENABLE),
+			mixer_base + S5P_MXR_INT_EN);
+	}
+
+	tvout_dbg("%s mixer VSYNC interrupt.\n", en? "Enable": "Disable");
+}
+
 void s5p_mixer_clear_pend_all(void)
 {
 	writel(S5P_MXR_INT_STATUS_INT_FIRED | S5P_MXR_INT_STATUS_VP_FIRED |
@@ -738,8 +779,12 @@ irqreturn_t s5p_mixer_irq(int irq, void *dev_id)
 	bool g1_i_f;
 	bool mxr_i_f;
 	u32 temp_reg = 0;
+	unsigned long spin_flags;
+	u32 top_y_addr, top_c_addr;
+	int i = 0;
+	unsigned int pre_vp_buff_idx;
 
-	spin_lock_irq(&lock_mixer);
+	spin_lock_irqsave(&lock_mixer, spin_flags);
 
 	v_i_f = (readl(mixer_base + S5P_MXR_INT_STATUS)
 			& S5P_MXR_INT_STATUS_VP_FIRED) ? true : false;
@@ -768,10 +813,32 @@ irqreturn_t s5p_mixer_irq(int irq, void *dev_id)
 			tvout_dbg("GRP1 fifo under run!!\n");
 		}
 
-		writel(temp_reg, mixer_base + S5P_MXR_INT_STATUS);
-	}
+		if (!v_i_f && !g0_i_f && !g1_i_f) {
+			writel(S5P_MXR_INT_STATUS_VSYNC_CLEARED,
+				mixer_base + S5P_MXR_INT_STATUS);
+			s5p_vp_ctrl_get_src_addr(&top_y_addr, &top_c_addr);
 
-	spin_unlock_irq(&lock_mixer);
+			pre_vp_buff_idx = s5ptv_vp_buff.vp_access_buff_idx;
+			for (i = 0; i < S5PTV_VP_BUFF_CNT; i++) {
+				if (top_y_addr == s5ptv_vp_buff.vp_buffs[i].phy_base) {
+					s5ptv_vp_buff.vp_access_buff_idx = i;
+					break;
+				}
+			}
+
+			for (i = 0; i < S5PTV_VP_BUFF_CNT - 1; i++) {
+				if (s5ptv_vp_buff.copy_buff_idxs[i]
+					== s5ptv_vp_buff.vp_access_buff_idx) {
+					s5ptv_vp_buff.copy_buff_idxs[i] = pre_vp_buff_idx;
+					break;
+				}
+			}
+			wake_up(&s5ptv_wq);
+		} else {
+			writel(temp_reg, mixer_base + S5P_MXR_INT_STATUS);
+		}
+	}
+	spin_unlock_irqrestore(&lock_mixer, spin_flags);
 
 	return IRQ_HANDLED;
 }

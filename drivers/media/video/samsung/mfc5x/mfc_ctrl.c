@@ -15,13 +15,9 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 
-#if defined(CONFIG_ARCH_S5PV310)
 #include <mach/regs-mfc.h>
-#elif defined(CONFIG_ARCH_S5PV210)
-#include <plat/regs-mfc.h>
-#endif
-
 
 #include "mfc.h"
 #include "mfc_mem.h"
@@ -75,7 +71,7 @@ static void mfc_init_memctrl(void)
 {
 	/* Channel A, Port 0 */
 	write_reg(mfc_mem_base(0), MFC_MC_DRAMBASE_ADR_A);
-#if CONFIG_VIDEO_MFC_MEM_PORT_COUNT == 1
+#if MFC_MAX_MEM_PORT_NUM == 1
 	/* Channel B, Port 0 */
 	write_reg(mfc_mem_base(0), MFC_MC_DRAMBASE_ADR_B);
 #else
@@ -100,6 +96,9 @@ static void mfc_clear_cmds(void)
 int mfc_load_firmware(const unsigned char *data, size_t size)
 {
 	volatile unsigned char *fw;
+
+	if (!data || size == 0)
+		return 0;
 
 	/* MFC F/W area already 128KB aligned */
 	fw = mfc_mem_addr(0);

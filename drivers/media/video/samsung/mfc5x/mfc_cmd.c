@@ -12,12 +12,9 @@
  */
 
 #include <linux/jiffies.h>
+#include <linux/sched.h>
 
-#if defined(CONFIG_ARCH_S5PV310)
 #include <mach/regs-mfc.h>
-#elif defined(CONFIG_ARCH_S5PV210)
-#include <plat/regs-mfc.h>
-#endif
 
 #include "mfc_cmd.h"
 #include "mfc_reg.h"
@@ -42,7 +39,7 @@ irqreturn_t mfc_irq(int irq, void *dev_id)
 	struct mfc_dev *dev = (struct mfc_dev *)dev_id;
 
 	r2h_cmd = read_reg(MFC_RISC2HOST_CMD);
-	mfc_dbg("MFC IRQ: 0x%02x\n", r2h_cmd);
+	mfc_dbg("MFC IRQ: %d\n", r2h_cmd);
 
 	if (((r2h_cmd >= OPEN_CH_RET) && (r2h_cmd <= CLOSE_CH_RET)) ||
 	    ((r2h_cmd >= SEQ_DONE_RET) && (r2h_cmd <= EDFU_INIT_RET)) ||
@@ -55,10 +52,11 @@ irqreturn_t mfc_irq(int irq, void *dev_id)
 		r2h_args.arg[3] = read_reg(MFC_RISC2HOST_ARG4);
 
 		if (r2h_cmd == ERR_RET)
-			//mfc_dbg("F/W error code: %d", r2h_args.arg[1] & 0xFFFF);
-			mfc_dbg("F/W error code: 0x%08x", r2h_args.arg[1]);
+			mfc_dbg("F/W error code: disp: %d, dec: %d",
+				(r2h_args.arg[1] >> 16) & 0xFFFF,
+				(r2h_args.arg[1]        & 0xFFFF));
 	} else {
-		mfc_err("Unknown R2H return value: 0x%02x\n", r2h_cmd);
+		mfc_err("Unknown R2H return value: %d\n", r2h_cmd);
 	}
 
 #ifdef MFC_PERF
@@ -120,20 +118,24 @@ mfc_wait_sys(struct mfc_dev *dev, enum mfc_r2h_ret ret, long timeout)
 {
 
 	if (wait_event_timeout(dev->wait_sys, dev->irq_sys, timeout) == 0) {
-		mfc_err("F/W timeout: 0x%02x\n", ret);
+		mfc_err("F/W timeout waiting for: %d\n", ret);
 		dev->irq_sys = 0;
+
 		return false;
 	}
 
 	dev->irq_sys = 0;
+
 	if (r2h_cmd == ERR_RET) {
-		mfc_err("F/W error code: 0x%02x", r2h_args.arg[1] & 0xFFFF);
+		mfc_err("F/W error code: disp: %d, dec: %d",
+			(r2h_args.arg[1] >> 16) & 0xFFFF,
+			(r2h_args.arg[1]        & 0xFFFF));
 
 		return false;
 	}
 
 	if (r2h_cmd != ret) {
-		mfc_err("F/W return (0x%02x) waiting for (0x%02x)\n",
+		mfc_err("F/W return (%d) waiting for (%d)\n",
 			r2h_cmd, ret);
 
 		return false;
@@ -334,6 +336,11 @@ int mfc_cmd_seq_start(struct mfc_inst_ctx *ctx)
 	if (mfc_wait_sys(ctx->dev, SEQ_DONE_RET,
 		msecs_to_jiffies(CODEC_INT_TIMEOUT)) == false) {
 		mfc_err("failed to init seq start\n");
+		return MFC_DEC_INIT_FAIL;
+	}
+
+	if ((r2h_args.arg[1] & 0xFFFF) == 175) {
+		mfc_err("Non compliant feature detected\n");
 		return MFC_DEC_INIT_FAIL;
 	}
 

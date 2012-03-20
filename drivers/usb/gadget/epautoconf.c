@@ -128,6 +128,13 @@ ep_matches (
 		}
 	}
 
+	/*
+	 * If the protocol driver hasn't yet decided on wMaxPacketSize
+	 * and wants to know the maximum possible, provide the info.
+	 */
+	if (desc->wMaxPacketSize == 0)
+		desc->wMaxPacketSize = cpu_to_le16(ep->maxpacket);
+
 	/* endpoint maxpacket size is an input parameter, except for bulk
 	 * where it's an output parameter representing the full speed limit.
 	 * the usb spec fixes high speed bulk maxpacket at 512 bytes.
@@ -135,13 +142,13 @@ ep_matches (
 	max = 0x7ff & le16_to_cpu(desc->wMaxPacketSize);
 	switch (type) {
 	case USB_ENDPOINT_XFER_INT:
-		/* INT:  limit 64 bytes full speed, 1024 high speed */
+		/* INT:  limit 64 bytes full speed, 1024 high/super speed */
 		if (!gadget->is_dualspeed && max > 64)
 			return 0;
 		/* FALLTHROUGH */
 
 	case USB_ENDPOINT_XFER_ISOC:
-		/* ISO:  limit 1023 bytes full speed, 1024 high speed */
+		/* ISO:  limit 1023 bytes full speed, 1024 high/super speed */
 		if (ep->maxpacket < max)
 			return 0;
 		if (!gadget->is_dualspeed && max > 1023)
@@ -283,7 +290,6 @@ struct usb_ep *usb_ep_autoconfig (
 		if (ep && ep_matches (gadget, ep, desc))
 			return ep;
 #endif
-
 	} else if (gadget_is_s3c(gadget)) {
 		if (USB_ENDPOINT_XFER_INT == type) {
 			/* single buffering is enough */
@@ -297,9 +303,8 @@ struct usb_ep *usb_ep_autoconfig (
 			if (ep && ep_matches (gadget, ep, desc))
 				return ep;
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-/* soonyong.cho : It is refered from S1. samsung composite used many ep */
-			ep = find_ep (gadget, "ep12-int");
-			if (ep && ep_matches (gadget, ep, desc))
+			ep = find_ep(gadget, "ep12-int");
+			if (ep && ep_matches(gadget, ep, desc))
 				return ep;
 #endif
 		} else if (USB_ENDPOINT_XFER_BULK == type
@@ -314,12 +319,11 @@ struct usb_ep *usb_ep_autoconfig (
 			if (ep && ep_matches (gadget, ep, desc))
 				return ep;
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-/* soonyong.cho : It is refered from S1. samsung composite used many ep */
-			ep = find_ep (gadget, "ep11-bulk");
-			if (ep && ep_matches (gadget, ep, desc))
+			ep = find_ep(gadget, "ep11-bulk");
+			if (ep && ep_matches(gadget, ep, desc))
 				return ep;
-			ep = find_ep (gadget, "ep14-bulk");
-			if (ep && ep_matches (gadget, ep, desc))
+			ep = find_ep(gadget, "ep14-bulk");
+			if (ep && ep_matches(gadget, ep, desc))
 				return ep;
 #endif
 		} else if (USB_ENDPOINT_XFER_BULK == type
@@ -332,13 +336,12 @@ struct usb_ep *usb_ep_autoconfig (
 				return ep;
 			ep = find_ep (gadget, "ep7-bulk");
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-/* soonyong.cho : It is refered from S1. samsung composite used many ep */
-			if (ep && ep_matches (gadget, ep, desc))
+			if (ep && ep_matches(gadget, ep, desc))
 				return ep;
-			ep = find_ep (gadget, "ep10-bulk");
-			if (ep && ep_matches (gadget, ep, desc))
+			ep = find_ep(gadget, "ep10-bulk");
+			if (ep && ep_matches(gadget, ep, desc))
 				return ep;
-			ep = find_ep (gadget, "ep13-bulk");
+			ep = find_ep(gadget, "ep13-bulk");
 #endif
 			if (ep && ep_matches (gadget, ep, desc))
 				return ep;
@@ -376,4 +379,3 @@ void usb_ep_autoconfig_reset (struct usb_gadget *gadget)
 #endif
 	epnum = 0;
 }
-

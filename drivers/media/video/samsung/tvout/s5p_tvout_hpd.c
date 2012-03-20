@@ -14,24 +14,34 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/poll.h>
-#include <linux/gpio.h>
 
 #include <plat/tvout.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#ifdef CONFIG_HDMI_SWITCH_HPD
+#include <linux/switch.h>
+#endif
 
 #include "s5p_tvout_common_lib.h"
 #include "hw_if/hw_if.h"
 
-#ifdef CONFIG_HPD_DEBUG
-#define HPDIFPRINTK(fmt, args...) \
-	printk(KERN_INFO "[HPD_IF] %s: " fmt, __func__ , ## args)
+#ifdef CONFIG_TVOUT_DEBUG
+#define HPDIFPRINTK(fmt, args...)					\
+do {									\
+	if (unlikely(tvout_dbg_flag & (1 << DBG_FLAG_HPD))) {		\
+		printk(KERN_INFO "[HPD_IF] %s: " fmt,			\
+			__func__ , ## args);				\
+	}								\
+} while (0)
 #else
 #define HPDIFPRINTK(fmt, args...)
 #endif
 
-#define VERSION         "1.2" /* Driver version number */
-#define HPD_MINOR       243 /* Major 10, Minor 243, /dev/hpd */
+#define HPDPRINTK(fmt, args...) \
+	printk(KERN_INFO "[HPD_IF] %s: " fmt, __func__ , ## args)
+
+#define VERSION         "1.2"	/* Driver version number */
+#define HPD_MINOR       243	/* Major 10, Minor 243, /dev/hpd */
 
 #define HPD_LO          0
 #define HPD_HI          1
@@ -45,12 +55,14 @@ struct hpd_struct {
 	spinlock_t lock;
 	wait_queue_head_t waitq;
 	atomic_t state;
-	void (*int_src_hdmi_hpd)(void);
-	void (*int_src_ext_hpd)(void);
-	int (*read_gpio)(void);
+	void (*int_src_hdmi_hpd) (void);
+	void (*int_src_ext_hpd) (void);
+	int (*read_gpio) (void);
 	int irq_n;
+#ifdef CONFIG_HDMI_SWITCH_HPD
+	struct switch_dev hpd_switch;
+#endif
 };
-
 
 static struct hpd_struct hpd_struct;
 
@@ -59,37 +71,52 @@ static int last_uevent_state;
 atomic_t hdmi_status;
 atomic_t poll_state;
 
-static struct kobject *hpd_tvout_kobj, *hpd_video_kobj = NULL;
+static int s5p_hpd_open(struct inode *inode, struct file *file);
+static int s5p_hpd_release(struct inode *inode, struct file *file);
+static ssize_t s5p_hpd_read(struct file *file, char __user *buffer,
+			    size_t count, loff_t *ppos);
+static unsigned int s5p_hpd_poll(struct file *file, poll_table *wait);
+static long s5p_hpd_ioctl(struct file *file,
+			  unsigned int cmd, unsigned long arg);
 
+static const struct file_operations hpd_fops = {
+	.owner = THIS_MODULE,
+	.open = s5p_hpd_open,
+	.release = s5p_hpd_release,
+	.read = s5p_hpd_read,
+	.poll = s5p_hpd_poll,
+	.unlocked_ioctl = s5p_hpd_ioctl,
+};
+
+static struct miscdevice hpd_misc_device = {
+	HPD_MINOR,
+	"HPD",
+	&hpd_fops,
+};
 
 static void s5p_hpd_kobject_uevent(void)
 {
 	char env_buf[120];
+#ifndef CONFIG_HDMI_SWITCH_HPD
 	char *envp[2];
 	int env_offset = 0;
+#endif
 	int i = 0;
 	int hpd_state = atomic_read(&hpd_struct.state);
 
 	HPDIFPRINTK("++\n");
-
-	if (hpd_tvout_kobj == NULL || hpd_video_kobj == NULL)
-		return;
-
 	memset(env_buf, 0, sizeof(env_buf));
 
-	if (hpd_state)
-	{
-		while(on_stop_process && (i < RETRY_COUNT))
-		{
-			HPDIFPRINTK("on_stop_process\n");
-			msleep(5);
+	if (hpd_state) {
+		while (on_stop_process && (i < RETRY_COUNT)) {
+			HPDIFPRINTK("waiting on_stop_process\n");
+			usleep_range(5000, 5000);
 			i++;
 		};
 	} else {
-		while(on_start_process && (i < RETRY_COUNT))
-		{
-			HPDIFPRINTK("on_start_process\n");
-			msleep(5);
+		while (on_start_process && (i < RETRY_COUNT)) {
+			HPDIFPRINTK("waiting on_start_process\n");
+			usleep_range(5000, 5000);
 			i++;
 		};
 	}
@@ -97,67 +124,51 @@ static void s5p_hpd_kobject_uevent(void)
 	if (i == RETRY_COUNT) {
 		on_stop_process = false;
 		on_start_process = false;
+		printk(KERN_ERR	"[ERROR] %s() %s fail !!\n", __func__,
+			hpd_state ? "on_stop_process" : "on_start_process");
 	}
 
 	hpd_state = atomic_read(&hpd_struct.state);
 	if (hpd_state) {
 		if (last_uevent_state == -1 || last_uevent_state == HPD_LO) {
+#ifdef CONFIG_HDMI_SWITCH_HPD
+			hpd_struct.hpd_switch.state = 0;
+			switch_set_state(&hpd_struct.hpd_switch, 1);
+#else
 			sprintf(env_buf, "HDMI_STATE=online");
 			envp[env_offset++] = env_buf;
 			envp[env_offset] = NULL;
 			HPDIFPRINTK("online event\n");
-			kobject_uevent_env(hpd_tvout_kobj, KOBJ_CHANGE, envp);
+			kobject_uevent_env(&(hpd_misc_device.this_device->kobj),
+					   KOBJ_CHANGE, envp);
+#endif
+			HPDPRINTK("[HDMI] HPD event -connect!!!\n");
 			on_start_process = true;
+			HPDIFPRINTK("%s() on_start_process(%d)\n",
+				__func__, on_start_process);
 		}
 		last_uevent_state = HPD_HI;
 	} else {
 		if (last_uevent_state == -1 || last_uevent_state == HPD_HI) {
+#ifdef CONFIG_HDMI_SWITCH_HPD
+			hpd_struct.hpd_switch.state = 1;
+			switch_set_state(&hpd_struct.hpd_switch, 0);
+#else
 			sprintf(env_buf, "HDMI_STATE=offline");
 			envp[env_offset++] = env_buf;
 			envp[env_offset] = NULL;
 			HPDIFPRINTK("offline event\n");
-			kobject_uevent_env(hpd_tvout_kobj, KOBJ_CHANGE, envp);
+			kobject_uevent_env(&(hpd_misc_device.this_device->kobj),
+					   KOBJ_CHANGE, envp);
+#endif
+			HPDPRINTK("[HDMI] HPD event -disconnet!!!\n");
 			on_stop_process = true;
 		}
 		last_uevent_state = HPD_LO;
 	}
-	printk("[HDMI] s5p_hpd_kobject_uevent : hpd_state= %d\n",hpd_state);
 }
 
 static DECLARE_WORK(hpd_work, (void *)s5p_hpd_kobject_uevent);
-
-
-//MHL v1 //NAGSM_Android_SEL_Kernel_Aakash_20101126
-/* jinho96.kim 2011.01.06 */
-void rcp_cbus_uevent(u8 rcpCode)	//NAGSM_Android_SEL_Kernel_Aakash_20101206
-{
-	char env_buf[120];
-	char *envp[2];
-	int env_offset = 0;
-
-	if (hpd_tvout_kobj == NULL || hpd_video_kobj == NULL)
-		return;
-
-	memset(env_buf, 0, sizeof(env_buf));
-	printk("%s : RCP Message Recvd , rcpCode = 0x%x\n",__func__,rcpCode);
-	sprintf(env_buf, "MHL_RCP=%x", rcpCode);	//NAGSM_Android_SEL_Kernel_Aakash_20101206
-	envp[env_offset++] = env_buf;
-	envp[env_offset] = NULL;
-	kobject_uevent_env(hpd_tvout_kobj, KOBJ_CHANGE, envp);
-	return;
-
-
-}
-EXPORT_SYMBOL(rcp_cbus_uevent);
-
-
-
-void s5p_hpd_set_kobj(
-		struct kobject *tvout_kobj, struct kobject *video_kobj)
-{
-	hpd_tvout_kobj = tvout_kobj;
-	hpd_video_kobj = video_kobj;
-}
 
 static int s5p_hpd_open(struct inode *inode, struct file *file)
 {
@@ -172,23 +183,23 @@ static int s5p_hpd_release(struct inode *inode, struct file *file)
 }
 
 static ssize_t s5p_hpd_read(struct file *file, char __user *buffer,
-			size_t count, loff_t *ppos)
+			    size_t count, loff_t *ppos)
 {
 	ssize_t retval;
+	unsigned long spin_flags;
 
-	spin_lock_irq(&hpd_struct.lock);
+	spin_lock_irqsave(&hpd_struct.lock, spin_flags);
 
 	retval = put_user(atomic_read(&hpd_struct.state),
-		(unsigned int __user *) buffer);
+			  (unsigned int __user *)buffer);
 
 	atomic_set(&poll_state, -1);
-
-	spin_unlock_irq(&hpd_struct.lock);
+	spin_unlock_irqrestore(&hpd_struct.lock, spin_flags);
 
 	return retval;
 }
 
-static unsigned int s5p_hpd_poll(struct file *file, poll_table *wait)
+static unsigned int s5p_hpd_poll(struct file *file, poll_table * wait)
 {
 	poll_wait(file, &hpd_struct.waitq, wait);
 
@@ -200,60 +211,43 @@ static unsigned int s5p_hpd_poll(struct file *file, poll_table *wait)
 
 #define HPD_GET_STATE _IOR('H', 100, unsigned int)
 
-static int s5p_hpd_ioctl(struct inode *inode, struct file *file,
-		         unsigned int cmd, unsigned long arg)
+static long s5p_hpd_ioctl(struct file *file,
+			  unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
 	case HPD_GET_STATE:
 		{
-		unsigned int *status = (unsigned int *)arg;
-#ifdef CONFIG_VIDEO_MHL_V1
-		if (!gpio_get_value(GPIO_MHL_SEL))
-			*status = HPD_LO;
-		else
-#endif
+			unsigned int *status = (unsigned int *)arg;
 			*status = atomic_read(&hpd_struct.state);
 
-		if (last_uevent_state == -1)
-			last_uevent_state = *status;
+			if (last_uevent_state == -1)
+				last_uevent_state = *status;
 
-		if (last_uevent_state != *status) {
-			on_start_process = false;
-			on_stop_process = false;
-		}
+			if (last_uevent_state != *status) {
+				on_start_process = false;
+				on_stop_process = false;
+				HPDIFPRINTK("%s() on_start_process, "
+					"on_stop_process = false" , __func__);
+			}
 
-		HPDIFPRINTK("HPD status is %s\n",
-				(*status) ? "plugged" : "unplugged");
-		return 0;
+			HPDIFPRINTK("HPD status is %s\n",
+				    (*status) ? "plugged" : "unplugged");
+			return 0;
 		}
 	default:
-		printk(KERN_ERR "(%d) unknown ioctl, HPD_GET_STATE(%d)\n", (unsigned int)cmd, (unsigned int)HPD_GET_STATE);
-		return  -EFAULT;
+		printk(KERN_ERR "(%d) unknown ioctl, HPD_GET_STATE(%d)\n",
+		       (unsigned int)cmd, (unsigned int)HPD_GET_STATE);
+		return -EFAULT;
 	}
 
 }
-
-static const struct file_operations hpd_fops = {
-	.owner   = THIS_MODULE,
-	.open    = s5p_hpd_open,
-	.release = s5p_hpd_release,
-	.read    = s5p_hpd_read,
-	.poll    = s5p_hpd_poll,
-	.ioctl   = s5p_hpd_ioctl,
-};
-
-static struct miscdevice hpd_misc_device = {
-	HPD_MINOR,
-	"HPD",
-	&hpd_fops,
-};
 
 int s5p_hpd_set_hdmiint(void)
 {
 	/* EINT -> HDMI */
 
 	HPDIFPRINTK("\n");
-	set_irq_type(hpd_struct.irq_n, IRQ_TYPE_NONE);
+	irq_set_irq_type(hpd_struct.irq_n, IRQ_TYPE_NONE);
 
 	if (last_hpd_state)
 		s5p_hdmi_reg_intc_enable(HDMI_IRQ_HPD_UNPLUG, 0);
@@ -298,14 +292,14 @@ int s5p_hpd_get_status(void)
 
 }
 
-static int s5p_hdp_irq_eint(int irq)
+static int s5p_hpd_irq_eint(int irq)
 {
 
 	HPDIFPRINTK("\n");
 
 	if (hpd_struct.read_gpio()) {
 		HPDIFPRINTK("gpio is high\n");
-		set_irq_type(hpd_struct.irq_n, IRQ_TYPE_LEVEL_LOW);
+		irq_set_irq_type(hpd_struct.irq_n, IRQ_TYPE_LEVEL_LOW);
 		if (atomic_read(&hpd_struct.state) == HPD_HI)
 			return IRQ_HANDLED;
 
@@ -316,7 +310,7 @@ static int s5p_hdp_irq_eint(int irq)
 		wake_up_interruptible(&hpd_struct.waitq);
 	} else {
 		HPDIFPRINTK("gpio is low\n");
-		set_irq_type(hpd_struct.irq_n, IRQ_TYPE_LEVEL_HIGH);
+		irq_set_irq_type(hpd_struct.irq_n, IRQ_TYPE_LEVEL_HIGH);
 		if (atomic_read(&hpd_struct.state) == HPD_LO)
 			return IRQ_HANDLED;
 
@@ -324,12 +318,13 @@ static int s5p_hdp_irq_eint(int irq)
 		atomic_set(&poll_state, 1);
 
 		last_hpd_state = HPD_LO;
+
 		wake_up_interruptible(&hpd_struct.waitq);
 	}
 	schedule_work(&hpd_work);
 
 	HPDIFPRINTK("%s\n", atomic_read(&hpd_struct.state) == HPD_HI ?
-		"HPD HI" : "HPD LO");
+		    "HPD HI" : "HPD LO");
 
 	return IRQ_HANDLED;
 }
@@ -353,6 +348,8 @@ static int s5p_hpd_irq_hdmi(int irq)
 
 	/* is this our interrupt? */
 	if (!(flag & (1 << HDMI_IRQ_HPD_PLUG | 1 << HDMI_IRQ_HPD_UNPLUG))) {
+		printk(KERN_WARNING "%s() flag is wrong : 0x%x\n",
+		       __func__, flag);
 		ret = IRQ_NONE;
 
 		goto out;
@@ -368,6 +365,8 @@ static int s5p_hpd_irq_hdmi(int irq)
 	}
 
 	if (flag & (1 << HDMI_IRQ_HPD_PLUG)) {
+		HPDIFPRINTK("HPD_HI\n");
+
 		s5p_hdmi_reg_intc_enable(HDMI_IRQ_HPD_UNPLUG, 1);
 		if (atomic_read(&hpd_struct.state) == HPD_HI)
 			return IRQ_HANDLED;
@@ -378,12 +377,9 @@ static int s5p_hpd_irq_hdmi(int irq)
 		last_hpd_state = HPD_HI;
 		wake_up_interruptible(&hpd_struct.waitq);
 
-		//s5p_hdcp_encrypt_stop(true);
-
-		HPDIFPRINTK("HPD_HI\n");
-
 	} else if (flag & (1 << HDMI_IRQ_HPD_UNPLUG)) {
-		//s5p_hdcp_encrypt_stop(false);
+		HPDIFPRINTK("HPD_LO\n");
+
 		s5p_hdcp_stop();
 
 		s5p_hdmi_reg_intc_enable(HDMI_IRQ_HPD_PLUG, 1);
@@ -394,14 +390,13 @@ static int s5p_hpd_irq_hdmi(int irq)
 		atomic_set(&poll_state, 1);
 
 		last_hpd_state = HPD_LO;
-		wake_up_interruptible(&hpd_struct.waitq);
 
-		HPDIFPRINTK("HPD_LO\n");
+		wake_up_interruptible(&hpd_struct.waitq);
 	}
 
 	schedule_work(&hpd_work);
 
-out:
+ out:
 	return IRQ_HANDLED;
 }
 
@@ -415,33 +410,85 @@ static irqreturn_t s5p_hpd_irq_handler(int irq, void *dev_id)
 {
 	irqreturn_t ret = IRQ_HANDLED;
 
-	HPDIFPRINTK("\n");
 	/* check HDMI status */
 	if (atomic_read(&hdmi_status)) {
 		/* HDMI on */
-		ret = s5p_hpd_irq_hdmi(irq);
 		HPDIFPRINTK("HDMI HPD interrupt\n");
+		ret = s5p_hpd_irq_hdmi(irq);
+		HPDIFPRINTK("HDMI HPD interrupt - end\n");
 	} else {
 		/* HDMI off */
-		ret = s5p_hdp_irq_eint(irq);
 		HPDIFPRINTK("EINT HPD interrupt\n");
+		ret = s5p_hpd_irq_eint(irq);
+		HPDIFPRINTK("EINT HPD interrupt - end\n");
 	}
 
 	return ret;
 }
 
-static int __init s5p_hpd_probe(struct platform_device *pdev)
+#ifdef	CONFIG_SAMSUNG_WORKAROUND_HPD_GLANCE
+static irqreturn_t s5p_hpd_irq_default_handler(int irq, void *dev_id)
+{
+	u8 flag;
+
+	flag = s5p_hdmi_reg_intc_status();
+
+	if (s5p_hdmi_reg_get_hpd_status())
+		s5p_hdmi_reg_intc_clear_pending(HDMI_IRQ_HPD_PLUG);
+	else
+		s5p_hdmi_reg_intc_clear_pending(HDMI_IRQ_HPD_UNPLUG);
+
+	s5p_hdmi_reg_intc_enable(HDMI_IRQ_HPD_UNPLUG, 0);
+	s5p_hdmi_reg_intc_enable(HDMI_IRQ_HPD_PLUG, 0);
+
+	if (flag & (1 << HDMI_IRQ_HPD_PLUG))
+		HPDIFPRINTK("HPD_HI\n");
+	else if (flag & (1 << HDMI_IRQ_HPD_UNPLUG))
+		HPDIFPRINTK("HPD_LO\n");
+	else
+		HPDIFPRINTK("UNKNOWN EVENT\n");
+
+	return IRQ_HANDLED;
+}
+
+void mhl_hpd_handler(bool onoff)
+{
+	static int old_state;
+
+	if (old_state == onoff) {
+		printk(KERN_INFO	"%s() state is aready %s\n",
+			__func__, onoff ? "on" : "off");
+		return;
+	} else {
+		old_state = onoff;
+		printk(KERN_INFO	"%s(%d), old_state(%d)\n",
+			__func__, onoff, old_state);
+	}
+
+	if (onoff == true) {
+		enable_irq(hpd_struct.irq_n);
+		s5p_hdmi_reg_intc_set_isr(s5p_hpd_irq_handler,
+					  (u8) HDMI_IRQ_HPD_PLUG);
+	} else {
+		disable_irq_nosync(hpd_struct.irq_n);
+		s5p_hdmi_reg_intc_set_isr(s5p_hpd_irq_default_handler,
+					  (u8) HDMI_IRQ_HPD_PLUG);
+	}
+}
+EXPORT_SYMBOL(mhl_hpd_handler);
+#endif
+
+static int __devinit s5p_hpd_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_hpd *pdata;
 	int ret;
 
 	if (misc_register(&hpd_misc_device)) {
 		printk(KERN_WARNING " Couldn't register device 10, %d.\n",
-			HPD_MINOR);
+		       HPD_MINOR);
 
 		return -EBUSY;
 	}
-
 
 	init_waitqueue_head(&hpd_struct.waitq);
 
@@ -455,10 +502,10 @@ static int __init s5p_hpd_probe(struct platform_device *pdev)
 
 	if (pdata->int_src_hdmi_hpd)
 		hpd_struct.int_src_hdmi_hpd =
-			(void (*)(void))pdata->int_src_hdmi_hpd;
+		    (void (*)(void))pdata->int_src_hdmi_hpd;
 	if (pdata->int_src_ext_hpd)
 		hpd_struct.int_src_ext_hpd =
-			(void (*)(void))pdata->int_src_ext_hpd;
+		    (void (*)(void))pdata->int_src_ext_hpd;
 	if (pdata->read_gpio)
 		hpd_struct.read_gpio = (int (*)(void))pdata->read_gpio;
 
@@ -473,28 +520,38 @@ static int __init s5p_hpd_probe(struct platform_device *pdev)
 		last_hpd_state = HPD_LO;
 	}
 
-	set_irq_type(hpd_struct.irq_n, IRQ_TYPE_EDGE_BOTH);
+#ifdef CONFIG_HDMI_SWITCH_HPD
+	hpd_struct.hpd_switch.name = "hdmi";
+	switch_dev_register(&hpd_struct.hpd_switch);
+#endif
+	irq_set_irq_type(hpd_struct.irq_n, IRQ_TYPE_EDGE_BOTH);
 
-	ret = request_irq(hpd_struct.irq_n, (irq_handler_t)s5p_hpd_irq_handler,
-		IRQF_DISABLED, "hpd", (void *)(&pdev->dev));
+	ret = request_irq(hpd_struct.irq_n, (irq_handler_t) s5p_hpd_irq_handler,
+			  IRQF_DISABLED, "hpd", (void *)(&pdev->dev));
 
 	if (ret) {
-		printk(KERN_ERR  "failed to install hpd irq\n");
+		printk(KERN_ERR "failed to install hpd irq\n");
+		misc_deregister(&hpd_misc_device);
 		return -EIO;
 	}
+#ifdef	CONFIG_SAMSUNG_WORKAROUND_HPD_GLANCE
+	disable_irq(hpd_struct.irq_n);
+#endif
 
+	s5p_hdmi_reg_intc_set_isr(s5p_hpd_irq_handler, (u8) HDMI_IRQ_HPD_PLUG);
 	s5p_hdmi_reg_intc_set_isr(s5p_hpd_irq_handler,
-					(u8)HDMI_IRQ_HPD_PLUG);
-	s5p_hdmi_reg_intc_set_isr(s5p_hpd_irq_handler,
-					(u8)HDMI_IRQ_HPD_UNPLUG);
+				  (u8) HDMI_IRQ_HPD_UNPLUG);
 
 	last_uevent_state = -1;
 
 	return 0;
 }
 
-static int s5p_hpd_remove(struct platform_device *pdev)
+static int __devexit s5p_hpd_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_HDMI_SWITCH_HPD
+	switch_dev_unregister(&hpd_struct.hpd_switch);
+#endif
 	return 0;
 }
 
@@ -518,14 +575,14 @@ static int s5p_hpd_resume(struct platform_device *dev)
 #endif
 
 static struct platform_driver s5p_hpd_driver = {
-	.probe		= s5p_hpd_probe,
-	.remove		= s5p_hpd_remove,
-	.suspend	= s5p_hpd_suspend,
-	.resume		= s5p_hpd_resume,
-	.driver		= {
-		.name	= "s5p-tvout-hpd",
-		.owner	= THIS_MODULE,
-	},
+	.probe = s5p_hpd_probe,
+	.remove = __devexit_p(s5p_hpd_remove),
+	.suspend = s5p_hpd_suspend,
+	.resume = s5p_hpd_resume,
+	.driver = {
+		   .name = "s5p-tvout-hpd",
+		   .owner = THIS_MODULE,
+		   },
 };
 
 static char banner[] __initdata =

@@ -55,6 +55,7 @@ typedef enum
     _MALI_UK_GP_SUBSYSTEM,        /**< Vertex Processor Group of U/K calls */
 	_MALI_UK_PROFILING_SUBSYSTEM, /**< Profiling Group of U/K calls */
     _MALI_UK_PMM_SUBSYSTEM,       /**< Power Management Module Group of U/K calls */
+	_MALI_UK_VSYNC_SUBSYSTEM,     /**< VSYNC Group of U/K calls */
 } _mali_uk_subsystem_t;
 
 /** Within a function group each function has its unique sequence number
@@ -120,11 +121,17 @@ typedef enum
 	_MALI_UK_PROFILING_STOP,              /**< __mali_uku_profiling_stop() */
 	_MALI_UK_PROFILING_GET_EVENT,         /**< __mali_uku_profiling_get_event() */
 	_MALI_UK_PROFILING_CLEAR,             /**< __mali_uku_profiling_clear() */
+	_MALI_UK_PROFILING_GET_CONFIG,        /**< __mali_uku_profiling_get_config() */
+	_MALI_UK_TRANSFER_SW_COUNTERS,
 
 #if USING_MALI_PMM
     /** Power Management Module Functions */
     _MALI_UK_PMM_EVENT_MESSAGE = 0,       /**< Raise an event message */
 #endif
+
+	/** VSYNC reporting fuctions */
+	_MALI_UK_VSYNC_EVENT_REPORT      = 0, /**< _mali_ukk_vsync_event_report() */
+
 } _mali_uk_functions;
 
 /** @brief Get the size necessary for system info
@@ -367,6 +374,14 @@ typedef enum
     _MALI_UK_START_JOB_NOT_STARTED_DO_REQUEUE           /**< Job could not be started at this time. Try starting the job again */
 } _mali_uk_start_job_status;
 
+/** @brief Status indicating the result of starting a Vertex or Fragment processor job */
+typedef enum
+{
+	MALI_UK_START_JOB_FLAG_DEFAULT = 0,          /**< Default behaviour; Flush L2 caches before start, no following jobs */
+	MALI_UK_START_JOB_FLAG_NO_FLUSH = 1,         /**< No need to flush L2 caches before start */
+	MALI_UK_START_JOB_FLAG_MORE_JOBS_FOLLOW = 2, /**< More related jobs follows, try to schedule them as soon as possible after this job */
+} _mali_uk_start_job_flags;
+
 /** @brief Status indicating the result of the execution of a Vertex or Fragment processor job  */
 
 typedef enum
@@ -456,6 +471,8 @@ typedef struct
 	u32 abort_id;                       /**< [in] abort id of this job, used to identify this job for later abort requests */
 	u32 perf_counter_l2_src0;           /**< [in] soruce id for Mali-400 MP L2 cache performance counter 0 */
 	u32 perf_counter_l2_src1;           /**< [in] source id for Mali-400 MP L2 cache performance counter 1 */
+	u32 frame_builder_id;				/**< [in] id of the originating frame builder */
+	u32 flush_id;						/**< [in] flush id within the originating frame builder */
 } _mali_uk_gp_start_job_s;
 
 #define _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE (1<<0) /**< Enable performance counter SRC0 for a job */
@@ -479,7 +496,7 @@ typedef struct
     u32 perf_counter_src1;          /**< [out] source id for performance counter 1 (see ARM DDI0415A, Table 3-60) */
     u32 perf_counter0;              /**< [out] value of perfomance counter 0 (see ARM DDI0415A) */
     u32 perf_counter1;              /**< [out] value of perfomance counter 1 (see ARM DDI0415A) */
-    u32 render_time;                /**< [out] number of milliseconds it took for the job to render */
+    u32 render_time;                /**< [out] number of microseconds it took for the job to render */
 	u32 perf_counter_l2_src0;       /**< [out] soruce id for Mali-400 MP L2 cache performance counter 0 */
 	u32 perf_counter_l2_src1;       /**< [out] soruce id for Mali-400 MP L2 cache performance counter 1 */
 	u32 perf_counter_l2_val0;       /**< [out] Value of the Mali-400 MP L2 cache performance counter 0 */
@@ -569,6 +586,9 @@ typedef struct
 	u32 abort_id;                       /**< [in] abort id of this job, used to identify this job for later abort requests */
 	u32 perf_counter_l2_src0;           /**< [in] soruce id for Mali-400 MP L2 cache performance counter 0 */
 	u32 perf_counter_l2_src1;           /**< [in] source id for Mali-400 MP L2 cache performance counter 1 */
+	u32 frame_builder_id;				/**< [in] id of the originating frame builder */
+	u32 flush_id;						/**< [in] flush id within the originating frame builder */
+	_mali_uk_start_job_flags flags;     /**< [in] Flags for job, see _mali_uk_start_job_flags for more information */
 } _mali_uk_pp_start_job_s;
 /** @} */ /* end group _mali_uk_ppstartjob_s */
 
@@ -582,7 +602,7 @@ typedef struct
     u32 perf_counter_src1;          /**< [out] source id for performance counter 1 (see ARM DDI0415A, Table 3-60) */
     u32 perf_counter0;              /**< [out] value of perfomance counter 0 (see ARM DDI0415A) */
     u32 perf_counter1;              /**< [out] value of perfomance counter 1 (see ARM DDI0415A) */
-    u32 render_time;                /**< [out] number of milliseconds it took for the job to render */
+    u32 render_time;                /**< [out] number of microseconds it took for the job to render */
 	u32 perf_counter_l2_src0;       /**< [out] soruce id for Mali-400 MP L2 cache performance counter 0 */
 	u32 perf_counter_l2_src1;       /**< [out] soruce id for Mali-400 MP L2 cache performance counter 1 */
 	u32 perf_counter_l2_val0;       /**< [out] Value of the Mali-400 MP L2 cache performance counter 0 */
@@ -613,7 +633,6 @@ typedef enum
 {
 	/** core notifications */
 
-	_MALI_NOTIFICATION_CORE_TIMEOUT =               (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x10,
 	_MALI_NOTIFICATION_CORE_SHUTDOWN_IN_PROGRESS =  (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x20,
 	_MALI_NOTIFICATION_APPLICATION_QUIT =           (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x40,
 
@@ -647,13 +666,6 @@ typedef enum
  *
  * Interpreting the data union member depends on the notification type:
  *
- * - type == _MALI_NOTIFICATION_CORE_TIMEOUT
- *     - A notification timeout has occurred, since the code.timeout member was
- * exceeded.
- *     - In this case, the value of the data union member is undefined.
- *     - This is used so that the client can check other user-space state.
- * The client may repeat the call to _mali_ukk_wait_for_notification() to
- * continue reception of notifications.
  * - type == _MALI_NOTIFICATION_CORE_SHUTDOWN_IN_PROGRESS
  *     - The kernel side is shutting down. No further
  * _mali_uk_wait_for_notification() calls should be made.
@@ -736,7 +748,7 @@ typedef struct
  * The 16bit integer is stored twice in a 32bit integer
  * For example, for version 1 the value would be 0x00010001
  */
-#define _MALI_API_VERSION 7
+#define _MALI_API_VERSION 10
 #define _MALI_UK_API_VERSION _MAKE_VERSION_ID(_MALI_API_VERSION)
 
 /**
@@ -1019,9 +1031,22 @@ typedef struct
 
 typedef struct
 {
+	void *ctx;
+
+	u32 id;
+	s64 value;
+} _mali_uk_sw_counters_s;
+
+typedef struct
+{
 	void *ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 } _mali_uk_profiling_clear_s;
 
+typedef struct
+{
+	void *ctx;                      /**< [in,out] user-kernel context (trashed on output) */
+	u32 enable_events;              /**< [out] 1 if user space process should generate events, 0 if not */
+} _mali_uk_profiling_get_config_s;
 
 
 /** @} */ /* end group _mali_uk_gp */
@@ -1105,7 +1130,7 @@ typedef u32 mali_pmm_message_data;
 
 /** @brief Arguments to _mali_ukk_pmm_event_message()
  */
-typedef struct 
+typedef struct
 {
 	void *ctx;                          /**< [in,out] user-kernel context (trashed on output) */
 	u32 id;                             /**< [in] event id */
@@ -1114,6 +1139,31 @@ typedef struct
 
 /** @} */ /* end group _mali_uk_pmm */
 #endif /* USING_MALI_PMM */
+
+/** @defgroup _mali_uk_vsync U/K VSYNC Wait Reporting Module
+ * @{ */
+
+/** @brief VSYNC events
+ *
+ * These events are reported when DDK starts to wait for vsync and when the
+ * vsync has occured and the DDK can continue on the next frame.
+ */
+typedef enum _mali_uk_vsync_event
+{
+	_MALI_UK_VSYNC_EVENT_BEGIN_WAIT = 0,
+	_MALI_UK_VSYNC_EVENT_END_WAIT
+} _mali_uk_vsync_event;
+
+/** @brief Arguments to _mali_ukk_vsync_event()
+ *
+ */
+typedef struct
+{
+	void *ctx;                      /**< [in,out] user-kernel context (trashed on output) */
+	_mali_uk_vsync_event event;     /**< [in] VSYNCH event type */
+} _mali_uk_vsync_event_report_s;
+
+/** @} */ /* end group _mali_uk_vsync */
 
 /** @} */ /* end group u_k_api */
 

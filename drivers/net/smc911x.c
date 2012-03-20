@@ -245,12 +245,7 @@ static void smc911x_reset(struct net_device *dev)
 	 * Deassert IRQ for 1*10us for edge type interrupts
 	 * and drive IRQ pin push-pull
 	 */
-#if defined(CONFIG_ARCH_S5PV310)||defined(CONFIG_ARCH_S5P6450)
-	irq_cfg = (1 << 24) | INT_CFG_IRQ_EN_ | INT_CFG_IRQ_TYPE_|INT_CFG_IRQ_POL_;
-#else
 	irq_cfg = (1 << 24) | INT_CFG_IRQ_EN_ | INT_CFG_IRQ_TYPE_;
-#endif
-
 #ifdef SMC_DYNAMIC_BUS_CONFIG
 	if (lp->cfg.irq_polarity)
 		irq_cfg |= INT_CFG_IRQ_POL_;
@@ -1493,9 +1488,9 @@ smc911x_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
 				SUPPORTED_TP | SUPPORTED_AUI;
 
 		if (lp->ctl_rspeed == 10)
-			cmd->speed = SPEED_10;
+			ethtool_cmd_speed_set(cmd, SPEED_10);
 		else if (lp->ctl_rspeed == 100)
-			cmd->speed = SPEED_100;
+			ethtool_cmd_speed_set(cmd, SPEED_100);
 
 		cmd->autoneg = AUTONEG_DISABLE;
 		if (lp->mii.phy_id==1)
@@ -1917,17 +1912,6 @@ static int __devinit smc911x_probe(struct net_device *dev)
 
 	spin_lock_init(&lp->lock);
 
-#if 1 /* boyko */
-	dev->dev_addr[0] = 0x00;
-	dev->dev_addr[1] = 0x09;
-	dev->dev_addr[2] = 0xc0;
-	dev->dev_addr[3] = 0xff;
-	dev->dev_addr[4] = 0xec;
-	dev->dev_addr[5] = 0x48;
-
-	SMC_SET_MAC_ADDR(lp, dev->dev_addr);
-#endif
-
 	/* Get the MAC address */
 	SMC_GET_MAC_ADDR(lp, dev->dev_addr);
 
@@ -1984,7 +1968,7 @@ static int __devinit smc911x_probe(struct net_device *dev)
 
 	/* Set default parameters */
 	lp->msg_enable = NETIF_MSG_LINK;
-	lp->ctl_rfduplx = 0;
+	lp->ctl_rfduplx = 1;
 	lp->ctl_rspeed = 100;
 
 #ifdef SMC_DYNAMIC_BUS_CONFIG

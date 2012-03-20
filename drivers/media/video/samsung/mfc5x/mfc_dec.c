@@ -17,15 +17,10 @@
 #include <linux/slab.h>
 
 
-#ifdef CONFIG_CPU_FREQ
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
 #include <mach/cpufreq.h>
 #endif
-
-#if defined(CONFIG_ARCH_S5PV310)
 #include <mach/regs-mfc.h>
-#elif defined(CONFIG_ARCH_S5PV210)
-#include <plat/regs-mfc.h>
-#endif
 
 #include "mfc_dec.h"
 #include "mfc_cmd.h"
@@ -37,7 +32,7 @@
 #include "mfc_buf.h"
 
 /*#undef DUMP_STREAM*/
-#define DUMP_STREAM
+/*#define DUMP_STREAM*/
 
 #ifdef DUMP_STREAM
 #include <linux/syscalls.h>
@@ -138,11 +133,6 @@ static void dump_stream(unsigned long address, unsigned int size)
 	set_fs(old_fs);
 }
 #endif
-
-/*
- * FIXME: when _mfc_alloc_buf() fail, all allocation functions must be care
- * already allocated buffers or caller funtion takes care of that
- */
 
 /*
  * [1] alloc_ctx_buf() implementations
@@ -252,6 +242,8 @@ static int h264_pre_seq_start(struct mfc_inst_ctx *ctx)
 	}
 	write_reg(reg, MFC_SI_CH1_DPB_CONF_CTRL);
 
+	write_shm(ctx, h264->sei_parse, SEI_ENABLE);
+
 	return 0;
 }
 
@@ -324,6 +316,9 @@ static int h264_post_seq_start(struct mfc_inst_ctx *ctx)
 
 	dec_ctx->nummindpb = read_reg(MFC_SI_BUF_NUMBER);
 	dec_ctx->numtotaldpb = dec_ctx->nummindpb + dec_ctx->numextradpb;
+
+	mfc_dbg("nummindpb: %d, numextradpb: %d\n", dec_ctx->nummindpb,
+			dec_ctx->numextradpb);
 
 	shm = read_shm(ctx, DISP_PIC_PROFILE);
 	dec_ctx->level = (shm >> 8) & 0xFF;
@@ -450,20 +445,16 @@ static int set_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 
 static int h264_set_init_arg(struct mfc_inst_ctx *ctx, void *arg)
 {
-	/*
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
 	struct mfc_dec_h264 *h264 = (struct mfc_dec_h264 *)dec_ctx->d_priv;
 	struct mfc_dec_init_arg *dec_init_arg = (struct mfc_dec_init_arg *)arg;
-	*/
 
 	set_init_arg(ctx, arg);
 
-	/*
 	dec_init_arg->out_crop_right_offset = h264->crop_r_ofs;
 	dec_init_arg->out_crop_left_offset = h264->crop_l_ofs;
 	dec_init_arg->out_crop_bottom_offset = h264->crop_b_ofs;
 	dec_init_arg->out_crop_top_offset = h264->crop_t_ofs;
-	*/
 
 	return 0;
 }
@@ -509,6 +500,7 @@ static int h264_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_NBIP_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -532,6 +524,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_UPNBMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -540,6 +533,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_SAMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -548,6 +542,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_OTLINE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -556,6 +551,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_BITPLANE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -564,6 +560,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_BITPLANE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -572,6 +569,7 @@ static int vc1_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_BITPLANE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -595,6 +593,7 @@ static int mpeg4_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_UPNBMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -603,6 +602,7 @@ static int mpeg4_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_SAMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -611,6 +611,7 @@ static int mpeg4_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_OTLINE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -619,6 +620,7 @@ static int mpeg4_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_SYNPAR_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -642,6 +644,7 @@ static int h263_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_UPNBMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -650,6 +653,7 @@ static int h263_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_SAMV_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -658,6 +662,7 @@ static int h263_set_codec_bufs(struct mfc_inst_ctx *ctx)
 
 	alloc = _mfc_alloc_buf(ctx, MFC_DEC_OTLINE_SIZE, ALIGN_2KB, MBT_CODEC | PORT_A);
 	if (alloc == NULL) {
+		mfc_free_buf_type(ctx->id, MBT_CODEC);
 		mfc_err("failed alloc codec buffer\n");
 
 		return -1;
@@ -690,6 +695,7 @@ static int set_dpbs(struct mfc_inst_ctx *ctx)
 		 */
 		alloc = _mfc_alloc_buf(ctx, dec_ctx->chromasize, ALIGN_2KB, MBT_DPB | PORT_A);
 		if (alloc == NULL) {
+			mfc_free_buf_type(ctx->id, MBT_DPB);
 			mfc_err("failed alloc chroma buffer\n");
 
 			return -1;
@@ -712,6 +718,7 @@ static int set_dpbs(struct mfc_inst_ctx *ctx)
 		 */
 		alloc = _mfc_alloc_buf(ctx, dec_ctx->lumasize, ALIGN_2KB, MBT_DPB | PORT_B);
 		if (alloc == NULL) {
+			mfc_free_buf_type(ctx->id, MBT_DPB);
 			mfc_err("failed alloc luma buffer\n");
 
 			return -1;
@@ -766,14 +773,19 @@ static int h264_set_dpbs(struct mfc_inst_ctx *ctx)
 		 */
 		alloc = _mfc_alloc_buf(ctx, dec_ctx->chromasize, ALIGN_2KB, MBT_DPB | PORT_A);
 		if (alloc == NULL) {
+			mfc_free_buf_type(ctx->id, MBT_DPB);
 			mfc_err("failed alloc chroma buffer\n");
 
 			return -1;
 		}
 
-		/* clear first DPB chroma buffer, referrence buffer for
+		/* clear last DPB chroma buffer, referrence buffer for
 		   vectors starting with p-frame */
-		if (i == 0) {
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+		if ((i == (dec_ctx->numtotaldpb - 1)) && (!ctx->dev->drm_playback)) {
+#else
+		if (i == (dec_ctx->numtotaldpb - 1)) {
+#endif
 			memset((void *)alloc->addr, 0x80, alloc->size);
 			mfc_mem_cache_clean((void *)alloc->addr, alloc->size);
 		}
@@ -788,14 +800,19 @@ static int h264_set_dpbs(struct mfc_inst_ctx *ctx)
 		 */
 		alloc = _mfc_alloc_buf(ctx, dec_ctx->lumasize, ALIGN_2KB, MBT_DPB | PORT_B);
 		if (alloc == NULL) {
+			mfc_free_buf_type(ctx->id, MBT_DPB);
 			mfc_err("failed alloc luma buffer\n");
 
 			return -1;
 		}
 
-		/* clear first DPB luma buffer, referrence buffer for
+		/* clear last DPB luma buffer, referrence buffer for
 		   vectors starting with p-frame */
-		if (i == 0) {
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+		if ((i == (dec_ctx->numtotaldpb - 1)) && (!ctx->dev->drm_playback)) {
+#else
+		if (i == (dec_ctx->numtotaldpb - 1)) {
+#endif
 			memset((void *)alloc->addr, 0x0, alloc->size);
 			mfc_mem_cache_clean((void *)alloc->addr, alloc->size);
 		}
@@ -810,6 +827,7 @@ static int h264_set_dpbs(struct mfc_inst_ctx *ctx)
 		 */
 		alloc = _mfc_alloc_buf(ctx, h264->mvsize, ALIGN_2KB, MBT_DPB | PORT_B);
 		if (alloc == NULL) {
+			mfc_free_buf_type(ctx->id, MBT_DPB);
 			mfc_err("failed alloc mv buffer\n");
 
 			return -1;
@@ -850,6 +868,40 @@ static int post_frame_start(struct mfc_inst_ctx *ctx)
 	return 0;
 }
 
+static int h264_post_frame_start(struct mfc_inst_ctx *ctx)
+{
+	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
+	struct mfc_dec_h264 *h264 = (struct mfc_dec_h264 *)dec_ctx->d_priv;
+	unsigned int shm;
+
+	/* h264->sei_parse */
+	h264->fp.available = read_shm(ctx, FRAME_PACK_SEI_AVAIL) & 0x1;
+
+	if (h264->fp.available) {
+		h264->fp.arrangement_id = read_shm(ctx, FRAME_PACK_ARRGMENT_ID);
+
+		shm = read_shm(ctx, FRAME_PACK_DEC_INFO);
+		h264->fp.arrangement_cancel_flag =	(shm >>  0) & 0x1;
+		h264->fp.arrangement_type =		(shm >>  1) & 0x7F;
+		h264->fp.quincunx_sampling_flag =	(shm >>  8) & 0x1;
+		h264->fp.content_interpretation_type =	(shm >>  9) & 0x3F;
+		h264->fp.spatial_flipping_flag =	(shm >> 15) & 0x1;
+		h264->fp.frame0_flipped_flag =		(shm >> 16) & 0x1;
+		h264->fp.field_views_flag =		(shm >> 17) & 0x1;
+		h264->fp.current_frame_is_frame0_flag =	(shm >> 18) & 0x1;
+
+		shm = read_shm(ctx, FRAME_PACK_GRID_POS);
+		h264->fp.frame0_grid_pos_x = (shm >>  0) & 0xF;
+		h264->fp.frame0_grid_pos_y = (shm >>  4) & 0xF;
+		h264->fp.frame1_grid_pos_x = (shm >>  8) & 0xF;
+		h264->fp.frame1_grid_pos_y = (shm >> 12) & 0xF;
+	} else {
+		memset((void *)&h264->fp, 0x00, sizeof(struct mfc_frame_packing));
+	}
+
+	return 0;
+}
+
 /*
  * [10] multi_frame_start() implementations
  */
@@ -867,7 +919,7 @@ static int mpeg4_multi_data_frame(struct mfc_inst_ctx *ctx)
 		return 0;
 
 	/* FIXME: I_FRAME is valid? */
-	if ((dec_ctx->frametype == DEC_FRM_I) || (dec_ctx->frametype == DEC_FRM_P)) {
+	if ((dec_ctx->decframetype == DEC_FRM_I) || (dec_ctx->decframetype == DEC_FRM_P)) {
 
 	}
 
@@ -889,9 +941,11 @@ static int set_exe_arg(struct mfc_inst_ctx *ctx, void *arg)
 /*
  * [12] get_codec_cfg() implementations
  */
-static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int get_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	//struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
+
 	int ret = 0;
 
 	mfc_dbg("type: 0x%08x", type);
@@ -908,15 +962,15 @@ static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 
 	switch (type) {
 	case MFC_DEC_GETCONF_CRC_DATA:
-		value[0] = 0x12;
-		value[1] = 0x34;
-		value[2] = 0x56;
-		value[3] = 0x78;
+		usercfg->basic.values[0] = 0x12;
+		usercfg->basic.values[1] = 0x34;
+		usercfg->basic.values[2] = 0x56;
+		usercfg->basic.values[3] = 0x78;
 
 		break;
 
 	default:
-		mfc_err("invalid get config type: 0x%08x\n", type);
+		mfc_dbg("not common cfg, try to codec specific: 0x%08x\n", type);
 		ret = 1;
 
 		break;
@@ -925,12 +979,45 @@ static int get_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 	return ret;
 }
 
+static int h264_get_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
+{
+	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
+	struct mfc_dec_h264 *h264 = (struct mfc_dec_h264 *)dec_ctx->d_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
+	int ret = 0;
+
+	mfc_dbg("type: 0x%08x", type);
+	ret = get_codec_cfg(ctx, type, arg);
+	if (ret <= 0)
+		return ret;
+
+	switch (type) {
+	case MFC_DEC_GETCONF_FRAME_PACKING:
+		if (ctx->state < INST_STATE_EXE) {
+			mfc_dbg("invalid instance state: 0x%08x\n", type);
+			return MFC_STATE_INVALID;
+		}
+
+		memcpy(&usercfg->frame_packing, &h264->fp, sizeof(struct mfc_frame_packing));
+
+		break;
+
+	default:
+		mfc_err("invalid get config type: 0x%08x\n", type);
+		ret = -2;
+
+		break;
+	}
+
+	return ret;
+}
 /*
  * [13] set_codec_cfg() implementations
  */
-static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
 	int ret = 0;
 
 	mfc_dbg("type: 0x%08x", type);
@@ -946,11 +1033,11 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 		if (ctx->state >= INST_STATE_INIT)
 			return MFC_STATE_INVALID;
 
-		if ((value[0] >= 0) && (value[0] <= MFC_MAX_EXTRA_DPB)) {
-			dec_ctx->numextradpb = value[0];
+		if ((usercfg->basic.values[0] >= 0) && (usercfg->basic.values[0] <= MFC_MAX_EXTRA_DPB)) {
+			dec_ctx->numextradpb = usercfg->basic.values[0];
 		} else {
 			dec_ctx->numextradpb = MFC_MAX_EXTRA_DPB;
-			mfc_warn("invalid extra dpb buffer number: %d", value[0]);
+			mfc_warn("invalid extra dpb buffer number: %d", usercfg->basic.values[0]);
 			mfc_warn("set %d by default", MFC_MAX_EXTRA_DPB);
 		}
 
@@ -961,10 +1048,10 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 
 		if (ctx->state < INST_STATE_EXE) {
 			mfc_dbg("invalid instance state: 0x%08x\n", type);
-			return -1;
+			return MFC_STATE_INVALID;
 		}
 
-		if (value[0] > 0)
+		if (usercfg->basic.values[0] > 0)
 			dec_ctx->lastframe = 1;
 		else
 			dec_ctx->lastframe = 0;
@@ -975,7 +1062,7 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 		if (ctx->state >= INST_STATE_INIT)
 			return MFC_STATE_INVALID;
 
-		if (value[0] > 0)
+		if (usercfg->basic.values[0] > 0)
 			dec_ctx->slice = 1;
 		else
 			dec_ctx->slice = 0;
@@ -987,7 +1074,7 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 		if (ctx->state >= INST_STATE_INIT)
 			return MFC_STATE_INVALID;
 
-		if (value[0] > 0)
+		if (usercfg->basic.values[0] > 0)
 			dec_ctx->crc = 1;
 		else
 			dec_ctx->crc = 0;
@@ -1000,12 +1087,13 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 			return MFC_STATE_INVALID;
 		}
 
-		if (value[0] > 0){
+		if (usercfg->basic.values[0] > 0){
 			dec_ctx->dpbflush = 1;
 		}
 		break;
+
 	default:
-		mfc_dbg("invalid set cfg type: 0x%08x\n", type);
+		mfc_dbg("not common cfg, try to codec specific: 0x%08x\n", type);
 		ret = 1;
 
 		break;
@@ -1014,15 +1102,16 @@ static int set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value
 	return ret;
 }
 
-static int h264_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int h264_set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
 	struct mfc_dec_h264 *h264 = (struct mfc_dec_h264 *)dec_ctx->d_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
 	int ret;
 
 	mfc_dbg("type: 0x%08x", type);
 
-	ret = set_codec_cfg(ctx, type, value);
+	ret = set_codec_cfg(ctx, type, arg);
 	if (ret <= 0)
 		return ret;
 
@@ -1032,22 +1121,37 @@ static int h264_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *
 	case MFC_DEC_SETCONF_DISPLAY_DELAY:
 		if (ctx->state >= INST_STATE_INIT) {
 			mfc_dbg("invalid instance state: 0x%08x\n", type);
-			return -1;
+			return MFC_STATE_INVALID;
 		}
 
 		h264->dispdelay_en = 1;
-		if ((value[0] >= 0) && (value[0] <= MFC_MAX_DISP_DELAY)) {
-			h264->dispdelay_val = value[0];
+		if ((usercfg->basic.values[0] >= 0) && (usercfg->basic.values[0] <= MFC_MAX_DISP_DELAY)) {
+			h264->dispdelay_val = usercfg->basic.values[0];
 		} else {
 			h264->dispdelay_val = MFC_MAX_DISP_DELAY;
-			mfc_warn("invalid diplay delay count: %d", value[0]);
+			mfc_warn("invalid diplay delay count: %d", usercfg->basic.values[0]);
 			mfc_warn("set %d by default", MFC_MAX_DISP_DELAY);
 		}
 
 		break;
 
+	case MFC_DEC_SETCONF_SEI_PARSE:
+		mfc_dbg("ctx->state: 0x%08x", ctx->state);
+
+		if (ctx->state >= INST_STATE_INIT) {
+			mfc_dbg("invalid instance state: 0x%08x\n", type);
+			return MFC_STATE_INVALID;
+		}
+
+		if (usercfg->basic.values[0] > 0)
+			h264->sei_parse = 1;
+		else
+			h264->sei_parse = 0;
+
+		break;
+
 	default:
-		mfc_dbg("invalid set cfg type: 0x%08x\n", type);
+		mfc_err("invalid set cfg type: 0x%08x\n", type);
 		ret = -2;
 
 		break;
@@ -1056,15 +1160,16 @@ static int h264_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *
 	return ret;
 }
 
-static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
 	struct mfc_dec_mpeg4 *mpeg4 = (struct mfc_dec_mpeg4 *)dec_ctx->d_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
 	int ret;
 
 	mfc_dbg("type: 0x%08x", type);
 
-	ret = set_codec_cfg(ctx, type, value);
+	ret = set_codec_cfg(ctx, type, arg);
 	if (ret <= 0)
 		return ret;
 
@@ -1073,9 +1178,9 @@ static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 	switch (type) {
 	case MFC_DEC_SETCONF_POST_ENABLE:
 		if (ctx->state >= INST_STATE_INIT)
-			return -1;
+			return MFC_STATE_INVALID;
 
-		if (value[0] > 0)
+		if (usercfg->basic.values[0] > 0)
 			mpeg4->postfilter = 1;
 		else
 			mpeg4->postfilter = 0;
@@ -1086,7 +1191,7 @@ static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 		if (ctx->state < INST_STATE_OPEN)
 			return -1;
 
-		if (value[0] > 0)
+		if (usercfg->basic.values[0] > 0)
 			mpeg4->packedpb = 1;
 		else
 			mpeg4->packedpb = 1;
@@ -1094,7 +1199,7 @@ static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 		break;
 */
 	default:
-		mfc_dbg("invalid set cfg type: 0x%08x\n", type);
+		mfc_err("invalid set cfg type: 0x%08x\n", type);
 		ret = -2;
 
 		break;
@@ -1103,15 +1208,16 @@ static int mpeg4_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 	return ret;
 }
 
-static int fimv1_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int *value)
+static int fimv1_set_codec_cfg(struct mfc_inst_ctx *ctx, int type, void *arg)
 {
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
 	struct mfc_dec_fimv1 *fimv1 = (struct mfc_dec_fimv1 *)dec_ctx->d_priv;
+	union _mfc_config_arg *usercfg = (union _mfc_config_arg *)arg;
 	int ret;
 
 	mfc_dbg("type: 0x%08x", type);
 
-	ret = set_codec_cfg(ctx, type, value);
+	ret = set_codec_cfg(ctx, type, arg);
 	if (ret <= 0)
 		return ret;
 
@@ -1120,10 +1226,10 @@ static int fimv1_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 	switch (type) {
 	case MFC_DEC_SETCONF_FIMV1_WIDTH_HEIGHT:
 		if (ctx->state >= INST_STATE_INIT)
-			return -1;
+			return MFC_STATE_INVALID;
 
-		fimv1->width = value[0];
-		fimv1->height = value[1];
+		fimv1->width = usercfg->basic.values[0];
+		fimv1->height = usercfg->basic.values[1];
 
 		break;
 /* JYSHIN
@@ -1131,7 +1237,7 @@ static int fimv1_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 		if (ctx->state < INST_STATE_OPEN)
 			return -1;
 
-		if (value[0] > 0)
+		if (usercfg->basic.[0] > 0)
 			fimv1->packedpb = 1;
 		else
 			fimv1->packedpb = 1;
@@ -1139,7 +1245,7 @@ static int fimv1_set_codec_cfg(struct mfc_inst_ctx *ctx, unsigned int type, int 
 		break;
 */
 	default:
-		mfc_dbg("invalid set cfg type: 0x%08x\n", type);
+		mfc_err("invalid set cfg type: 0x%08x\n", type);
 		ret = -2;
 
 		break;
@@ -1188,10 +1294,10 @@ static struct mfc_dec_info h264_dec = {
 		.set_codec_bufs		= h264_set_codec_bufs,
 		.set_dpbs		= h264_set_dpbs,
 		.pre_frame_start	= NULL,
-		.post_frame_start	= NULL,
+		.post_frame_start	= h264_post_frame_start,
 		.multi_data_frame	= NULL,
 		.set_exe_arg		= set_exe_arg,
-		.get_codec_cfg		= get_codec_cfg,
+		.get_codec_cfg		= h264_get_codec_cfg,
 		.set_codec_cfg		= h264_set_codec_cfg,
 	},
 };
@@ -1473,6 +1579,10 @@ static int CheckDecStartCode(unsigned char *src_mem,
 	} else
 		nFlag = 0xFF;
 
+	/* Last frame detection from user */
+	if (nstreamSize == 0)
+		nFlag = 0xFF;
+
 	if (nFlag == 0xFF)
 		return 0;
 
@@ -1521,8 +1631,9 @@ static int mfc_set_decoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 {
 	struct list_head *pos;
 	struct mfc_dec_info *decoder;
-	int codecid = -1;
 	struct mfc_dec_ctx *dec_ctx;
+
+	ctx->codecid = -1;
 
 	/* find and set codec private */
 	list_for_each(pos, &mfc_decoders) {
@@ -1531,9 +1642,6 @@ static int mfc_set_decoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 		if (decoder->codectype == codectype) {
 			if (decoder->codecid < 0)
 				break;
-
-			ctx->type = DECODER;
-			ctx->c_ops = (struct codec_operations *)&decoder->c_ops;
 
 			/* Allocate Decoder context memory */
 			dec_ctx = kzalloc(sizeof(struct mfc_dec_ctx), GFP_KERNEL);
@@ -1552,13 +1660,18 @@ static int mfc_set_decoder(struct mfc_inst_ctx *ctx, SSBSIP_MFC_CODEC_TYPE codec
 				return -ENOMEM;
 			}
 
-			codecid = decoder->codecid;
+			ctx->codecid = decoder->codecid;
+			ctx->type = DECODER;
+			ctx->c_ops = (struct codec_operations *)&decoder->c_ops;
 
 			break;
 		}
 	}
 
-	return codecid;
+	if (ctx->codecid < 0)
+		mfc_err("couldn't find proper decoder codec type: %d\n", codectype);
+
+	return ctx->codecid;
 }
 
 static void mfc_set_stream_info(
@@ -1568,7 +1681,7 @@ static void mfc_set_stream_info(
 	unsigned int ofs)
 {
 
-	if(ctx->buf_cache_type == CACHE){
+	if (ctx->buf_cache_type == CACHE) {
 		flush_all_cpu_caches();
 		outer_flush_all();
 	}
@@ -1594,17 +1707,19 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	struct list_head *pos, *nxt;
 	int ret;
 
-	ctx->codecid = mfc_set_decoder(ctx, init_arg->in_codec_type);
-	if (ctx->codecid < 0) {
-		mfc_err("unsupported decoding codec: %d", init_arg->in_codec_type);
+	ret = mfc_set_decoder(ctx, init_arg->in_codec_type);
+	if (ret < 0) {
+		mfc_err("failed to setup decoder codec\n");
 		ret = MFC_DEC_INIT_FAIL;
-		goto err_handling;
+		goto err_codec_setup;
 	}
 
 	dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
 
 	dec_ctx->streamaddr = init_arg->in_strm_buf;
 	dec_ctx->streamsize = init_arg->in_strm_size;
+
+	mfc_dbg("stream size: %d", init_arg->in_strm_size);
 
 	dec_ctx->crc = init_arg->in_crc;
 	dec_ctx->pixelcache = init_arg->in_pixelcache;
@@ -1621,39 +1736,39 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 		precfg = list_entry(pos, struct mfc_pre_cfg, list);
 
 		if (ctx->c_ops->set_codec_cfg) {
-			ret = ctx->c_ops->set_codec_cfg(ctx, precfg->type, precfg->value);
+			ret = ctx->c_ops->set_codec_cfg(ctx, precfg->type, precfg->values);
 			if (ret < 0)
 				mfc_warn("cannot set preset config type: 0x%08x: %d",
 					precfg->type, ret);
 		}
-
-		list_del(&precfg->list);
-		kfree(precfg);
 	}
+
+	mfc_set_inst_state(ctx, INST_STATE_SETUP);
 
 	/*
 	 * allocate context buffer
 	 */
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	if ((!ctx->dev->drm_playback) && (ctx->c_ops->alloc_ctx_buf)) {
+#else
 	if (ctx->c_ops->alloc_ctx_buf) {
+#endif
 		if (ctx->c_ops->alloc_ctx_buf(ctx) < 0) {
-			mfc_err("Context buffer allocation Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_ctx_buf;
 		}
 	}
 
 	/* [crc, pixelcache] */
 	ret = mfc_cmd_inst_open(ctx);
-	if (ret < 0) {
-		mfc_err("Open Instance Failed");
-		goto err_handling;
-	}
+	if (ret < 0)
+		goto err_inst_open;
+
 	mfc_set_inst_state(ctx, INST_STATE_OPEN);
 
 	if (init_shm(ctx) < 0) {
-		mfc_err("Shared Memory Initialization Failed");
 		ret = MFC_DEC_INIT_FAIL;
-		goto err_handling;
+		goto err_shm_init;
 	}
 
 	/*
@@ -1661,9 +1776,8 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	 */
 	if (ctx->c_ops->alloc_desc_buf) {
 		if (ctx->c_ops->alloc_desc_buf(ctx) < 0) {
-			mfc_err("Description buffer allocation Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_desc_buf;
 		}
 	}
 
@@ -1673,9 +1787,8 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	 */
 	if (ctx->c_ops->pre_seq_start) {
 		if (ctx->c_ops->pre_seq_start(ctx) < 0) {
-			mfc_err("Pre-Sequence Start Faild");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_pre_seq;
 		}
 	}
 
@@ -1684,48 +1797,58 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 		dec_ctx->streamsize, 0);
 
 	ret = mfc_cmd_seq_start(ctx);
-	if (ret < 0) {
-#ifdef DUMP_STREAM
-		mfc_fw_debug();
-		dump_stream(dec_ctx->streamaddr, dec_ctx->streamsize);
-#endif
-		mfc_err("Sequence Start Failed");
-		goto err_handling;
-	}
+	if (ret < 0)
+		goto err_seq_start;
 
 	/* [numextradpb] */
 	if (ctx->c_ops->post_seq_start) {
 		if (ctx->c_ops->post_seq_start(ctx) < 0) {
-			mfc_err("Post Sequence Start Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_post_seq;
+		}
+	}
+
+	if (ctx->height > MAX_VER_SIZE) {
+		if (ctx->height > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_chk_res;
+		}
+
+		if (ctx->width > MAX_VER_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_chk_res;
+		}
+	} else {
+		if (ctx->width > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			goto err_chk_res;
 		}
 	}
 
 	if (ctx->c_ops->set_init_arg) {
 		if (ctx->c_ops->set_init_arg(ctx, (void *)init_arg) < 0) {
-			mfc_err("Setting Initialized Arguments Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_set_arg;
 		}
 	}
 
-	/* FIXME: WORK AROUND for HDMI tearing issue, Increase DBP buffer
-	     count by 2 more in case of packedpb*/
-	if (dec_ctx->ispackedpb)
-		dec_ctx->numtotaldpb += 2;
+	if (dec_ctx->numtotaldpb < 7)
+		dec_ctx->numtotaldpb = 7;
 
 	mfc_dbg("H: %d, W: %d, DPB_Count: %d", ctx->width, ctx->height,
 		dec_ctx->numtotaldpb);
 
-#ifdef CONFIG_CPU_FREQ
-	/* Fix MFC & Bus Frequency for High resolution for better performance */
-	if (ctx->width >= 1920 || ctx->height >= 1080){
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
+	/* Lock MFC & Bus FREQ for high resolution */
+	if (ctx->width >= MAX_HOR_RES || ctx->height >= MAX_VER_RES) {
 		if (atomic_read(&ctx->dev->busfreq_lock_cnt) == 0) {
-			/* For fixed MFC & Bus Freq to 160 & 266 MHz for 1080p Contents */
-			s5pv310_busfreq_lock(DVFS_LOCK_ID_MFC, BUS_L1);
-			mfc_dbg("[%s] Bus Freq Locked L1 !!\n", __func__);
+			exynos4_busfreq_lock(DVFS_LOCK_ID_MFC, BUS_L0);
+			mfc_dbg("Bus FREQ locked to L0\n");
 		}
+
 		atomic_inc(&ctx->dev->busfreq_lock_cnt);
 		ctx->busfreq_flag = true;
 	}
@@ -1736,9 +1859,8 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	 */
 	if (ctx->c_ops->set_codec_bufs) {
 		if (ctx->c_ops->set_codec_bufs(ctx) < 0) {
-			mfc_err("Set Codec Buffers Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_codec_bufs;
 		}
 	}
 
@@ -1747,41 +1869,93 @@ int mfc_init_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	 */
 	if (ctx->c_ops->set_dpbs) {
 		if (ctx->c_ops->set_dpbs(ctx) < 0) {
-			mfc_err("Set DPB Buffers Failed");
 			ret = MFC_DEC_INIT_FAIL;
-			goto err_handling;
+			goto err_dpbs_set;
 		}
 	}
 
 	ret = mfc_cmd_init_buffers(ctx);
-	if (ret < 0) {
-		mfc_err("Initialize Buffers Failed");
-		goto err_handling;
-	}
+	if (ret < 0)
+		goto err_buf_init;
 
 	mfc_set_inst_state(ctx, INST_STATE_INIT);
+
+	while (!list_empty(&ctx->presetcfgs)) {
+		precfg = list_entry((&ctx->presetcfgs)->next,
+				struct mfc_pre_cfg, list);
+
+		mfc_dbg("remove used preset config [0x%08x]\n",
+				precfg->type);
+
+		list_del(&precfg->list);
+		kfree(precfg);
+	}
+	INIT_LIST_HEAD(&ctx->presetcfgs);
 
 	mfc_print_buf();
 
 	return MFC_OK;
-err_handling:
-	if (ctx->state > INST_STATE_CREATE) {
-		mfc_cmd_inst_close(ctx);
-		ctx->state = INST_STATE_CREATE;
+
+err_buf_init:
+	mfc_free_buf_type(ctx->id, MBT_DPB);
+
+err_dpbs_set:
+	mfc_free_buf_type(ctx->id, MBT_CODEC);
+
+err_codec_bufs:
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
+	/* Release MFC & Bus Frequency lock for High resolution */
+	if (ctx->busfreq_flag == true) {
+		atomic_dec(&ctx->dev->busfreq_lock_cnt);
+		ctx->busfreq_flag = false;
+
+		if (atomic_read(&ctx->dev->busfreq_lock_cnt) == 0) {
+			exynos4_busfreq_lock_free(DVFS_LOCK_ID_MFC);
+			mfc_dbg("Bus FREQ released\n");
+		}
 	}
+#endif
 
-	mfc_free_buf_inst(ctx->id);
+err_set_arg:
+err_chk_res:
+err_post_seq:
+err_seq_start:
+#ifdef DUMP_STREAM
+	mfc_fw_debug();
+	dump_stream(dec_ctx->streamaddr, dec_ctx->streamsize);
+#endif
 
-	if (!dec_ctx) {
+err_pre_seq:
+	mfc_free_buf_type(ctx->id, MBT_DESC);
+
+err_desc_buf:
+	mfc_free_buf_type(ctx->id, MBT_SHM);
+
+	ctx->shm = NULL;
+	ctx->shmofs = 0;
+
+err_shm_init:
+	mfc_cmd_inst_close(ctx);
+
+	ctx->state = INST_STATE_SETUP;
+
+err_inst_open:
+	mfc_free_buf_type(ctx->id, MBT_CTX);
+
+err_ctx_buf:
+	if (dec_ctx->d_priv)
 		kfree(dec_ctx->d_priv);
-		dec_ctx->d_priv = NULL;
-	}
 
-	if (!ctx->c_priv) {
-		kfree(ctx->c_priv);
-		ctx->c_priv = NULL;
-	}
+	kfree(dec_ctx);
+	ctx->c_priv = NULL;
 
+	ctx->codecid = -1;
+	ctx->type = 0;
+	ctx->c_ops = NULL;
+
+	ctx->state = INST_STATE_CREATE;
+
+err_codec_setup:
 	return ret;
 }
 
@@ -1789,7 +1963,7 @@ int mfc_change_resolution(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg *exe_
 {
 	int ret;
 
-	mfc_free_buf_dpb(ctx->id);
+	mfc_free_buf_type(ctx->id, MBT_DPB);
 
 	ret = mfc_cmd_seq_start(ctx);
 	if (ret < 0)
@@ -1799,7 +1973,27 @@ int mfc_change_resolution(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg *exe_
 	if (ctx->c_ops->post_seq_start) {
 		if (ctx->c_ops->post_seq_start(ctx) < 0)
 			return MFC_DEC_INIT_FAIL;
+	}
+
+	if (ctx->height > MAX_VER_SIZE) {
+		if (ctx->height > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			return MFC_DEC_INIT_FAIL;
 		}
+
+		if (ctx->width > MAX_VER_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			return MFC_DEC_INIT_FAIL;
+		}
+	} else {
+		if (ctx->width > MAX_HOR_SIZE) {
+			mfc_err("Not support resolution: %dx%d\n",
+				ctx->width, ctx->height);
+			return MFC_DEC_INIT_FAIL;
+		}
+	}
 
 	exe_arg->out_img_width = ctx->width;
 	exe_arg->out_img_height = ctx->height;
@@ -1828,12 +2022,11 @@ int mfc_check_resolution_change(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg
 	if (exe_arg->out_display_status != DISP_S_DECODING)
 		return 0;
 
-	resol_status =
-		(read_reg(MFC_SI_DISPLAY_STATUS) & (RC_MASK << RC_SHIFT)) >> RC_SHIFT;
+	resol_status = (read_reg(MFC_SI_DISPLAY_STATUS) >> DISP_RC_SHIFT) & DISP_RC_MASK;
 
-	if (resol_status == RC_INC || resol_status == RC_DEC) {
+	if (resol_status == DISP_RC_INC || resol_status == DISP_RC_DEC) {
 		ctx->resolution_status = RES_SET_CHANGE;
-		mfc_dbg("Change Resolution status: %d\n", __func__, resol_status);
+		mfc_dbg("Change Resolution status: %d\n", resol_status);
 	}
 
 	return 0;
@@ -1842,27 +2035,32 @@ int mfc_check_resolution_change(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg
 static int mfc_decoding_frame(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg *exe_arg, int *consumed)
 {
 	int start_ofs = *consumed;
-	int out_display_Y_addr;
-	int out_display_C_addr;
-	unsigned int inSeqId;
+	int display_luma_addr;
+	int display_chroma_addr;
+	int display_frame_type;
+	int display_frame_tag;
 	unsigned char *stream_vir;
 	int ret;
-
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
-	inSeqId = dec_ctx->frametag;
-
 #ifdef CONFIG_VIDEO_MFC_VCM_UMP
 	void *ump_handle;
 #endif
-	/* Check Frame Start code */
-	stream_vir = phys_to_virt(exe_arg->in_strm_buf + start_ofs);
-	ret = CheckDecStartCode(stream_vir, exe_arg->in_strm_size,
-				 exe_arg->in_codec_type);
-	if (ret < 0) {
-		mfc_err("Frame Check start Code Failed\n");
-		/* FIXME: Need to define proper error */
-		return MFC_FRM_BUF_SIZE_FAIL;
+
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	if (!ctx->dev->drm_playback) {
+#endif
+		/* Check Frame Start code */
+		stream_vir = phys_to_virt(exe_arg->in_strm_buf + start_ofs);
+		ret = CheckDecStartCode(stream_vir, exe_arg->in_strm_size,
+				exe_arg->in_codec_type);
+		if (ret < 0) {
+			mfc_err("Frame Check start Code Failed\n");
+			/* FIXME: Need to define proper error */
+			return MFC_FRM_BUF_SIZE_FAIL;
+		}
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
 	}
+#endif
 
 	/* Set Frame Tag */
 	write_shm(ctx, dec_ctx->frametag, SET_FRAME_TAG);
@@ -1888,70 +2086,103 @@ static int mfc_decoding_frame(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg *
 	if (ret < 0)
 		return ret;
 
-	/* Update Display status information */
+	if (ctx->c_ops->post_frame_start) {
+		if (ctx->c_ops->post_frame_start(ctx) < 0)
+			return MFC_DEC_EXE_ERR;
+	}
+
+	/* update display status information */
 	dec_ctx->dispstatus = read_reg(MFC_SI_DISPLAY_STATUS) & DISP_S_MASK;
 
-	/* Return decode_status, dec_frameType */
+	/* get decode status, frame type */
 	dec_ctx->decstatus = read_reg(MFC_SI_DECODE_STATUS) & DEC_S_MASK;
-	dec_ctx->frametype = read_reg(MFC_SI_FRAME_TYPE) & DEC_FRM_MASK;
+	dec_ctx->decframetype = read_reg(MFC_SI_FRAME_TYPE) & DEC_FRM_MASK;
 
 	if (dec_ctx->dispstatus == DISP_S_DECODING) {
-		out_display_Y_addr = 0;
-		out_display_C_addr = 0;
-		mfc_dbg("DECODING_ONLY frame decoded\n");
-	} else if (dec_ctx->ispackedpb) {
-		if ((dec_ctx->frametype == DEC_FRM_P) ||
-		    (dec_ctx->frametype == DEC_FRM_I)) {
-			out_display_Y_addr = read_reg(MFC_SI_DISPLAY_Y_ADR);
-			out_display_C_addr = read_reg(MFC_SI_DISPLAY_C_ADR);
-		} else {
-			out_display_Y_addr = dec_ctx->predisplay_Yaddr;
-			out_display_C_addr = dec_ctx->predisplay_Caddr;
-		}
-		/* save the display addr */
-		dec_ctx->predisplay_Yaddr = read_reg(MFC_SI_DISPLAY_Y_ADR);
-		dec_ctx->predisplay_Caddr = read_reg(MFC_SI_DISPLAY_C_ADR);
-		mfc_dbg("(pre_Y_ADDR : 0x%08x  pre_C_ADDR : 0x%08x)\r\n",
-			(dec_ctx->predisplay_Yaddr << 11),
-			(dec_ctx->predisplay_Caddr << 11));
+		display_luma_addr = 0;
+		display_chroma_addr = 0;
+
+		display_frame_type = DISP_FRM_X;
+		display_frame_tag = read_shm(ctx, GET_FRAME_TAG_TOP);
 	} else {
-		out_display_Y_addr = read_reg(MFC_SI_DISPLAY_Y_ADR);
-		out_display_C_addr = read_reg(MFC_SI_DISPLAY_C_ADR);
+		display_luma_addr = read_reg(MFC_SI_DISPLAY_Y_ADR);
+		display_chroma_addr = read_reg(MFC_SI_DISPLAY_C_ADR);
+
+		display_frame_type = get_disp_frame_type();
+		display_frame_tag = read_shm(ctx, GET_FRAME_TAG_TOP);
+
+		if (dec_ctx->ispackedpb) {
+			if ((dec_ctx->decframetype == DEC_FRM_P) || (dec_ctx->decframetype == DEC_FRM_I)) {
+				if (display_frame_type == DISP_FRM_N)
+					display_frame_type = dec_ctx->predispframetype;
+			} else {
+				if (dec_ctx->predisplumaaddr != 0) {
+					display_luma_addr = dec_ctx->predisplumaaddr;
+					display_chroma_addr = dec_ctx->predispchromaaddr;
+					display_frame_type = dec_ctx->predispframetype;
+					/* over write frame tag */
+					display_frame_tag = dec_ctx->predispframetag;
+				}
+			}
+
+			/* save the display addr */
+			dec_ctx->predisplumaaddr = read_reg(MFC_SI_DISPLAY_Y_ADR);
+			dec_ctx->predispchromaaddr = read_reg(MFC_SI_DISPLAY_C_ADR);
+
+			/* save the display frame type */
+			if (get_disp_frame_type() != DISP_FRM_N) {
+				dec_ctx->predispframetype = get_disp_frame_type();
+				/* Set Frame Tag */
+				dec_ctx->predispframetag =
+					read_shm(ctx, GET_FRAME_TAG_TOP);
+			}
+
+			mfc_dbg("pre_luma_addr: 0x%08x, pre_chroma_addr:"
+					"0x%08x, pre_disp_frame_type: %d\n",
+					(dec_ctx->predisplumaaddr << 11),
+					(dec_ctx->predispchromaaddr << 11),
+					dec_ctx->predispframetype);
+		}
 	}
 
 	/* handle ImmeidatelyDisplay for Seek, I frame only */
-	if (dec_ctx->immediatelydisplay){
-		mfc_dbg("[mfc_decoding_frame] ImmediatelyDisplay\n");
+	if (dec_ctx->immediatelydisplay) {
+		mfc_dbg("Immediately display\n");
 		dec_ctx->dispstatus = dec_ctx->decstatus;
 		/* update frame tag information with current ID */
-		exe_arg->out_frametag_top = inSeqId;
+		exe_arg->out_frametag_top = dec_ctx->frametag;
 		/* FIXME : need to check this */
 		exe_arg->out_frametag_bottom = 0;
 
 		if (dec_ctx->decstatus == DEC_S_DD) {
-			mfc_dbg("[mfc_decoding_frame] ImmediatelyDisplay Status DEC_S_DD\n");
-			out_display_Y_addr = read_reg(MFC_SI_DECODE_Y_ADR);
-			out_display_C_addr = read_reg(MFC_SI_DECODE_C_ADR);
+			mfc_dbg("Immediately display status: DEC_S_DD\n");
+			display_luma_addr = read_reg(MFC_SI_DECODE_Y_ADR);
+			display_chroma_addr = read_reg(MFC_SI_DECODE_C_ADR);
 		}
+
+		display_frame_type = dec_ctx->decframetype;
+
 		/* clear Immediately Display in decode context */
 		dec_ctx->immediatelydisplay = 0;
-	}else {
+	} else {
 		/* Get Frame Tag top and bottom */
-		exe_arg->out_frametag_top = read_shm(ctx, GET_FRAME_TAG_TOP);
+		exe_arg->out_frametag_top = display_frame_tag;
 		exe_arg->out_frametag_bottom = read_shm(ctx, GET_FRAME_TAG_BOT);
 	}
 
-	mfc_dbg("decode- y: 0x%08x  c: 0x%08x\n",
+	mfc_dbg("decode y: 0x%08x, c: 0x%08x\n",
 		  read_reg(MFC_SI_DECODE_Y_ADR) << 11,
 		  read_reg(MFC_SI_DECODE_C_ADR) << 11);
 
 	exe_arg->out_display_status = dec_ctx->dispstatus;
 
-	exe_arg->out_display_Y_addr = (out_display_Y_addr << 11);
-	exe_arg->out_display_C_addr = (out_display_C_addr << 11);
+	exe_arg->out_display_Y_addr = (display_luma_addr << 11);
+	exe_arg->out_display_C_addr = (display_chroma_addr << 11);
 
-	exe_arg->out_y_offset = mfc_mem_data_ofs(out_display_Y_addr << 11, 1);
-	exe_arg->out_c_offset = mfc_mem_data_ofs(out_display_C_addr << 11, 1);
+	exe_arg->out_disp_pic_frame_type = display_frame_type;
+
+	exe_arg->out_y_offset = mfc_mem_data_ofs(display_luma_addr << 11, 1);
+	exe_arg->out_c_offset = mfc_mem_data_ofs(display_chroma_addr << 11, 1);
 
 #if defined(CONFIG_VIDEO_MFC_VCM_UMP)
 	exe_arg->out_y_secure_id = 0;
@@ -1980,20 +2211,36 @@ static int mfc_decoding_frame(struct mfc_inst_ctx *ctx, struct mfc_dec_exe_arg *
 
 	exe_arg->out_consumed_byte = read_reg(MFC_SI_FRM_COUNT);
 
-	//if (ctx->codecid == H264_DEC) {
+	if (ctx->codecid == H264_DEC) {
 		exe_arg->out_crop_right_offset = (read_shm(ctx, CROP_INFO1) >> 16) & 0xFFFF;
 		exe_arg->out_crop_left_offset = read_shm(ctx, CROP_INFO1) & 0xFFFF;
 		exe_arg->out_crop_bottom_offset = (read_shm(ctx, CROP_INFO2) >> 16) & 0xFFFF;
 		exe_arg->out_crop_top_offset = read_shm(ctx, CROP_INFO2)  & 0xFFFF;
-	//}
 
-	mfc_dbg("frame type: %d\n", dec_ctx->frametype);
-	mfc_dbg("display- y: 0x%08x  c: 0x%08x\n",
-		  exe_arg->out_display_Y_addr, exe_arg->out_display_C_addr);
+		mfc_dbg("crop info t: %d, r: %d, b: %d, l: %d\n",
+			exe_arg->out_crop_top_offset,
+			exe_arg->out_crop_right_offset,
+			exe_arg->out_crop_bottom_offset,
+			exe_arg->out_crop_left_offset);
+	}
+/*
+	mfc_dbg("decode frame type: %d\n", dec_ctx->decframetype);
+	mfc_dbg("display frame type: %d\n", exe_arg->out_disp_pic_frame_type);
+	mfc_dbg("display y: 0x%08x, c: 0x%08x\n",
+		exe_arg->out_display_Y_addr, exe_arg->out_display_C_addr);
+		*/
+
+	mfc_dbg("decode frame type: %d\n", dec_ctx->decframetype);
+	mfc_dbg("display frame type: %d,%d\n",
+			exe_arg->out_disp_pic_frame_type,
+			exe_arg->out_frametag_top);
+	mfc_dbg("display y: 0x%08x, c: 0x%08x\n",
+			exe_arg->out_display_Y_addr,
+			exe_arg->out_display_C_addr);
 
 	*consumed = read_reg(MFC_SI_FRM_COUNT);
-	mfc_dbg("stream size: %d  consumed: %d\n",
-		  exe_arg->in_strm_size, *consumed);
+	mfc_dbg("stream size: %d, consumed: %d\n",
+		exe_arg->in_strm_size, *consumed);
 
 	return MFC_OK;
 }
@@ -2004,6 +2251,7 @@ int mfc_exec_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	int ret;
 	int consumed = 0;
 	struct mfc_dec_ctx *dec_ctx = (struct mfc_dec_ctx *)ctx->c_priv;
+	int sec_try_tag; /* tag store for second try */
 
 	exe_arg = (struct mfc_dec_exe_arg *)args;
 
@@ -2016,49 +2264,53 @@ int mfc_exec_decoding(struct mfc_inst_ctx *ctx, union mfc_args *args)
 	mfc_set_inst_state(ctx, INST_STATE_EXE);
 
 	ret = mfc_decoding_frame(ctx, exe_arg, &consumed);
+	sec_try_tag = exe_arg->out_frametag_top;
 
 	mfc_set_inst_state(ctx, INST_STATE_EXE_DONE);
 
-	if (ret == MFC_OK){
+	if (ret == MFC_OK) {
 		mfc_check_resolution_change(ctx, exe_arg);
 		if (ctx->resolution_status == RES_SET_CHANGE) {
 			ret = mfc_decoding_frame(ctx, exe_arg, &consumed);
 		} else if ((ctx->resolution_status == RES_WAIT_FRAME_DONE) &&
-		     (exe_arg->out_display_status == DISP_S_FINISH)) {
-			exe_arg->out_display_status = 4;
-			mfc_change_resolution(ctx, exe_arg);
+			(exe_arg->out_display_status == DISP_S_FINISH)) {
+			exe_arg->out_display_status = DISP_S_RES_CHANGE;
+			ret = mfc_change_resolution(ctx, exe_arg);
+			if (ret != MFC_OK)
+				return ret;
 			ctx->resolution_status = RES_NO_CHANGE;
 		}
 
 		if ((dec_ctx->ispackedpb) &&
-			(dec_ctx->frametype == DEC_FRM_P) &&
-			(exe_arg->in_strm_size - consumed > 4)) {
+				(dec_ctx->decframetype == DEC_FRM_P) &&
+				(exe_arg->in_strm_size - consumed > 4)) {
 			unsigned char *stream_vir;
 			int offset = 0;
 
 			mfc_dbg("[%s] strmsize : %d consumed : %d\n", __func__,
-				 exe_arg->in_strm_size, consumed);
+					exe_arg->in_strm_size, consumed);
 
 			stream_vir = phys_to_virt(exe_arg->in_strm_buf);
 
 			mfc_mem_cache_inv((void *)stream_vir,
-						 exe_arg->in_strm_size);
+					exe_arg->in_strm_size);
 
 			offset = CheckMPEG4StartCode(stream_vir+consumed,
-					 dec_ctx->streamsize - consumed);
+					dec_ctx->streamsize - consumed);
 			if (offset > 4)
 				consumed += offset;
 
 			exe_arg->in_strm_size -= consumed;
 			dec_ctx->frametag = exe_arg->in_frametag;
-			dec_ctx->immediatelydisplay = exe_arg->in_immediately_disp;
+			dec_ctx->immediatelydisplay =
+				exe_arg->in_immediately_disp;
 
 			mfc_set_inst_state(ctx, INST_STATE_EXE);
 
 			ret = mfc_decoding_frame(ctx, exe_arg, &consumed);
+			exe_arg->out_frametag_top = sec_try_tag;
 
 			mfc_set_inst_state(ctx, INST_STATE_EXE_DONE);
-
 		}
 	}
 

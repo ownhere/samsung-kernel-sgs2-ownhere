@@ -1,36 +1,91 @@
 /* linux/arch/arm/plat-s5p/include/plat/s5p-tmu.h
-*
-* Copyright 2010 Samsung Electronics Co., Ltd.
-*      http://www.samsung.com/
-*
-* S5P - TMU driver support
-*
-* This program is free software; you can redistribute it and/or modify
-* it under the terms of the GNU General Public License version 2 as
-* published by the Free Software Foundation.
-*/
+ *
+ * Copyright 2011 Samsung Electronics Co., Ltd.
+ *      http://www.samsung.com/
+ *
+ * Header file for s5p tmu support
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
 
-#ifndef _S5PV310_THERMAL_H
-#define _S5PV310_THERMAL_H
+#ifndef _S5P_TMU_H
+#define _S5P_TMU_H
 
-struct tmu_data {
-	char	te1;			/* e-fused temperature for 25 */
-	char	te2;			/* e-fused temperature for 85 */
-	int	cooling;
-	int	mode;			/* compensation mode */
-	int	tmu_flag;
+#define TMU_SAVE_NUM   10
+
+/*
+ * struct temperature_params have values to manange throttling, tripping
+ * and other software safety control
+ */
+struct temperature_params {
+	unsigned int stop_1st_throttle;
+	unsigned int start_1st_throttle;
+	unsigned int stop_2nd_throttle;
+	unsigned int start_2nd_throttle;
+	unsigned int start_tripping; /* temp to do tripping */
+	unsigned int start_emergency; /* To protect chip,forcely kernel panic */
+	unsigned int stop_mem_throttle;
+	unsigned int start_mem_throttle;
 };
 
-struct s5p_tmu {
-	int 				id;
-	void __iomem		*tmu_base;
-	char			temperature;
-	struct device		*dev;
-	struct tmu_data		data;
+struct cpufreq_params {
+	unsigned int limit_1st_throttle;
+	unsigned int limit_2nd_throttle;
 };
 
-extern void s5p_tmu_set_platdata(struct tmu_data *pd);
-extern struct s5p_tmu *s5p_tmu_get_platdata(void);
-extern int s5p_tmu_get_irqno(int num);
+struct memory_params {
+	unsigned int rclk;
+	unsigned int period_bank_refresh;
+};
 
-#endif /* _S5PV310_THERMAL_H */
+struct tmu_config {
+	unsigned char mode;
+	unsigned char slope;
+	unsigned int sampling_rate;
+	unsigned int monitoring_rate;
+};
+
+struct s5p_platform_tmu {
+	struct temperature_params ts;
+	struct cpufreq_params cpufreq;
+	struct memory_params mp;
+	struct tmu_config cfg;
+};
+
+struct s5p_tmu_info {
+	struct device   *dev;
+	int     id;
+	char *s5p_name;
+
+	void __iomem    *tmu_base;
+	struct resource *ioarea;
+	int irq;
+
+	int mode;
+	unsigned char te1; /* triminfo_25 */
+	unsigned char te2; /* triminfo_85 */
+	int slope;
+
+	int	tmu_state;
+	unsigned int last_temperature;
+
+	unsigned int cpufreq_level_1st_throttle;
+	unsigned int cpufreq_level_2nd_throttle;
+	unsigned int auto_refresh_tq0;
+	unsigned int auto_refresh_normal;
+
+	struct delayed_work monitor;
+	struct delayed_work polling;
+
+	unsigned int monitor_period;
+	unsigned int sampling_rate;
+	unsigned int reg_save[TMU_SAVE_NUM];
+};
+
+void __init s5p_tmu_set_platdata(struct s5p_platform_tmu *pd);
+struct s5p_tmu *s5p_tmu_get_platdata(void);
+int s5p_tmu_get_irqno(int num);
+extern struct platform_device s5p_device_tmu;
+#endif /* _S5P_TMU_H */

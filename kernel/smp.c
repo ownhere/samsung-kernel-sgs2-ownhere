@@ -13,6 +13,7 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 
+#ifdef CONFIG_USE_GENERIC_SMP_HELPERS
 static struct {
 	struct list_head	queue;
 	raw_spinlock_t		lock;
@@ -73,7 +74,7 @@ static struct notifier_block __cpuinitdata hotplug_cfd_notifier = {
 	.notifier_call		= hotplug_cfd,
 };
 
-static int __cpuinit init_call_single_data(void)
+void __init call_function_init(void)
 {
 	void *cpu = (void *)(long)smp_processor_id();
 	int i;
@@ -87,10 +88,7 @@ static int __cpuinit init_call_single_data(void)
 
 	hotplug_cfd(&hotplug_cfd_notifier, CPU_UP_PREPARE, cpu);
 	register_cpu_notifier(&hotplug_cfd_notifier);
-
-	return 0;
 }
-early_initcall(init_call_single_data);
 
 /*
  * csd_lock/csd_unlock used to serialize access to per-cpu csd resources
@@ -193,7 +191,7 @@ void generic_smp_call_function_interrupt(void)
 	 */
 	list_for_each_entry_rcu(data, &call_function.queue, csd.list) {
 		int refs;
-		void (*func) (void *info);
+		smp_call_func_t func;
 
 		/*
 		 * Since we walk the list without any locks, we might
@@ -214,16 +212,16 @@ void generic_smp_call_function_interrupt(void)
 			continue;
 
 		func = data->csd.func;			/* for later warn */
-		data->csd.func(data->csd.info);
+		func(data->csd.info);
 
 		/*
-		 * If the cpu mask is not still set then it enabled interrupts,
-		 * we took another smp interrupt, and executed the function
-		 * twice on this cpu.  In theory that copy decremented refs.
+		 * If the cpu mask is not still set then func enabled
+		 * interrupts (BUG), and this cpu took another smp call
+		 * function interrupt and executed func(info) twice
+		 * on this cpu.  That nested execution decremented refs.
 		 */
 		if (!cpumask_test_and_clear_cpu(cpu, data->cpumask)) {
-			WARN(1, "%pS enabled interrupts and double executed\n",
-			     func);
+			WARN(1, "%pf enabled interrupts and double executed\n", func);
 			continue;
 		}
 
@@ -296,7 +294,7 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(struct call_single_data, csd_data);
  *
  * Returns 0 on success, else a negative status code.
  */
-int smp_call_function_single(int cpu, void (*func) (void *info), void *info,
+int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 			     int wait)
 {
 	struct call_single_data d = {
@@ -365,7 +363,7 @@ EXPORT_SYMBOL(smp_call_function_single);
  *	3) any other online cpu in @mask
  */
 int smp_call_function_any(const struct cpumask *mask,
-			  void (*func)(void *info), void *info, int wait)
+			  smp_call_func_t func, void *info, int wait)
 {
 	unsigned int cpu;
 	const struct cpumask *nodemask;
@@ -445,7 +443,7 @@ void __smp_call_function_single(int cpu, struct call_single_data *data,
  * must be disabled when calling this function.
  */
 void smp_call_function_many(const struct cpumask *mask,
-			    void (*func)(void *), void *info, bool wait)
+			    smp_call_func_t func, void *info, bool wait)
 {
 	struct call_function_data *data;
 	unsigned long flags;
@@ -458,7 +456,7 @@ void smp_call_function_many(const struct cpumask *mask,
 	 * can't happen.
 	 */
 	WARN_ON_ONCE(cpu_online(this_cpu) && irqs_disabled()
-		     && !oops_in_progress);
+		     && !oops_in_progress && !early_boot_irqs_disabled);
 
 	/* Try to fastpath.  So, what's a CPU they want? Ignoring this one. */
 	cpu = cpumask_first_and(mask, cpu_online_mask);
@@ -572,7 +570,7 @@ EXPORT_SYMBOL(smp_call_function_many);
  * You must not call this function with disabled interrupts or from a
  * hardware interrupt handler or from a bottom half handler.
  */
-int smp_call_function(void (*func)(void *), void *info, int wait)
+int smp_call_function(smp_call_func_t func, void *info, int wait)
 {
 	preempt_disable();
 	smp_call_function_many(cpu_online_mask, func, info, wait);
@@ -601,3 +599,105 @@ void ipi_call_unlock_irq(void)
 {
 	raw_spin_unlock_irq(&call_function.lock);
 }
+#endif /* USE_GENERIC_SMP_HELPERS */
+
+/* Setup configured maximum number of CPUs to activate */
+unsigned int setup_max_cpus = NR_CPUS;
+EXPORT_SYMBOL(setup_max_cpus);
+
+
+/*
+ * Setup routine for controlling SMP activation
+ *
+ * Command-line option of "nosmp" or "maxcpus=0" will disable SMP
+ * activation entirely (the MPS table probe still happens, though).
+ *
+ * Command-line option of "maxcpus=<NUM>", where <NUM> is an integer
+ * greater than 0, limits the maximum number of CPUs activated in
+ * SMP mode to <NUM>.
+ */
+
+void __weak arch_disable_smp_support(void) { }
+
+static int __init nosmp(char *str)
+{
+	setup_max_cpus = 0;
+	arch_disable_smp_support();
+
+	return 0;
+}
+
+early_param("nosmp", nosmp);
+
+/* this is hard limit */
+static int __init nrcpus(char *str)
+{
+	int nr_cpus;
+
+	get_option(&str, &nr_cpus);
+	if (nr_cpus > 0 && nr_cpus < nr_cpu_ids)
+		nr_cpu_ids = nr_cpus;
+
+	return 0;
+}
+
+early_param("nr_cpus", nrcpus);
+
+static int __init maxcpus(char *str)
+{
+	get_option(&str, &setup_max_cpus);
+	if (setup_max_cpus == 0)
+		arch_disable_smp_support();
+
+	return 0;
+}
+
+early_param("maxcpus", maxcpus);
+
+/* Setup number of possible processor ids */
+int nr_cpu_ids __read_mostly = NR_CPUS;
+EXPORT_SYMBOL(nr_cpu_ids);
+
+/* An arch may set nr_cpu_ids earlier if needed, so this would be redundant */
+void __init setup_nr_cpu_ids(void)
+{
+	nr_cpu_ids = find_last_bit(cpumask_bits(cpu_possible_mask),NR_CPUS) + 1;
+}
+
+/* Called by boot processor to activate the rest. */
+void __init smp_init(void)
+{
+	unsigned int cpu;
+
+	/* FIXME: This should be done in userspace --RR */
+	for_each_present_cpu(cpu) {
+		if (num_online_cpus() >= setup_max_cpus)
+			break;
+		if (!cpu_online(cpu))
+			cpu_up(cpu);
+	}
+
+	/* Any cleanup work */
+	printk(KERN_INFO "Brought up %ld CPUs\n", (long)num_online_cpus());
+	smp_cpus_done(setup_max_cpus);
+}
+
+/*
+ * Call a function on all processors.  May be used during early boot while
+ * early_boot_irqs_disabled is set.  Use local_irq_save/restore() instead
+ * of local_irq_disable/enable().
+ */
+int on_each_cpu(void (*func) (void *info), void *info, int wait)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	preempt_disable();
+	ret = smp_call_function(func, info, wait);
+	local_irq_save(flags);
+	func(info);
+	local_irq_restore(flags);
+	preempt_enable();
+	return ret;
+}
+EXPORT_SYMBOL(on_each_cpu);

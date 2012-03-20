@@ -1,16 +1,16 @@
 #!/system/xbin/busybox sh
 #expandsd by ownhere v1.3 20110919
 
-run=`getprop ownhere.expandsd.ready`
-if [ $run -eq 1 ]; then
-	echo "already running..."
-	exit 0
-fi
-
 trap "exit" INT TERM EXIT
 BUSYBOX=/system/xbin/busybox
 EXPANDPATH="/sdcard/external_sd/expandsd.ownhere"
 if [ $# -lt 1 ]; then
+	run=`getprop ownhere.expandsd.ready`
+	if [ $run -eq 1 ]; then
+		echo "already running..."
+		exit 0
+	fi
+
 	setsid flock -x /init.rc -c $0 1 &
 	exit;
 fi

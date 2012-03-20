@@ -45,25 +45,25 @@ enum mfc_codec_cmd {
 };
 
 enum mfc_r2h_ret {
-	R2H_NOP			= 0x00,
-	OPEN_CH_RET		= 0x01,
-	CLOSE_CH_RET		= 0x02,
+	R2H_NOP			= 0,
+	OPEN_CH_RET		= 1,
+	CLOSE_CH_RET		= 2,
 
-	SEQ_DONE_RET		= 0x04,
-	FRAME_DONE_RET		= 0x05,
-	SLICE_DONE_RET		= 0x06,
-	ENC_COMPLETE_RET	= 0x07,
-	SYS_INIT_RET		= 0x08,
-	FW_STATUS_RET		= 0x09,
-	SLEEP_RET		= 0x0A,
-	WAKEUP_RET		= 0x0B,
-	FLUSH_CMD_RET		= 0x0C,
-	ABORT_RET		= 0x0D,
-	BATCH_ENC_RET		= 0x0E,
-	INIT_BUFFERS_RET	= 0x0F,
-	EDFU_INIT_RET		= 0x10,
+	SEQ_DONE_RET		= 4,
+	FRAME_DONE_RET		= 5,
+	SLICE_DONE_RET		= 6,
+	ENC_COMPLETE_RET	= 7,
+	SYS_INIT_RET		= 8,
+	FW_STATUS_RET		= 9,
+	SLEEP_RET		= 10,
+	WAKEUP_RET		= 11,
+	FLUSH_CMD_RET		= 12,
+	ABORT_RET		= 13,
+	BATCH_ENC_RET		= 14,
+	INIT_BUFFERS_RET	= 15,
+	EDFU_INIT_RET		= 16,
 
-	ERR_RET			= 0x20,
+	ERR_RET			= 32,
 };
 
 struct mfc_cmd_args {

@@ -39,6 +39,9 @@
 #include <mach/hardware.h>
 
 #include "s3c_mem.h"
+#ifdef CONFIG_S3C_DMA_MEM
+#include "s3c_dma_mem.h"
+#endif
 
 static int flag;
 
@@ -48,8 +51,7 @@ static unsigned int physical_address;
 static unsigned int virtual_address;
 #endif
 
-int s3c_mem_ioctl(struct inode *inode, struct file *file,
-		unsigned int cmd, unsigned long arg)
+long s3c_mem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 #ifdef USE_DMA_ALLOC
 	unsigned long virt_addr;
@@ -59,6 +61,11 @@ int s3c_mem_ioctl(struct inode *inode, struct file *file,
 
 	struct mm_struct *mm = current->mm;
 	struct s3c_mem_alloc param;
+	struct vm_area_struct *vma;
+	unsigned long start, this_pfn;
+#ifdef CONFIG_S3C_DMA_MEM
+	struct s3c_mem_dma_param dma_param;
+#endif
 
 	switch (cmd) {
 	case S3C_MEM_ALLOC:
@@ -278,6 +285,51 @@ int s3c_mem_ioctl(struct inode *inode, struct file *file,
 
 		mutex_unlock(&mem_share_free_lock);
 
+		break;
+
+#ifdef CONFIG_S3C_DMA_MEM
+	case S3C_MEM_DMA_COPY:
+		if (copy_from_user(&dma_param, (struct s3c_mem_dma_param *)arg,
+				sizeof(struct s3c_mem_dma_param))) {
+			return -EFAULT;
+		}
+		if (s3c_dma_mem_start(current->mm, &dma_param,
+				S3C_DMA_MEM2MEM)) {
+			return -EINVAL;
+		}
+		if (copy_to_user((struct s3c_mem_dma_param *)arg, &dma_param,
+				sizeof(struct s3c_mem_dma_param))) {
+			return -EFAULT;
+		}
+		break;
+#endif
+
+	case S3C_MEM_GET_PADDR:
+		if (copy_from_user(&param, (struct s3c_mem_alloc *)arg,
+					sizeof(struct s3c_mem_alloc))) {
+			return -EFAULT;
+		}
+		start = param.vir_addr;
+		down_read(&mm->mmap_sem);
+		vma = find_vma(mm, start);
+
+		if (vma == NULL) {
+			up_read(&mm->mmap_sem);
+			return -EINVAL;
+		}
+
+		if (follow_pfn(vma, start, &this_pfn)) {
+			up_read(&mm->mmap_sem);
+			return -EINVAL;
+		}
+
+		param.phy_addr = this_pfn << PAGE_SHIFT;
+		up_read(&mm->mmap_sem);
+
+		if (copy_to_user((struct s3c_mem_alloc *)arg, &param,
+					sizeof(struct s3c_mem_alloc))) {
+			return -EFAULT;
+		}
 		break;
 
 	default:

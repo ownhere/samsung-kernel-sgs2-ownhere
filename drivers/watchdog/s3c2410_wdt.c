@@ -224,7 +224,7 @@ static int s3c2410wdt_release(struct inode *inode, struct file *file)
 {
 	/*
 	 *	Shut off the timer.
-	 * 	Lock it in if it's a module and we set nowayout
+	 *	Lock it in if it's a module and we set nowayout
 	 */
 
 	if (expect_close == 42)
@@ -402,7 +402,6 @@ static inline void s3c2410wdt_cpufreq_deregister(void)
 
 static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 {
-	struct resource *res;
 	struct device *dev;
 	unsigned int wtcon;
 	int started = 0;
@@ -416,20 +415,19 @@ static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 
 	/* get the memory region for the watchdog timer */
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res == NULL) {
+	wdt_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (wdt_mem == NULL) {
 		dev_err(dev, "no memory resource specified\n");
 		return -ENOENT;
 	}
 
-	size = resource_size(res);
-	wdt_mem = request_mem_region(res->start, size, pdev->name);
-	if (wdt_mem == NULL) {
+	size = resource_size(wdt_mem);
+	if (!request_mem_region(wdt_mem->start, size, pdev->name)) {
 		dev_err(dev, "failed to get memory region\n");
 		return -EBUSY;
 	}
 
-	wdt_base = ioremap(res->start, size);
+	wdt_base = ioremap(wdt_mem->start, size);
 	if (wdt_base == NULL) {
 		dev_err(dev, "failed to ioremap() region\n");
 		ret = -EINVAL;
@@ -445,22 +443,17 @@ static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 		goto err_map;
 	}
 
-	ret = request_irq(wdt_irq->start, s3c2410wdt_irq, 0, pdev->name, pdev);
-	if (ret != 0) {
-		dev_err(dev, "failed to install irq (%d)\n", ret);
-		goto err_map;
-	}
-
 	wdt_clock = clk_get(&pdev->dev, "watchdog");
 	if (IS_ERR(wdt_clock)) {
 		dev_err(dev, "failed to find watchdog clock source\n");
 		ret = PTR_ERR(wdt_clock);
-		goto err_irq;
+		goto err_map;
 	}
 
 	clk_enable(wdt_clock);
 
-	if (s3c2410wdt_cpufreq_register() < 0) {
+	ret = s3c2410wdt_cpufreq_register();
+	if (ret) {
 		printk(KERN_ERR PFX "failed to register cpufreq\n");
 		goto err_clk;
 	}
@@ -499,6 +492,12 @@ static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 		s3c2410wdt_stop();
 	}
 
+	ret = request_irq(wdt_irq->start, s3c2410wdt_irq, 0, pdev->name, pdev);
+	if (ret != 0) {
+		dev_err(dev, "failed to install irq (%d)\n", ret);
+		goto err_misc_reg;
+	}
+
 	/* print out a statement of readiness */
 
 	wtcon = readl(wdt_base + S3C2410_WTCON);
@@ -510,6 +509,8 @@ static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 
 	return 0;
 
+ err_misc_reg:
+	misc_deregister(&s3c2410wdt_miscdev);
  err_cpufreq:
 	s3c2410wdt_cpufreq_deregister();
 
@@ -517,36 +518,33 @@ static int __devinit s3c2410wdt_probe(struct platform_device *pdev)
 	clk_disable(wdt_clock);
 	clk_put(wdt_clock);
 
- err_irq:
-	free_irq(wdt_irq->start, pdev);
-
  err_map:
 	iounmap(wdt_base);
 
  err_req:
-	release_resource(wdt_mem);
-	kfree(wdt_mem);
+	release_mem_region(wdt_mem->start, size);
+	wdt_mem = NULL;
 
 	return ret;
 }
 
 static int __devexit s3c2410wdt_remove(struct platform_device *dev)
 {
-	s3c2410wdt_cpufreq_deregister();
-
-	release_resource(wdt_mem);
-	kfree(wdt_mem);
-	wdt_mem = NULL;
-
 	free_irq(wdt_irq->start, dev);
 	wdt_irq = NULL;
+
+	misc_deregister(&s3c2410wdt_miscdev);
+
+	s3c2410wdt_cpufreq_deregister();
 
 	clk_disable(wdt_clock);
 	clk_put(wdt_clock);
 	wdt_clock = NULL;
 
 	iounmap(wdt_base);
-	misc_deregister(&s3c2410wdt_miscdev);
+
+	release_mem_region(wdt_mem->start, resource_size(wdt_mem));
+	wdt_mem = NULL;
 	return 0;
 }
 

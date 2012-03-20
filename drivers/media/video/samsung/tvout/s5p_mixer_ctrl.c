@@ -15,9 +15,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
 
-#ifdef CONFIG_CPU_S5PV210
-#include <mach/pd.h>
-#endif
+#include <plat/clock.h>
 
 #include "hw_if/hw_if.h"
 #include "s5p_tvout_ctrl.h"
@@ -83,6 +81,7 @@ struct s5p_mixer_ctrl_private_data {
 	struct s5p_mixer_grp_layer_info		layer[S5PTV_FB_CNT];
 
 	bool running;
+	bool vsync_interrupt_enable;
 };
 
 static struct s5p_mixer_ctrl_private_data s5p_mixer_ctrl_private = {
@@ -161,6 +160,7 @@ static struct s5p_mixer_ctrl_private_data s5p_mixer_ctrl_private = {
 	},
 
 	.running = false,
+	.vsync_interrupt_enable = false,
 };
 
 static int s5p_mixer_ctrl_set_reg(enum s5p_mixer_layer layer)
@@ -228,11 +228,7 @@ static void s5p_mixer_ctrl_clock(bool on)
 	if (on) {
 		clk_enable(s5p_mixer_ctrl_private.clk[MUX].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_enable(s5p_mixer_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_get();
 #endif
 
@@ -241,19 +237,13 @@ static void s5p_mixer_ctrl_clock(bool on)
 	} else {
 		clk_disable(s5p_mixer_ctrl_private.clk[ACLK].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_disable(s5p_mixer_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_put();
 #endif
 
 
 		clk_disable(s5p_mixer_ctrl_private.clk[MUX].ptr);
 	}
-
-	mdelay(50);
 }
 
 void s5p_mixer_ctrl_init_fb_addr_phy(enum s5p_mixer_layer layer,
@@ -402,7 +392,7 @@ int s5p_mixer_ctrl_disable_layer(enum s5p_mixer_layer layer)
 
 int s5p_mixer_ctrl_set_priority(enum s5p_mixer_layer layer, u32 prio)
 {
-	if ((prio < 0) || (prio > 15)) {
+	if (prio > 15) {
 		tvout_err("layer priority range : 0 - 15\n");
 		return -1;
 	}
@@ -427,7 +417,7 @@ int s5p_mixer_ctrl_set_priority(enum s5p_mixer_layer layer, u32 prio)
 }
 
 int s5p_mixer_ctrl_set_dst_win_pos(enum s5p_mixer_layer layer,
-				u32 dst_x, u32 dst_y, u32 w, u32 h)
+				int dst_x, int dst_y, u32 w, u32 h)
 {
 	u32 w_t, h_t;
 	enum s5p_tvout_disp_mode std;
@@ -481,6 +471,21 @@ int s5p_mixer_ctrl_set_dst_win_pos(enum s5p_mixer_layer layer,
 		h_t = 1080;
 		break;
 
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_720P_60_SBS_HALF:
+	case TVOUT_720P_59_SBS_HALF:
+	case TVOUT_720P_50_TB:
+		w_t = 1280;
+		h_t = 720;
+		break;
+
+	case TVOUT_1080P_24_TB:
+	case TVOUT_1080P_23_TB:
+		w_t = 1920;
+		h_t = 1080;
+		break;
+
+#endif
 	default:
 		w_t = 0;
 		h_t = 0;
@@ -504,8 +509,8 @@ int s5p_mixer_ctrl_set_dst_win_pos(enum s5p_mixer_layer layer,
 	tvout_dbg("output device screen size : width = %d, height = %d",
 			w_t, h_t);
 
-	s5p_mixer_ctrl_private.layer[layer].dst_x = dst_x;
-	s5p_mixer_ctrl_private.layer[layer].dst_y = dst_y;
+	s5p_mixer_ctrl_private.layer[layer].dst_x = (u32)dst_x;
+	s5p_mixer_ctrl_private.layer[layer].dst_y = (u32)dst_y;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (suspend_status) {
@@ -514,7 +519,7 @@ int s5p_mixer_ctrl_set_dst_win_pos(enum s5p_mixer_layer layer,
 	}
 #endif
 	if (s5p_mixer_ctrl_private.running)
-		s5p_mixer_set_grp_layer_dst_pos(layer, dst_x, dst_y);
+		s5p_mixer_set_grp_layer_dst_pos(layer, (u32)dst_x, (u32)dst_y);
 
 	return 0;
 }
@@ -778,11 +783,9 @@ int s5p_mixer_ctrl_scaling(enum s5p_mixer_layer layer,
 
 int s5p_mixer_ctrl_mux_clk(struct clk *ptr)
 {
-	int ret = 0;
-
-	ret = clk_set_parent(s5p_mixer_ctrl_private.clk[MUX].ptr, ptr);
-	if (ret < 0) {
-		tvout_err("mixer clock mux failed\n");
+	if (clk_set_parent(s5p_mixer_ctrl_private.clk[MUX].ptr, ptr)) {
+		tvout_err("unable to set parent %s of clock %s.\n",
+				ptr->name, s5p_mixer_ctrl_private.clk[MUX].ptr->name);
 		return -1;
 	}
 
@@ -802,6 +805,13 @@ void s5p_mixer_ctrl_set_int_enable(bool en)
 	}
 }
 
+void s5p_mixer_ctrl_set_vsync_interrupt(bool en)
+{
+	s5p_mixer_ctrl_private.vsync_interrupt_enable = en;
+	if (s5p_mixer_ctrl_private.running)
+		s5p_mixer_set_vsync_interrupt(en);
+}
+
 void s5p_mixer_ctrl_clear_pend_all(void)
 {
 	if (s5p_mixer_ctrl_private.running)
@@ -810,6 +820,8 @@ void s5p_mixer_ctrl_clear_pend_all(void)
 
 void s5p_mixer_ctrl_stop(void)
 {
+	int i;
+
 	tvout_dbg("running(%d)\n", s5p_mixer_ctrl_private.running);
 	if (s5p_mixer_ctrl_private.running) {
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -818,6 +830,14 @@ void s5p_mixer_ctrl_stop(void)
 		} else
 #endif
 		{
+			s5p_mixer_set_vsync_interrupt(false);
+
+			for (i = 0; i < S5PTV_VP_BUFF_CNT -1; i++)
+				s5ptv_vp_buff.copy_buff_idxs[i] = i;
+
+			s5ptv_vp_buff.curr_copy_idx = 0;
+			s5ptv_vp_buff.vp_access_buff_idx = S5PTV_VP_BUFF_CNT - 1;
+
 			s5p_mixer_stop();
 			s5p_mixer_ctrl_clock(0);
 		}
@@ -850,7 +870,11 @@ int s5p_mixer_ctrl_start(
 
 	switch (out) {
 	case TVOUT_COMPOSITE:
-		clk_set_parent(sclk_mixer, st->sclk_dac);
+		if (clk_set_parent(sclk_mixer, st->sclk_dac)) {
+			tvout_err("unable to set parent %s of clock %s.\n",
+				   st->sclk_dac->name, sclk_mixer->name);
+			return -1;
+		}
 
 		if (!s5p_mixer_ctrl_private.running) {
 			s5p_mixer_ctrl_clock(true);
@@ -863,8 +887,17 @@ int s5p_mixer_ctrl_start(
 	case TVOUT_HDMI_RGB:
 	case TVOUT_HDMI:
 	case TVOUT_DVI:
-		clk_set_parent(sclk_mixer, st->sclk_hdmi);
-		clk_set_parent(st->sclk_hdmi, st->sclk_hdmiphy);
+		if (clk_set_parent(sclk_mixer, st->sclk_hdmi)) {
+			tvout_err("unable to set parent %s of clock %s.\n",
+				   st->sclk_hdmi->name, sclk_mixer->name);
+			return -1;
+		}
+
+		if (clk_set_parent(st->sclk_hdmi, st->sclk_hdmiphy)) {
+			tvout_err("unable to set parent %s of clock %s.\n",
+				   st->sclk_hdmiphy->name, st->sclk_hdmi->name);
+			return -1;
+		}
 
 		if (!s5p_mixer_ctrl_private.running) {
 			s5p_mixer_ctrl_clock(true);
@@ -893,6 +926,16 @@ int s5p_mixer_ctrl_start(
 		case TVOUT_1080P_50:
 			s5p_mixer_init_csc_coef_default(MIXER_CSC_709_FR);
 			break;
+#ifdef CONFIG_HDMI_14A_3D
+		case TVOUT_720P_60_SBS_HALF:
+		case TVOUT_720P_59_SBS_HALF:
+		case TVOUT_720P_50_TB:
+		case TVOUT_1080P_24_TB:
+		case TVOUT_1080P_23_TB:
+			s5p_mixer_init_csc_coef_default(MIXER_CSC_709_FR);
+			break;
+
+#endif
 		default:
 			break;
 		}
@@ -937,15 +980,19 @@ int s5p_mixer_ctrl_start(
 		s5p_mixer_ctrl_set_reg(MIXER_GPR0_LAYER);
 		s5p_mixer_set_show(MIXER_GPR0_LAYER, true);
 	}
-	if (s5p_mixer_ctrl_private.layer[MIXER_GPR0_LAYER].use_grp_layer) {
-		s5p_mixer_ctrl_set_reg(MIXER_GPR0_LAYER);
-		s5p_mixer_set_show(MIXER_GPR0_LAYER, true);
+	if (s5p_mixer_ctrl_private.layer[MIXER_GPR1_LAYER].use_grp_layer) {
+		s5p_mixer_ctrl_set_reg(MIXER_GPR1_LAYER);
+		s5p_mixer_set_show(MIXER_GPR1_LAYER, true);
 	}
 
 	s5p_mixer_start();
+	if (s5p_mixer_ctrl_private.vsync_interrupt_enable)
+		s5p_mixer_set_vsync_interrupt(true);
 
 	return 0;
 }
+
+wait_queue_head_t s5ptv_wq;
 
 int s5p_mixer_ctrl_constructor(struct platform_device *pdev)
 {
@@ -993,6 +1040,9 @@ int s5p_mixer_ctrl_constructor(struct platform_device *pdev)
 			s5p_mixer_ctrl_private.irq.name);
 		goto err_on_irq;
 	}
+
+	/* Initializing wait queue for mixer vsync interrupt */
+	init_waitqueue_head(&s5ptv_wq);
 
 	s5p_mixer_init(s5p_mixer_ctrl_private.reg_mem.base);
 

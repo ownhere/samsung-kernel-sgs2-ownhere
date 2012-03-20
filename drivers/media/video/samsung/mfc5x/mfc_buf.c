@@ -37,10 +37,13 @@ static struct list_head mfc_alloc_head[MFC_MAX_MEM_PORT_NUM];
 /* The free node list sorted by real address */
 static struct list_head mfc_free_head[MFC_MAX_MEM_PORT_NUM];
 
+static enum MFC_BUF_ALLOC_SCHEME buf_alloc_scheme = MBS_FIRST_FIT;
+
 /* FIXME: test locking, add locking mechanisim */
 /*
 static spinlock_t lock;
 */
+
 
 void mfc_print_buf(void)
 {
@@ -220,17 +223,23 @@ static unsigned int mfc_get_free_buf(int size, int align, int port)
 		align_size = ALIGN(free->real, align) - free->real;
 #endif
 		if (free->size >= (size + align_size)) {
-			if (match != NULL) {
-				if (free->size < match->size)
+			if (buf_alloc_scheme == MBS_BEST_FIT) {
+				if (match != NULL) {
+					if (free->size < match->size)
+						match = free;
+				} else {
 					match = free;
-			} else {
+				}
+			} else if (buf_alloc_scheme == MBS_FIRST_FIT) {
 				match = free;
+				break;
 			}
 		}
 	}
 
 	if (match != NULL) {
 		addr = match->real;
+		align_size = ALIGN(addr, align) - addr;
 
 #if !(defined(CONFIG_VIDEO_MFC_VCM_UMP) || defined(CONFIG_S5P_VMEM))
 		if (align_size > 0) {
@@ -262,9 +271,21 @@ static unsigned int mfc_get_free_buf(int size, int align, int port)
 
 int mfc_init_buf(void)
 {
+#ifndef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
 	int port;
+#endif
 	int ret = 0;
 
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	INIT_LIST_HEAD(&mfc_alloc_head[0]);
+	INIT_LIST_HEAD(&mfc_free_head[0]);
+
+	ret = mfc_put_free_buf(mfc_mem_data_base(0),
+		mfc_mem_data_size(0), 0);
+
+	ret = mfc_put_free_buf(mfc_mem_data_base(1),
+		mfc_mem_data_size(1), 0);
+#else
 	for (port = 0; port < mfc_mem_count(); port++) {
 		INIT_LIST_HEAD(&mfc_alloc_head[port]);
 		INIT_LIST_HEAD(&mfc_free_head[port]);
@@ -272,6 +293,7 @@ int mfc_init_buf(void)
 		ret = mfc_put_free_buf(mfc_mem_data_base(port),
 			mfc_mem_data_size(port), port);
 	}
+#endif
 
 	/*
 	spin_lock_init(&lock);
@@ -366,6 +388,11 @@ void mfc_final_buf(void)
 	*/
 
 	mfc_print_buf();
+}
+
+void mfc_set_buf_alloc_scheme(enum MFC_BUF_ALLOC_SCHEME scheme)
+{
+	buf_alloc_scheme = scheme;
 }
 
 void mfc_merge_buf(void)
@@ -777,7 +804,7 @@ int mfc_free_buf(struct mfc_inst_ctx *ctx, unsigned int key)
 	return MFC_OK;
 }
 
-void mfc_free_buf_dpb(int owner)
+void mfc_free_buf_type(int owner, int type)
 {
 	int port;
 	struct list_head *pos, *nxt;
@@ -787,10 +814,17 @@ void mfc_free_buf_dpb(int owner)
 		list_for_each_safe(pos, nxt, &mfc_alloc_head[port]) {
 			alloc = list_entry(pos, struct mfc_alloc_buffer, list);
 
-			if ((alloc->owner == owner) && (alloc->type == MBT_DPB)) {
-				_mfc_free_buf(alloc->real);
-					}
+			if ((alloc->owner == owner) && (alloc->type == type)) {
+				if (mfc_put_free_buf(alloc->real,
+					alloc->size, port) < 0) {
+
+					mfc_err("failed to add free buffer\n");
+				} else {
+					list_del(&alloc->list);
+					kfree(alloc);
 				}
+			}
+		}
 	}
 }
 

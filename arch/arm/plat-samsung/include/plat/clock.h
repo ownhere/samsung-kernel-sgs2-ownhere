@@ -9,7 +9,11 @@
  * published by the Free Software Foundation.
 */
 
+#ifndef __ASM_PLAT_CLOCK_H
+#define __ASM_PLAT_CLOCK_H __FILE__
+
 #include <linux/spinlock.h>
+#include <linux/clkdev.h>
 
 struct clk;
 
@@ -21,7 +25,7 @@ struct clk;
  * @set_parent: set the clock's parent, see clk_set_parent().
  *
  * Group the common clock implementations together so that we
- * don't have to keep setting the same fiels again. We leave
+ * don't have to keep setting the same fields again. We leave
  * enable in struct clk.
  *
  * Adding an extra layer of indirection into the process should
@@ -40,14 +44,18 @@ struct clk {
 	struct module        *owner;
 	struct clk           *parent;
 	const char           *name;
+	const char		*devname;
 	int		      id;
 	int		      usage;
 	unsigned long         rate;
 	unsigned long         ctrlbit;
 
 	struct clk_ops		*ops;
-	struct device		*dev;
 	int		    (*enable)(struct clk *, int enable);
+	struct clk_lookup	lookup;
+#if defined(CONFIG_PM_DEBUG) && defined(CONFIG_DEBUG_FS)
+	struct dentry		*dent;	/* For visible tree hierarchy */
+#endif
 };
 
 /* other clocks which may be registered by board support */
@@ -76,6 +84,7 @@ extern struct clk clk_h2;
 extern struct clk clk_27m;
 extern struct clk clk_48m;
 extern struct clk clk_xusbxti;
+extern struct clk clk_xxti;
 
 extern int clk_default_setrate(struct clk *clk, unsigned long rate);
 extern struct clk_ops clk_ops_def_setrate;
@@ -116,3 +125,8 @@ extern int s3c64xx_sclk_ctrl(struct clk *clk, int enable);
 
 extern void s3c_pwmclk_init(void);
 
+/* Global watchdog clock used by arch_wtd_reset() callback */
+
+extern struct clk *s3c2410_wdtclk;
+
+#endif /* __ASM_PLAT_CLOCK_H */

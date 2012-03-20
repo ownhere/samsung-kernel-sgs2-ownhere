@@ -10,31 +10,25 @@
  * published by the Free Software Foundation.
 */
 
+#include <plat/clock.h>
 #include <plat/regs-watchdog.h>
 #include <mach/map.h>
 
+#include <linux/kernel.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <mach/regs-clock.h>
 
 static inline void arch_wdt_reset(void)
 {
-	struct clk *wdtclk;
-
-#if 0
 	printk("arch_reset: attempting watchdog reset\n");
 
 	__raw_writel(0, S3C2410_WTCON);	  /* disable watchdog, to be safe  */
 
-	wdtclk = clk_get(NULL, "watchdog");
-	if (!IS_ERR(wdtclk)) {
-		clk_enable(wdtclk);
-	} else
-		printk(KERN_WARNING "%s: warning: cannot get watchdog clock\n", __func__);
-#endif
+	if (s3c2410_wdtclk)
+		clk_enable(s3c2410_wdtclk);
 
-	__raw_writel(0x3FFFF, S5P_CLKGATE_IP_PERIR);
 	/* put initial values into count and data */
 	__raw_writel(0x80, S3C2410_WTCNT);
 	__raw_writel(0x80, S3C2410_WTDAT);

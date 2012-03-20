@@ -1,6 +1,6 @@
 #################################################
-# Makefile for JPEG 
-# 2009 (C) Samsung Electronics 
+# Makefile for JPEG
+# 2009 (C) Samsung Electronics
 # Author : Hyunmin Kwak <hyunmin.kwak@samsung.com>
 #################################################
 

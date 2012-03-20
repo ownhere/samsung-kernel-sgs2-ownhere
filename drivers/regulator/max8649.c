@@ -169,7 +169,7 @@ static int max8649_get_voltage(struct regulator_dev *rdev)
 }
 
 static int max8649_set_voltage(struct regulator_dev *rdev,
-			       int min_uV, int max_uV)
+			       int min_uV, int max_uV, unsigned *selector)
 {
 	struct max8649_regulator_info *info = rdev_get_drvdata(rdev);
 	unsigned char data, mask;
@@ -187,13 +187,9 @@ static int max8649_set_voltage(struct regulator_dev *rdev,
 	data = (min_uV - MAX8649_DCDC_VMIN + MAX8649_DCDC_STEP - 1)
 		/ MAX8649_DCDC_STEP;
 	mask = MAX8649_VOL_MASK;
+	*selector = data & mask;
 
 	return max8649_set_bits(info->i2c, info->vol_reg, mask, data);
-}
-
-static int max8649_set_suspend_voltage(struct regulator_dev *rdev, int uV)
-{
-	return max8649_set_voltage(rdev, uV, uV);
 }
 
 /* EN_PD means pulldown on EN input */
@@ -244,7 +240,7 @@ static int max8649_enable_time(struct regulator_dev *rdev)
 	ret = (ret & MAX8649_RAMP_MASK) >> 5;
 	rate = (32 * 1000) >> ret;	/* uV/uS */
 
-	return voltage / rate;
+	return (voltage / rate);
 }
 
 static int max8649_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -287,9 +283,7 @@ static struct regulator_ops max8649_dcdc_ops = {
 	.enable_time	= max8649_enable_time,
 	.set_mode	= max8649_set_mode,
 	.get_mode	= max8649_get_mode,
-	.set_suspend_voltage	= max8649_set_suspend_voltage,
-	.set_suspend_enable	= max8649_enable,
-	.set_suspend_disable	= max8649_disable,
+
 };
 
 static struct regulator_desc dcdc_desc = {
@@ -355,7 +349,7 @@ static int __devinit max8649_regulator_probe(struct i2c_client *client,
 
 	chip_id = (chip_id << 8) | ret;
 
-	if (id->driver_data != chip_id) {
+	if ((id->driver_data & 0xFFF0) != (chip_id & 0xFFF0)) {
 		dev_err(info->dev, "Failed to detect the device\n"
 				   "requested : 0x%x, detected 0x%x\n",
 				   (u32)id->driver_data, chip_id);
@@ -378,7 +372,7 @@ static int __devinit max8649_regulator_probe(struct i2c_client *client,
 		/* set external clock frequency */
 		info->extclk_freq = pdata->extclk_freq;
 		max8649_set_bits(info->i2c, MAX8649_SYNC, MAX8649_EXT_MASK,
-				 info->extclk_freq);
+				 info->extclk_freq << 6);
 	}
 
 	if (pdata->ramp_timing) {

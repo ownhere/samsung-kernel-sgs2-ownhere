@@ -34,8 +34,8 @@
 # include <linux/efi.h>
 #endif
 
-#ifdef CONFIG_S5P_VMEM
-# include "s5p_vmem.h"
+#ifdef CONFIG_S3C_MEM
+# include "s3c_mem.h"
 #endif
 
 static inline unsigned long size_inside_page(unsigned long start,
@@ -51,10 +51,7 @@ static inline unsigned long size_inside_page(unsigned long start,
 #ifndef ARCH_HAS_VALID_PHYS_ADDR_RANGE
 static inline int valid_phys_addr_range(unsigned long addr, size_t count)
 {
-	if (addr + count > __pa(high_memory))
-		return 0;
-
-	return 1;
+	return addr + count <= __pa(high_memory);
 }
 
 static inline int valid_mmap_phys_addr_range(unsigned long pfn, size_t size)
@@ -824,51 +821,70 @@ static const struct file_operations full_fops = {
 static const struct file_operations oldmem_fops = {
 	.read	= read_oldmem,
 	.open	= open_oldmem,
+	.llseek = default_llseek,
 };
 #endif
 
 #ifdef CONFIG_S3C_MEM
 extern int s3c_mem_mmap(struct file* filp, struct vm_area_struct *vma);
-extern int s3c_mem_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
+extern long s3c_mem_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 static const struct file_operations s3c_mem_fops = {
-	.ioctl  = s3c_mem_ioctl,
+	.unlocked_ioctl	= s3c_mem_ioctl,
 	.mmap   = s3c_mem_mmap,
 };
 #endif
 
-#ifdef CONFIG_S5P_VMEM
-static const struct file_operations s5p_vmem_fops = {
-	.ioctl  = s5p_vmem_ioctl,
-	.mmap   = s5p_vmem_mmap,
-	.open	= s5p_vmem_open,
-	.release = s5p_vmem_release
+#ifdef CONFIG_EXYNOS_MEM
+extern int exynos_mem_open(struct inode * inode, struct file *filp);
+extern int exynos_mem_release(struct inode * inode, struct file *filp);
+extern long exynos_mem_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+extern int exynos_mem_mmap(struct file* filp, struct vm_area_struct *vma);
+
+static const struct file_operations exynos_mem_fops = {
+	.open		= exynos_mem_open,
+	.release	= exynos_mem_release,
+	.unlocked_ioctl	= exynos_mem_ioctl,
+	.mmap		= exynos_mem_mmap,
 };
 #endif
 
-static ssize_t kmsg_write(struct file *file, const char __user *buf,
-			  size_t count, loff_t *ppos)
+static ssize_t kmsg_writev(struct kiocb *iocb, const struct iovec *iv,
+			   unsigned long count, loff_t pos)
 {
-	char *tmp;
-	ssize_t ret;
+	char *line, *p;
+	int i;
+	ssize_t ret = -EFAULT;
+	size_t len = iov_length(iv, count);
 
-	tmp = kmalloc(count + 1, GFP_KERNEL);
-	if (tmp == NULL)
+	line = kmalloc(len + 1, GFP_KERNEL);
+	if (line == NULL)
 		return -ENOMEM;
-	ret = -EFAULT;
-	if (!copy_from_user(tmp, buf, count)) {
-		tmp[count] = 0;
-		ret = printk("%s", tmp);
-		if (ret > count)
-			/* printk can add a prefix */
-			ret = count;
+
+	/*
+	 * copy all vectors into a single string, to ensure we do
+	 * not interleave our log line with other printk calls
+	 */
+	p = line;
+	for (i = 0; i < count; i++) {
+		if (copy_from_user(p, iv[i].iov_base, iv[i].iov_len))
+			goto out;
+		p += iv[i].iov_len;
 	}
-	kfree(tmp);
+	p[0] = '\0';
+
+	ret = printk("%s", line);
+	/* printk can add a prefix */
+	if (ret > len)
+		ret = len;
+out:
+	kfree(line);
 	return ret;
 }
 
 static const struct file_operations kmsg_fops = {
-	.write = kmsg_write,
+	.aio_write = kmsg_writev,
+	.llseek = noop_llseek,
 };
 
 static const struct memdev {
@@ -896,14 +912,13 @@ static const struct memdev {
 	[12] = { "oldmem", 0, &oldmem_fops, NULL },
 #endif
 #ifdef CONFIG_S3C_MEM
-	[13] = {"s3c-mem", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH, &s3c_mem_fops},
+	[13] = {"s3c-mem", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+			| S_IWOTH, &s3c_mem_fops},
 #endif
-#ifdef CONFIG_S5P_VMEM
-	[14] = {"s5p-vmem",
-		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-		&s5p_vmem_fops},
+#ifdef CONFIG_EXYNOS_MEM
+	[14] = {"exynos-mem", S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+			| S_IWOTH, &exynos_mem_fops},
 #endif
-
 };
 
 static int memory_open(struct inode *inode, struct file *filp)
@@ -923,6 +938,10 @@ static int memory_open(struct inode *inode, struct file *filp)
 	if (dev->dev_info)
 		filp->f_mapping->backing_dev_info = dev->dev_info;
 
+	/* Is /dev/mem or /dev/kmem ? */
+	if (dev->dev_info == &directly_mappable_cdev_bdi)
+		filp->f_mode |= FMODE_UNSIGNED_OFFSET;
+
 	if (dev->fops->open)
 		return dev->fops->open(inode, filp);
 
@@ -931,6 +950,7 @@ static int memory_open(struct inode *inode, struct file *filp)
 
 static const struct file_operations memory_fops = {
 	.open = memory_open,
+	.llseek = noop_llseek,
 };
 
 static char *mem_devnode(struct device *dev, mode_t *mode)

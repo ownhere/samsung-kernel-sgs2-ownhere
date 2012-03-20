@@ -3,7 +3,7 @@
  * Driver file for Samsung Transport Stream Interface
  *
  *  Copyright (c) 2009 Samsung Electronics
- * 	http://www.samsungsemi.com/
+ *	http://www.samsungsemi.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -117,20 +117,20 @@ static struct timer_list tsi_timer;
 /* debug macro */
 #define TSI_DEBUG(fmt, ...)                                     \
 		do {                                                    \
-			printk(                               				\
-			"%s: " fmt, __func__, ##__VA_ARGS__);   			\
+			printk(								\
+			"%s: " fmt, __func__, ##__VA_ARGS__);				\
 		} while (0)
 
 #define TSI_WARN(fmt, ...)                                      \
 		do {                                                    \
-			printk(KERN_WARNING                             	\
-			fmt, ##__VA_ARGS__);                    			\
+			printk(KERN_WARNING					\
+			fmt, ##__VA_ARGS__);						\
 		} while (0)
 
 #define TSI_ERROR(fmt, ...)                                     \
 		do {                                                    \
-			printk(KERN_ERR                                 	\
-			"%s: " fmt, __func__, ##__VA_ARGS__);   			\
+			printk(KERN_ERR						\
+			"%s: " fmt, __func__, ##__VA_ARGS__);				\
 		} while (0)
 
 
@@ -166,20 +166,20 @@ void list_debug(struct list_head *head)
 void s3c_tsi_set_gpio(void)
 {
 	/*  CLK */
-	s3c_gpio_cfgpin(S5PV310_GPE0(0), S3C_GPIO_SFN(4));
-	s3c_gpio_setpull(S5PV310_GPE0(0), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(EXYNOS4210_GPE0(0), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(EXYNOS4210_GPE0(0), S3C_GPIO_PULL_NONE);
 
 	/*  DTEN */
-	s3c_gpio_cfgpin(S5PV310_GPE0(2), S3C_GPIO_SFN(4));
-	s3c_gpio_setpull(S5PV310_GPE0(2), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(EXYNOS4210_GPE0(2), S3C_GPIO_SFN(4));
+	s3c_gpio_setpull(EXYNOS4210_GPE0(2), S3C_GPIO_PULL_NONE);
 
 #if defined(CONFIG_TARGET_LOCALE_NTT)
 	printk(" %s : system_rev %d\n", __func__, system_rev);
 
 	if (system_rev >= 11) {
 		/*  DATA */
-		s3c_gpio_cfgpin(S5PV310_GPE0(3), S3C_GPIO_SFN(4));
-		s3c_gpio_setpull(S5PV310_GPE0(3), S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(EXYNOS4210_GPE0(3), S3C_GPIO_SFN(4));
+		s3c_gpio_setpull(EXYNOS4210_GPE0(3), S3C_GPIO_PULL_NONE);
 	}
 #else
 	/*  DATA */
@@ -570,7 +570,7 @@ static ssize_t s3c_tsi_read(struct file *file, char *buf, size_t count, loff_t *
 #define TSI_TRIGGER	0xAABB
 #define TSI_STOP	0xAACC
 
-static int s3c_tsi_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+static long s3c_tsi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	tsi_dev *tsi = platform_get_drvdata(s3c_tsi_dev);
@@ -615,7 +615,7 @@ static struct file_operations tsi_fops = {
 	owner:		THIS_MODULE,
 	open :		s3c_tsi_open,
 	release :	s3c_tsi_release,
-	ioctl :		s3c_tsi_ioctl,
+	unlocked_ioctl		:	s3c_tsi_ioctl,
 	read :		s3c_tsi_read,
 #if defined(CONFIG_CPU_S5PV210) || defined(CONFIG_TARGET_LOCALE_NTT)
 	poll :		s3c_tsi_poll,
@@ -743,7 +743,7 @@ static int s3c_tsi_probe(struct platform_device *pdev)
 	tsi_priv->tsi_buf_size = TSI_BUF_SIZE;
 
 	tsi_priv->tsi_clk = clk_get(NULL, "tsi");
-	printk("Clk Get Result %x\n", tsi_priv->tsi_clk);
+	//printk("Clk Get Result %x\n", tsi_priv->tsi_clk);
 	if (tsi_priv->tsi_clk == NULL)	{
 			printk(KERN_ERR "Failed to get TSI clock\n");
 			return -ENOENT;

@@ -14,10 +14,12 @@
  */
 
 #include <linux/slab.h>	/* For memory allocation */
+#include <linux/workqueue.h>
 
 #include "mali_osk.h"
 #include "mali_kernel_core.h"
 #include "mali_kernel_common.h"
+#include "mali_kernel_license.h"
 #include "linux/interrupt.h"
 
 typedef struct _mali_osk_irq_t_struct
@@ -141,6 +143,11 @@ void _mali_osk_irq_schedulework( _mali_osk_irq_t *irq )
 {
 	mali_osk_irq_object_t *irq_object = (mali_osk_irq_object_t *)irq;
 	queue_work_on(0, mali_irq_wq,&irq_object->work_queue_irq_handle);
+}
+
+void _mali_osk_flush_workqueue( _mali_osk_irq_t *irq )
+{
+		flush_workqueue(mali_irq_wq );
 }
 
 void _mali_osk_irq_term( _mali_osk_irq_t *irq )

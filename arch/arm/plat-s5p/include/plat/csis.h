@@ -16,10 +16,11 @@
 #define to_csis_plat(d)		(to_platform_device(d)->dev.platform_data)
 
 struct platform_device;
+struct clk;
 
 struct s3c_platform_csis {
-	const char	srclk_name[16];
-	const char	clk_name[16];
+	char	*srclk_name;
+	char	*clk_name;
 	unsigned long	clk_rate;
 
 	void		(*cfg_gpio)(void);
@@ -27,7 +28,7 @@ struct s3c_platform_csis {
 	int		(*clk_on)(struct platform_device *pdev, struct clk **clk);
 	int		(*clk_off)(struct platform_device *pdev, struct clk **clk);
 };
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 extern void s3c_csis0_set_platdata(struct s3c_platform_csis *csis);
 extern void s3c_csis1_set_platdata(struct s3c_platform_csis *csis);
 extern void s3c_csis0_cfg_gpio(void);

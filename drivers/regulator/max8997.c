@@ -39,11 +39,17 @@ struct max8997_data {
 	struct max8997_dev	*iodev;
 	int			num_regulators;
 	struct regulator_dev	**rdev;
-	u8                      buck1_vol[4]; /* voltages for selection */
-	u8                      buck2_vol[2];
+	bool			buck1_gpiodvs;
+	int			buck_set1;
+	int			buck_set2;
+	int			buck_set3;
+	u8                      buck1_vol[8]; /* voltages for selection */
 	unsigned int		buck1_idx; /* index to last changed voltage */
 					   /* value in a set */
-	unsigned int		buck2_idx;
+	bool			buck_ramp_en;
+	int			buck_ramp_delay;
+	struct max8997_buck1_dvs_funcs funcs;
+	struct mutex		dvs_lock;
 };
 
 struct vol_cur_map_desc {
@@ -70,6 +76,11 @@ static const struct vol_cur_map_desc flash_vol_cur_map_desc = {
 static const struct vol_cur_map_desc movie_vol_cur_map_desc = {
 	.min = 15625,	.step = 15625,	.max = 250000,
 };
+#ifdef MAX8997_SUPPORT_TORCH
+static const struct vol_cur_map_desc torch_vol_cur_map_desc = {
+	.min = 15625,	.step = 15625,	.max = 250000,
+};
+#endif /* MAX8997_SUPPORT_TORCH */
 
 static const struct vol_cur_map_desc *ldo_vol_cur_map[] = {
 	NULL,
@@ -106,6 +117,9 @@ static const struct vol_cur_map_desc *ldo_vol_cur_map[] = {
 	NULL,				/* ESAFEOUT2 */
 	&flash_vol_cur_map_desc,	/* FLASH_EN */
 	&movie_vol_cur_map_desc,	/* MOVIE_EN */
+#ifdef MAX8997_SUPPORT_TORCH
+	&torch_vol_cur_map_desc,	/* TORCH */
+#endif /* MAX8997_SUPPORT_TORCH */
 };
 
 static inline int max8997_get_ldo(struct regulator_dev *rdev)
@@ -319,7 +333,7 @@ static int max8997_get_voltage_register(struct regulator_dev *rdev,
 		reg = MAX8997_REG_BUCK1DVSTV1 + max8997->buck1_idx;
 		break;
 	case MAX8997_BUCK2:
-		reg = MAX8997_REG_BUCK2DVSTV1 + max8997->buck2_idx;
+		reg = MAX8997_REG_BUCK2DVSTV1 + 1;
 		break;
 	case MAX8997_BUCK3:
 		reg = MAX8997_REG_BUCK3DVSTV;
@@ -328,7 +342,7 @@ static int max8997_get_voltage_register(struct regulator_dev *rdev,
 		reg = MAX8997_REG_BUCK4DVSTV;
 		break;
 	case MAX8997_BUCK5:
-		reg = MAX8997_REG_BUCK5DVSTV1;
+		reg = MAX8997_REG_BUCK5DVSTV1 + 1;
 		break;
 	case MAX8997_BUCK7:
 		reg = MAX8997_REG_BUCK7DVSTV;
@@ -366,7 +380,7 @@ static int max8997_get_voltage(struct regulator_dev *rdev)
 }
 
 static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
-				int min_uV, int max_uV)
+				int min_uV, int max_uV, unsigned *selector)
 {
 	struct max8997_data *max8997 = rdev_get_drvdata(rdev);
 	struct i2c_client *i2c = max8997->iodev->i2c;
@@ -398,62 +412,83 @@ static int max8997_set_voltage_ldo(struct regulator_dev *rdev,
 		return ret;
 
 	ret = max8997_update_reg(i2c, reg, i<<shift, mask<<shift);
+	*selector = i;
 
 	return ret;
 }
 
-#ifdef __USE_GPIO_DVS__
-static inline void buck1_gpio_set(int gpio1, int gpio2, int v)
+static inline void buck1_gpio_set(struct max8997_data *max8997, int v)
 {
-	gpio_set_value(gpio1, v & 0x1);
-	gpio_set_value(gpio2, (v >> 1) & 0x1);
-}
+	static int prev_v = 0x1;
 
-static inline void buck2_gpio_set(int gpio, int v)
-{
-	gpio_set_value(gpio, v & 0x1);
+	int gpio1 = max8997->buck_set1;
+	int gpio2 = max8997->buck_set2;
+	int gpio3 = max8997->buck_set3;
+
+	if (prev_v > v) {
+		/* raise the volage */
+		gpio_set_value(gpio3, (v >> 2) & 0x1);
+		udelay(40);
+		gpio_set_value(gpio2, (v >> 1) & 0x1);
+		udelay(40);
+		gpio_set_value(gpio1, v & 0x1);
+	} else {
+		gpio_set_value(gpio1, v & 0x1);
+		udelay(40);
+		gpio_set_value(gpio2, (v >> 1) & 0x1);
+		udelay(40);
+		gpio_set_value(gpio3, (v >> 2) & 0x1);
+	}
+
+	prev_v = v;
 }
-#endif /* __USE_GPIO_DVS__ */
 
 static int max8997_set_voltage_buck(struct regulator_dev *rdev,
-				    int min_uV, int max_uV)
+				    int min_uV, int max_uV, unsigned *selector)
 {
 	struct max8997_data *max8997 = rdev_get_drvdata(rdev);
 	struct i2c_client *i2c = max8997->iodev->i2c;
-#ifdef __USE_GPIO_DVS__
-	struct max8997_platform_data *pdata =
-		dev_get_platdata(max8997->iodev->dev);
-	int j = 0;
-#endif /* __USE_GPIO_DVS__ */
+	int i = 0, j, k;
 	int min_vol = min_uV / 1000, max_vol = max_uV / 1000;
 	const struct vol_cur_map_desc *desc;
 	int buck = max8997_get_ldo(rdev);
 	int reg, shift = 0, mask, ret;
-	int difference = 0, i = 0, previous_vol = 0;
-	u8 val = 0, data[8];
-	int ramp_mv = 0, k = 0;
+	int difference = 0, previous_vol = 0, current_vol = 0;
+	u8 data[7];
 
-	if (buck >= ARRAY_SIZE(ldo_vol_cur_map))
-		return -EINVAL;
+	mutex_lock(&max8997->dvs_lock);
+
+	if (buck >= ARRAY_SIZE(ldo_vol_cur_map)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	desc = ldo_vol_cur_map[buck];
 
-	if (desc == NULL)
-		return -EINVAL;
+	if (desc == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
 
-	if (max_vol < desc->min || min_vol > desc->max)
-		return -EINVAL;
+	if (max_vol < desc->min || min_vol > desc->max) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	while (desc->min + desc->step*i < min_vol &&
 	       desc->min + desc->step*i < desc->max)
 		i++;
 
-	if (desc->min + desc->step*i > max_vol)
-		return -EINVAL;
+	*selector = i;
+
+	if (desc->min + desc->step*i > max_vol) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	ret = max8997_get_voltage_register(rdev, &reg, &shift, &mask);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	previous_vol = max8997_get_voltage(rdev);
 
@@ -462,31 +497,26 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 	if (previous_vol == max8997_list_voltage(rdev, i)) {
 		dev_dbg(max8997->dev, "No voltage change, old:%d, new:%d\n",
 			previous_vol, max8997_list_voltage(rdev, i));
-		return 0;
+		ret = 0;
+		goto out;
 	}
 
 	switch (buck) {
 	case MAX8997_BUCK1:
-#ifndef __USE_GPIO_DVS__
-		/* buck1 set by I2C interface */
-		ret = max8997_write_reg(i2c, reg, i);
-#else /* __USE_GPIO_DVS__ */
-		dev_dbg(max8997->dev,
-			"BUCK1, i:%d, buck1_vol1:%d, buck1_vol2:%d\n\
-			 buck1_vol3:%d, buck1_vol4:%d\n",
-			i, max8997->buck1_vol[0], max8997->buck1_vol[1],
-			max8997->buck1_vol[2], max8997->buck1_vol[3]);
+		if (!max8997->buck1_gpiodvs) {
+			ret = max8997_write_reg(i2c, reg, i);
+			break;
+		}
 
-		if (gpio_is_valid(pdata->buck_set1) &&
-		    gpio_is_valid(pdata->buck_set2)) {
-
+		if (gpio_is_valid(max8997->buck_set1) &&
+		    gpio_is_valid(max8997->buck_set2) &&
+		    gpio_is_valid(max8997->buck_set3)) {
 			/* check if requested voltage */
 			/* value is already defined */
-			for (j = 0; j < ARRAY_SIZE(max8997->buck1_vol); j++) {
+			for (j = 1; j < ARRAY_SIZE(max8997->buck1_vol); j++) {
 				if (max8997->buck1_vol[j] == i) {
 					max8997->buck1_idx = j;
-					buck1_gpio_set(pdata->buck_set1,
-						       pdata->buck_set2, j);
+					buck1_gpio_set(max8997, j);
 					goto buck1_exit;
 				}
 			}
@@ -494,143 +524,61 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 			/* no predefine regulator found */
 			dev_warn(max8997->dev, "BUCK1 no predefined:%d,%d\n",
 				min_vol, max_vol);
-			max8997->buck1_idx = 3;
+			max8997->buck1_idx = 7;
 			max8997->buck1_vol[max8997->buck1_idx] = i;
-			ret = max8997_get_voltage_register(rdev, &reg,
-							   &shift,
+			ret = max8997_get_voltage_register(rdev, &reg, &shift,
 							   &mask);
 			if (ret < 0)
-				return ret;
-			ret = max8997_write_reg(i2c, reg, i);
-			ret += max8997_write_reg(i2c, reg + 4, i);
+				break;
 
-			buck1_gpio_set(pdata->buck_set1,
-				       pdata->buck_set2, max8997->buck1_idx);
+			ret = max8997_write_reg(i2c, reg, i);
+			if (ret < 0)
+				break;
+
+			buck1_gpio_set(max8997, max8997->buck1_idx);
 buck1_exit:
-			dev_dbg(max8997->dev, "%s: SET1:%d, SET2:%d\n",
-				i2c->name, gpio_get_value(pdata->buck_set1),
-				gpio_get_value(pdata->buck_set2));
+			dev_dbg(max8997->dev, "%s: SET3:%d,SET2:%d,SET1:%d\n",
+				__func__, gpio_get_value(max8997->buck_set3),
+				gpio_get_value(max8997->buck_set2),
+				gpio_get_value(max8997->buck_set1));
 			break;
-		} else {
+		} else
 			ret = max8997_write_reg(i2c, reg, i);
-			ret += max8997_write_reg(i2c, reg + 4, i);
-		}
-#endif /* __USE_GPIO_DVS__ */
 		break;
-
 	case MAX8997_BUCK2:
-#ifndef __USE_GPIO_DVS__
-		/* buck2 set by I2C interface */
-		ret = max8997_write_reg(i2c, reg, i);
-#else /* __USE_GPIO_DVS__ */
-		dev_dbg(max8997->dev,
-			"BUCK2, i:%d buck2_vol1:%d, buck2_vol2:%d\n"
-			, i, max8997->buck2_vol[0], max8997->buck2_vol[1]);
-
-		if (gpio_is_valid(pdata->buck_set3)) {
-			if (max8997->buck2_vol[0] == i) {
-				max8997->buck2_idx = 0;
-				buck2_gpio_set(pdata->buck_set3, 0);
-			} else if (max8997->buck2_vol[1] == i) {
-				max8997->buck2_idx = 4;
-				buck2_gpio_set(pdata->buck_set3, 1);
-			} else {
-				/* no predefine regulator found */
-				dev_warn(max8997->dev, "BUCK2 no predefined\
-						:%d,%d\n", min_vol, max_vol);
-				max8997->buck2_idx = 4;
-				ret = max8997_get_voltage_register(rdev, &reg,
-								   &shift,
-								   &mask);
-				if (ret < 0)
-					return ret;
-
-				for (k = 0; k < 4; k++)
-					data[k] = i;
-
-				ret = max8997_bulk_write(i2c, reg, 4, data);
-
-				max8997->buck2_vol[1] = i;
-				buck2_gpio_set(pdata->buck_set3, 1);
-			}
-			dev_dbg(max8997->dev, "%s: SET3:%d\n", i2c->name,
-				gpio_get_value(pdata->buck_set3));
-		} else {
-			for (k = 0; k < 4; k++)
-				data[k] = i;
-
-			ret = max8997_bulk_write(i2c, reg, 4, data);
-		}
-#endif /* __USE_GPIO_DVS__ */
+	case MAX8997_BUCK5:
+		for (k = 0; k < 7; k++)
+			data[k] = i;
+		ret = max8997_bulk_write(i2c, reg, 7, data);
 		break;
-
 	case MAX8997_BUCK3:
 	case MAX8997_BUCK4:
 	case MAX8997_BUCK7:
 		ret = max8997_write_reg(i2c, reg, i);
 		break;
-	case MAX8997_BUCK5:
-		for (k = 0; k < 8; k++)
-			data[k] = i;
-
-		ret = max8997_bulk_write(i2c, reg, 8, data);
-		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
 
 	if (ret < 0) {
-		dev_err(max8997->dev, "Failed to write buck%d voltage\
-				register: %d\n", buck - MAX8997_BUCK1 + 1, ret);
-		return ret;
+		dev_err(max8997->dev, "Failed to write buck%d voltage"
+			"register: %d\n", buck - MAX8997_BUCK1 + 1, ret);
+		goto out;
 	}
 
-	/* Voltage stabilization */
-	max8997_read_reg(i2c, MAX8997_REG_BUCKRAMP, &val);
+	if (!max8997->buck_ramp_en)
+		goto out;
 
-	/* MAX8997 has ENRAMP bit implemented, so test it*/
-	switch (buck) {
-	case MAX8997_BUCK1:
-		mask = MAX8997_ENRAMPBUCK1;
-		break;
-	case MAX8997_BUCK2:
-		mask = MAX8997_ENRAMPBUCK2;
-		break;
-	case MAX8997_BUCK4:
-		mask = MAX8997_ENRAMPBUCK4;
-		break;
-	case MAX8997_BUCK5:
-		mask = MAX8997_ENRAMPBUCK5;
-		break;
-	default:
-		return ret;
-	}
+	current_vol = desc->min + desc->step*i;
+	if (previous_vol/1000 < current_vol)
+		difference = current_vol - previous_vol/1000;
+	else
+		difference = previous_vol/1000 - current_vol;
 
-	if (!(val & mask))
-		return ret;
-
-	difference = desc->min + desc->step*i - previous_vol/1000;
-	if (difference > 0) {
-		switch (val & 0x0f) {
-		case 0x0 ... 0xb:
-			ramp_mv = (val & 0x0f) + 1;
-			break;
-		case 0xc:
-			ramp_mv = 17;
-			break;
-		case 0xd:
-			ramp_mv = 25;
-			break;
-		case 0xe:
-			ramp_mv = 50;
-			break;
-		case 0xf:
-			ramp_mv = 100;
-			break;
-		}
-		udelay(difference / ramp_mv);
-	}
-
+	udelay(difference / max8997->buck_ramp_delay);
+out:
+	mutex_unlock(&max8997->dvs_lock);
 	return ret;
 }
 
@@ -645,6 +593,9 @@ static int max8997_flash_is_enabled(struct regulator_dev *rdev)
 	case MAX8997_FLASH_CUR:
 		mask = MAX8997_FLASH_EN_MASK;
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_FLASH_TORCH */
 	case MAX8997_MOVIE_CUR:
 		mask = MAX8997_MOVIE_EN_MASK;
 		break;
@@ -679,6 +630,12 @@ static int max8997_flash_enable(struct regulator_dev *rdev)
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			7 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
+			3 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
+		break;
+#endif /* MAX8997_SUPPORT_TORCH */
 	default:
 		return -EINVAL;
 	}
@@ -702,6 +659,9 @@ static int max8997_flash_disable(struct regulator_dev *rdev)
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			0 << MAX8997_FLASH_EN_SHIFT, MAX8997_FLASH_EN_MASK);
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_SUPPORT_TORCH */
 	case MAX8997_MOVIE_CUR:
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			0 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
@@ -730,6 +690,9 @@ static int max8997_flash_get_current(struct regulator_dev *rdev)
 		ret = max8997_read_reg(i2c, MAX8997_REG_FLASH1_CUR, &val);
 		shift = 3;
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_SUPPORT_TORCH */
 	case MAX8997_MOVIE_CUR:
 		ret = max8997_read_reg(i2c, MAX8997_REG_MOVIE_CUR, &val);
 		shift = 4;
@@ -792,6 +755,11 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 				0xf << 2);
 #endif
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+		ret = max8997_write_reg(i2c, MAX8997_REG_MOVIE_CUR, i << 4);
+		break;
+#endif /* MAX8997_SUPPORT_TORCH */
 	default:
 		return -EINVAL;
 	}
@@ -1038,53 +1006,108 @@ static struct regulator_desc regulators[] = {
 		.ops		= &max8997_flash_ops,
 		.type		= REGULATOR_CURRENT,
 		.owner		= THIS_MODULE,
+#ifdef MAX8997_SUPPORT_TORCH
+	}, {
+		.name		= "FLASH_TORCH",
+		.id		= MAX8997_FLASH_TORCH,
+		.ops		= &max8997_flash_ops,
+		.type		= REGULATOR_CURRENT,
+		.owner		= THIS_MODULE,
+#endif /* MAX8997_SUPPORT_TORCH */
 	}
 };
 
-#ifdef __USE_GPIO_DVS__
-/* Set predefined value for BUCK1 and BUCK2 registers */
-static int max8997_set_buck1_2_voltages(struct max8997_data *max8997,
-					int buck_no, int idx,
-					int buck_max_voltage)
+static int max8997_set_buck_max_voltage(struct max8997_data *max8997,
+				int buck_no, unsigned int buck_max_vol)
 {
 	struct i2c_client *i2c;
-	int i, j, ret = 0;
-	u8 reg, data[4];
+	int i = 0, j;
+	u8 reg, data[8];
 
 	i2c = max8997->iodev->i2c;
 
-	i = 0;
 	while (buck1245_vol_cur_map_desc.min + buck1245_vol_cur_map_desc.step*i
-	       != (buck_max_voltage / 1000))
+	       != (buck_max_vol / 1000)) {
 		i++;
+		if (i > 0x3f) {
+			dev_err(max8997->dev, "%s: invalid voltage(%d,%d)\n",
+					__func__, buck_no, buck_max_vol);
+			return -EINVAL;
+		}
+	}
 
-	dev_info(max8997->dev, "%s: i:%d, buck%d_idx:%d\n", __func__, i,
-			buck_no, idx);
+	dev_info(max8997->dev, "%s: buck%d: %d, i:%d\n", __func__, buck_no,
+			buck_max_vol, i);
 
 	switch (buck_no) {
 	case 1:
-		max8997->buck1_vol[idx] = i;
-		reg = MAX8997_REG_BUCK1DVSTV1 + idx;
-		ret = max8997_write_reg(i2c, reg, i);
-		ret += max8997_write_reg(i2c, reg + 4, i);
+		max8997->buck1_vol[0] = i;
+		reg = MAX8997_REG_BUCK1DVSTV1;
 		break;
 	case 2:
-		max8997->buck2_vol[idx] = i;
-		reg = MAX8997_REG_BUCK2DVSTV1 + idx * 4;
-
-		for (j = 0; j < 4; j++)
-			data[j] = i;
-
-		ret = max8997_bulk_write(i2c, reg, 4, data);
+		reg = MAX8997_REG_BUCK2DVSTV1;
+		break;
+	case 5:
+		reg = MAX8997_REG_BUCK5DVSTV1;
 		break;
 	default:
-		ret = -EINVAL;
-		break;
+		pr_err("%s: wrong BUCK number(%d)!\n", __func__, buck_no);
+		return -EINVAL;
 	}
 
+	for (j = 0; j < 8; j++)
+		data[j] = i;
+
+	return max8997_bulk_write(i2c, reg, 8, data);
+}
+
+/* Set predefined value for BUCK1 registers */
+static int max8997_set_buck1_voltages(struct max8997_data *max8997,
+				unsigned int *buck1_voltages, int arr_size)
+{
+	struct i2c_client *i2c;
+	int i, j, idx = 1, ret = 0;
+	u8 reg;
+
+	mutex_lock(&max8997->dvs_lock);
+
+	if (arr_size > BUCK1_TABLE_SIZE) {
+		dev_err(max8997->dev, "%s: too big voltage array!(%d)\n",
+				__func__, arr_size);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	i2c = max8997->iodev->i2c;
+
+	for (i = 0; i < arr_size; i++) {
+		if (buck1_voltages[i] == 0)
+			continue;
+
+		j = 0;
+		while (buck1245_vol_cur_map_desc.min
+				+ buck1245_vol_cur_map_desc.step*j
+				!= (buck1_voltages[i] / 1000))
+			j++;
+
+		dev_info(max8997->dev, "%s: buck1_voltages[%d]=%d, "
+				"buck1_vol[%d]=%d\n", __func__,
+				i, buck1_voltages[i], idx, j);
+
+		max8997->buck1_vol[idx] = j;
+		reg = MAX8997_REG_BUCK1DVSTV1 + idx;
+		ret = max8997_write_reg(i2c, reg, j);
+		if (ret < 0) {
+			dev_err(max8997->dev, "%s: fail to write reg(%d)!\n",
+					__func__, ret);
+			break;
+		}
+		idx++;
+	}
+out:
+	mutex_unlock(&max8997->dvs_lock);
 	return ret;
 }
-#endif /* __USE_GPIO_DVS__ */
 
 static void max8997_set_buckramp(struct max8997_data *max8997,
 		struct max8997_platform_data *pdata)
@@ -1093,20 +1116,58 @@ static void max8997_set_buckramp(struct max8997_data *max8997,
 	int ret;
 	u8 val = 0;
 
-	if (pdata->buck1_ramp_en)
-		val |= MAX8997_ENRAMPBUCK1;
-	if (pdata->buck2_ramp_en)
-		val |= MAX8997_ENRAMPBUCK2;
-	if (pdata->buck4_ramp_en)
-		val |= MAX8997_ENRAMPBUCK4;
-	if (pdata->buck5_ramp_en)
-		val |= MAX8997_ENRAMPBUCK5;
+	max8997->buck_ramp_en = pdata->buck_ramp_en;
+	if (max8997->buck_ramp_en)
+		val = (MAX8997_ENRAMPBUCK1 | MAX8997_ENRAMPBUCK2
+			| MAX8997_ENRAMPBUCK4 | MAX8997_ENRAMPBUCK5);
 
-	val |= pdata->buck_ramp_reg_val & 0xf;
+	max8997->buck_ramp_delay = pdata->buck_ramp_delay;
+	switch (max8997->buck_ramp_delay) {
+	case 1 ... 12:
+		val |= max8997->buck_ramp_delay - 1;
+		break;
+	case 16:
+		val |= 0xc; /* 16.67mV/us */
+		break;
+	case 25:
+		val |= 0xd;
+		break;
+	case 50:
+		val |= 0xe;
+		break;
+	case 100:
+		val |= 0xf;
+		break;
+	default:
+		dev_warn(max8997->dev, "%s: invalid ramp delay, "
+			"set ramp delay as 10mV/us\n", __func__);
+		max8997->buck_ramp_delay = 10;
+		val |= 0x9;
+		break;
+	}
 
+	dev_info(max8997->dev, "RAMP REG(0x%x)\n", val);
 	ret = max8997_write_reg(i2c, MAX8997_REG_BUCKRAMP, val);
 	if (ret < 0)
 		dev_err(max8997->dev, "failed to write RAMP REG(%d)\n", ret);
+}
+
+static int max8997_set_buck1_dvs_table(struct max8997_buck1_dvs_funcs *ptr,
+				unsigned int *voltage_table, int arr_size)
+{
+	struct max8997_data *max8997
+		= container_of(ptr, struct max8997_data, funcs);
+	int ret;
+
+	ret = max8997_set_buck1_voltages(max8997, voltage_table, arr_size);
+
+	if (ret >= 0) {
+		max8997->buck1_gpiodvs = true;
+		dev_info(max8997->dev, "%s: enable BUCK1 GPIO DVS\n",
+				__func__);
+
+	}
+	return ret;
 }
 
 static __devinit int max8997_pmic_probe(struct platform_device *pdev)
@@ -1116,7 +1177,7 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 	struct regulator_dev **rdev;
 	struct max8997_data *max8997;
 	struct i2c_client *i2c;
-	int i, ret, size;
+	int i, size, ret = 0;
 
 	if (!pdata) {
 		dev_err(pdev->dev.parent, "No platform init data supplied\n");
@@ -1134,89 +1195,105 @@ static __devinit int max8997_pmic_probe(struct platform_device *pdev)
 		goto err3;
 	}
 
+	mutex_init(&max8997->dvs_lock);
+
 	rdev = max8997->rdev;
 	max8997->dev = &pdev->dev;
 	max8997->iodev = iodev;
 	max8997->num_regulators = pdata->num_regulators;
 	platform_set_drvdata(pdev, max8997);
 	i2c = max8997->iodev->i2c;
+	max8997->buck1_gpiodvs = pdata->buck1_gpiodvs;
+	max8997->buck_set1 = pdata->buck_set1;
+	max8997->buck_set2 = pdata->buck_set2;
+	max8997->buck_set3 = pdata->buck_set3;
 
-#ifdef __USE_GPIO_DVS__
+	/* NOTE:
+	 * This MAX8997 PMIC driver support only BUCK1 GPIO DVS
+	 * because BUCK1(ARM clock voltage) is most frequently changed
+	 */
+	/* For the safety, set max voltage before DVS configuration */
+	if (!pdata->buck1_max_vol || !pdata->buck2_max_vol
+			|| !pdata->buck5_max_vol) {
+		pr_err("MAX8997: must set buck max voltage!\n");
+		goto err2;
+	}
+
+	ret = max8997_set_buck_max_voltage(max8997, 1, pdata->buck1_max_vol);
+	if (ret < 0) {
+		pr_err("MAX8997: fail to set buck1 max voltage!\n");
+		goto err2;
+	}
+
+	ret = max8997_set_buck_max_voltage(max8997, 2, pdata->buck2_max_vol);
+	if (ret < 0) {
+		pr_err("MAX8997: fail to set buck2 max voltage!\n");
+		goto err2;
+	}
+
+	ret = max8997_set_buck_max_voltage(max8997, 5, pdata->buck5_max_vol);
+	if (ret < 0) {
+		pr_err("MAX8997: fail to set buck5 max voltage!\n");
+		goto err2;
+	}
+
 	/* NOTE: */
 	/* For unused GPIO NOT marked as -1 (thereof equal to 0)  WARN_ON */
 	/* will be displayed */
 	/* Check if MAX8997 voltage selection GPIOs are defined */
-	if (gpio_is_valid(pdata->buck_set1) &&
-	    gpio_is_valid(pdata->buck_set2)) {
+	if (gpio_is_valid(max8997->buck_set1) &&
+	    gpio_is_valid(max8997->buck_set2) &&
+	    gpio_is_valid(max8997->buck_set3)) {
 		/* Check if SET1 is not equal to 0 */
-		if (!pdata->buck_set1) {
+		if (!max8997->buck_set1) {
 			pr_err("MAX8997 SET1 GPIO defined as 0 !\n");
 			WARN_ON(!pdata->buck_set1);
 			ret = -EIO;
 			goto err2;
 		}
 		/* Check if SET2 is not equal to 0 */
-		if (!pdata->buck_set2) {
+		if (!max8997->buck_set2) {
 			pr_err("MAX8998 SET2 GPIO defined as 0 !\n");
 			WARN_ON(!pdata->buck_set2);
 			ret = -EIO;
 			goto err2;
 		}
-
-		gpio_request(pdata->buck_set1, "MAX8997 BUCK_SET1");
-		gpio_direction_output(pdata->buck_set1,
-				      max8997->buck1_idx & 0x1);
-
-		gpio_request(pdata->buck_set2, "MAX8997 BUCK_SET2");
-		gpio_direction_output(pdata->buck_set2,
-				      (max8997->buck1_idx >> 1) & 0x1);
-
-		/* Set predefined value for BUCK1 register 1,5 */
-		ret = max8997_set_buck1_2_voltages(max8997, 1, 0,
-					pdata->buck1_max_voltage1);
-		if (ret < 0)
-			goto err2;
-		/* Set predefined value for BUCK1 register 2,6 */
-		ret = max8997_set_buck1_2_voltages(max8997, 1, 1,
-					pdata->buck1_max_voltage2);
-		if (ret < 0)
-			goto err2;
-		/* Set predefined value for BUCK1 register 3,7 */
-		ret = max8997_set_buck1_2_voltages(max8997, 1, 2,
-					pdata->buck1_max_voltage3);
-		if (ret < 0)
-			goto err2;
-		/* Set predefined value for BUCK1 register 4,8 */
-		ret = max8997_set_buck1_2_voltages(max8997, 1, 3,
-					pdata->buck1_max_voltage4);
-		if (ret < 0)
-			goto err2;
-	}
-
-	if (gpio_is_valid(pdata->buck_set3)) {
 		/* Check if SET3 is not equal to 0 */
-		if (!pdata->buck_set3) {
+		if (!max8997->buck_set3) {
 			pr_err("MAX8997 SET3 GPIO defined as 0 !\n");
-			WARN_ON(!pdata->buck_set3);
+			WARN_ON(!max8997->buck_set3);
 			ret = -EIO;
 			goto err2;
 		}
-		gpio_request(pdata->buck_set3, "MAX8997 BUCK_SET3");
-		gpio_direction_output(pdata->buck_set3,
-				      max8997->buck2_idx & 0x4);
 
-		/* Set predefined value for BUCK2 register 1,2,3,4 */
-		ret = max8997_set_buck1_2_voltages(max8997, 2, 0,
-					pdata->buck2_max_voltage1);
-		if (ret < 0)
-			goto err2;
-		/* Set predefined value for BUCK2 register 5,6,7,8 */
-		ret = max8997_set_buck1_2_voltages(max8997, 2, 1,
-					pdata->buck2_max_voltage2);
-		if (ret < 0)
-			goto err2;
+		/* To prepare watchdog reset, index 0 of voltage table is
+		 * always highest voltage.
+		 * Default voltage of BUCK1,2,5 was configured by bootloader.
+		 */
+		max8997->buck1_idx = 1;
+		gpio_request(max8997->buck_set1, "MAX8997 BUCK_SET1");
+		gpio_direction_output(max8997->buck_set1, 1);
+		gpio_request(max8997->buck_set2, "MAX8997 BUCK_SET2");
+		gpio_direction_output(max8997->buck_set2, 0);
+		gpio_request(max8997->buck_set3, "MAX8997 BUCK_SET3");
+		gpio_direction_output(max8997->buck_set3, 0);
+
+		if (max8997->buck1_gpiodvs) {
+			/* Set predefined value for BUCK1 register 2 ~ 8 */
+			ret = max8997_set_buck1_voltages(max8997,
+				pdata->buck1_voltages, BUCK1_TABLE_SIZE);
+			if (ret < 0)
+				goto err2;
+		}
+	} else {
+		pr_err("MAX8997 SETx GPIO is invalid!\n");
+		goto err2;
 	}
-#endif /* __USE_GPIO_DVS__ */
+
+	max8997->funcs.set_buck1_dvs_table = max8997_set_buck1_dvs_table;
+	if (pdata->register_buck1_dvs_funcs)
+		pdata->register_buck1_dvs_funcs(&max8997->funcs);
+
 	max8997_set_buckramp(max8997, pdata);
 
 	if (pdata->flash_cntl_val) {

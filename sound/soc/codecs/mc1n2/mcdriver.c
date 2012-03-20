@@ -1,12 +1,12 @@
 /****************************************************************************
  *
- *		Copyright(c) 2010 Yamaha Corporation. All rights reserved.
+ *		Copyright(c) 2010-2011 Yamaha Corporation. All rights reserved.
  *
  *		Module		: mcdriver.c
  *
  *		Description	: MC Driver
  *
- *		Version		: 1.0.0 	2010.09.10
+ *		Version		: 1.0.2		2011.04.18
  *
  ****************************************************************************/
 
@@ -753,7 +753,7 @@ static	SINT32	switch_clock
 	}
 
 	McResCtrl_SetClockSwitch(psClockInfo);
-	
+
 	sdRet	= McPacket_AddClockSwitch();
 	if(MCDRV_SUCCESS != sdRet)
 	{
@@ -789,7 +789,7 @@ static	SINT32	get_path
 		return MCDRV_ERROR_STATE;
 	}
 
-	McResCtrl_GetPathInfo(psPathInfo);
+	McResCtrl_GetPathInfoVirtual(psPathInfo);
 
 	return MCDRV_SUCCESS;
 }
@@ -1033,7 +1033,7 @@ static	SINT32	set_volume
 	McResCtrl_SetVolInfo(psVolInfo);
 
 	McResCtrl_GetPathInfoVirtual(&sPathInfo);
-	return 	set_path(&sPathInfo);
+	return	set_path(&sPathInfo);
 }
 
 /****************************************************************************
@@ -1463,7 +1463,7 @@ static	SINT32	set_ae
 	}
 
 	McResCtrl_GetPathInfoVirtual(&sPathInfo);
-	return 	set_path(&sPathInfo);
+	return	set_path(&sPathInfo);
 }
 
 /****************************************************************************
@@ -2289,10 +2289,10 @@ SINT32	ValidatePathParam
 				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit0[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit0[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DIT1_PATH_CHANNELS; bCh++)
@@ -2312,10 +2312,10 @@ SINT32	ValidatePathParam
 				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit1[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit1[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DIT2_PATH_CHANNELS; bCh++)
@@ -2335,10 +2335,10 @@ SINT32	ValidatePathParam
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit2[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit2[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DAC_PATH_CHANNELS; bCh++)
@@ -4045,4 +4045,3 @@ SINT32	McDrv_Ctrl
 
 	return sdRet;
 }
-

@@ -32,6 +32,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial_core.h>
 #include <linux/sysdev.h>
+#include <linux/syscore_ops.h>
 #include <linux/clk.h>
 #include <linux/io.h>
 
@@ -54,8 +55,10 @@
 #include <plat/devs.h>
 #include <plat/cpu.h>
 #include <plat/sdhci.h>
+#include <plat/pm.h>
 
 #include <plat/iic-core.h>
+#include <plat/fb-core.h>
 #include <plat/nand-core.h>
 
 static struct map_desc s3c2416_iodesc[] __initdata = {
@@ -92,9 +95,10 @@ int __init s3c2416_init(void)
 	s3c_i2c0_setname("s3c2440-i2c");
 	s3c_i2c1_setname("s3c2440-i2c");
 
-#ifdef CONFIG_S3C_DEV_FB
-	s3c_device_fb.name = "s3c2443-fb";
-#endif
+	s3c_fb_setname("s3c2443-fb");
+
+	register_syscore_ops(&s3c2416_pm_syscore_ops);
+	register_syscore_ops(&s3c24xx_irq_syscore_ops);
 
 	return sysdev_register(&s3c2416_sysdev);
 }

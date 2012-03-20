@@ -1,14 +1,28 @@
 /*****************************************************************************
- Copyright(c) 2009 FCI Inc. All Rights Reserved
- 
- File name : bbm.c
- 
- Description : API of dmb baseband module
- 
- History : 
- ----------------------------------------------------------------------
- 2009/08/29 	jason		initial
+	Copyright(c) 2009 FCI Inc. All Rights Reserved
+
+	File name : bbm.c
+
+	Description : API of dmb baseband module
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; either version 2 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+	History :
+	----------------------------------------------------------------------
+	2009/08/29	jason		initial
 *******************************************************************************/
+
 
 #include "fci_types.h"
 #include "fci_tun.h"
@@ -17,7 +31,7 @@
 #include "fci_hal.h"
 #include "fc8050_isr.h"
 
-int BBM_RESET(HANDLE hDevice)
+int bbm_com_reset(HANDLE hDevice)
 {
 	int res;
 
@@ -26,7 +40,7 @@ int BBM_RESET(HANDLE hDevice)
 	return res;
 }
 
-int BBM_PROBE(HANDLE hDevice)
+int bbm_com_probe(HANDLE hDevice)
 {
 	int res;
 
@@ -35,7 +49,7 @@ int BBM_PROBE(HANDLE hDevice)
 	return res;
 }
 
-int BBM_INIT(HANDLE hDevice)
+int bbm_com_init(HANDLE hDevice)
 {
 	int res;
 
@@ -44,7 +58,7 @@ int BBM_INIT(HANDLE hDevice)
 	return res;
 }
 
-int BBM_DEINIT(HANDLE hDevice)
+int bbm_com_deinit(HANDLE hDevice)
 {
 	int res;
 
@@ -53,7 +67,7 @@ int BBM_DEINIT(HANDLE hDevice)
 	return res;
 }
 
-int BBM_READ(HANDLE hDevice, u16 addr, u8 *data)
+int bbm_com_read(HANDLE hDevice, u16 addr, u8 *data)
 {
 	int res;
 
@@ -62,7 +76,7 @@ int BBM_READ(HANDLE hDevice, u16 addr, u8 *data)
 	return res;
 }
 
-int BBM_BYTE_READ(HANDLE hDevice, u16 addr, u8 *data)
+int bbm_com_byte_read(HANDLE hDevice, u16 addr, u8 *data)
 {
 	int res;
 
@@ -71,7 +85,7 @@ int BBM_BYTE_READ(HANDLE hDevice, u16 addr, u8 *data)
 	return res;
 }
 
-int BBM_WORD_READ(HANDLE hDevice, u16 addr, u16 *data)
+int bbm_com_word_read(HANDLE hDevice, u16 addr, u16 *data)
 {
 	int res;
 
@@ -80,7 +94,7 @@ int BBM_WORD_READ(HANDLE hDevice, u16 addr, u16 *data)
 	return res;
 }
 
-int BBM_LONG_READ(HANDLE hDevice, u16 addr, u32 *data)
+int bbm_com_long_read(HANDLE hDevice, u16 addr, u32 *data)
 {
 	int res;
 
@@ -89,7 +103,7 @@ int BBM_LONG_READ(HANDLE hDevice, u16 addr, u32 *data)
 	return res;
 }
 
-int BBM_BULK_READ(HANDLE hDevice, u16 addr, u8 *data, u16 size)
+int bbm_com_bulk_read(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 {
 	int res;
 
@@ -98,7 +112,7 @@ int BBM_BULK_READ(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 	return res;
 }
 
-int BBM_DATA(HANDLE hDevice, u16 addr, u8 *data, u16 size)
+int bbm_com_data(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 {
 	int res;
 
@@ -107,7 +121,7 @@ int BBM_DATA(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 	return res;
 }
 
-int BBM_WRITE(HANDLE hDevice, u16 addr, u8 data)
+int bbm_com_write(HANDLE hDevice, u16 addr, u8 data)
 {
 	int res;
 
@@ -116,7 +130,7 @@ int BBM_WRITE(HANDLE hDevice, u16 addr, u8 data)
 	return res;
 }
 
-int BBM_BYTE_WRITE(HANDLE hDevice, u16 addr, u8 data)
+int bbm_com_byte_write(HANDLE hDevice, u16 addr, u8 data)
 {
 	int res;
 
@@ -125,7 +139,7 @@ int BBM_BYTE_WRITE(HANDLE hDevice, u16 addr, u8 data)
 	return res;
 }
 
-int BBM_WORD_WRITE(HANDLE hDevice, u16 addr, u16 data)
+int bbm_com_word_write(HANDLE hDevice, u16 addr, u16 data)
 {
 	int res;
 
@@ -134,7 +148,7 @@ int BBM_WORD_WRITE(HANDLE hDevice, u16 addr, u16 data)
 	return res;
 }
 
-int BBM_LONG_WRITE(HANDLE hDevice, u16 addr, u32 data)
+int bbm_com_long_write(HANDLE hDevice, u16 addr, u32 data)
 {
 	int res;
 
@@ -143,7 +157,7 @@ int BBM_LONG_WRITE(HANDLE hDevice, u16 addr, u32 data)
 	return res;
 }
 
-int BBM_BULK_WRITE(HANDLE hDevice, u16 addr, u8 *data, u16 size)
+int bbm_com_bulk_write(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 {
 	int res;
 
@@ -152,25 +166,27 @@ int BBM_BULK_WRITE(HANDLE hDevice, u16 addr, u8 *data, u16 size)
 	return res;
 }
 
-int BBM_TUNER_READ(HANDLE hDevice, u8 addr, u8 alen, u8 *buffer, u8 len)
+int bbm_com_tuner_read(
+	HANDLE hDevice, u8 addr, u8 address_len, u8 *buffer, u8 len)
 {
 	int res;
 
-	res = tuner_i2c_read(hDevice, addr, alen, buffer, len);
+	res = tuner_i2c_read(hDevice, addr, address_len, buffer, len);
 
 	return res;
 }
 
-int BBM_TUNER_WRITE(HANDLE hDevice, u8 addr, u8 alen, u8 *buffer, u8 len)
+int bbm_com_tuner_write(
+	HANDLE hDevice, u8 addr, u8 address_len, u8 *buffer, u8 len)
 {
 	int res;
 
-	res = tuner_i2c_write(hDevice, addr, alen, buffer, len);
+	res = tuner_i2c_write(hDevice, addr, address_len, buffer, len);
 
 	return res;
 }
 
-int BBM_TUNER_SET_FREQ(HANDLE hDevice, u32 freq)
+int bbm_com_tuner_set_freq(HANDLE hDevice, u32 freq)
 {
 	int res = BBM_OK;
 
@@ -179,7 +195,7 @@ int BBM_TUNER_SET_FREQ(HANDLE hDevice, u32 freq)
 	return res;
 }
 
-int BBM_TUNER_SELECT(HANDLE hDevice, u32 product, u32 band)
+int bbm_com_tuner_select(HANDLE hDevice, u32 product, u32 band)
 {
 	int res = BBM_OK;
 
@@ -188,7 +204,7 @@ int BBM_TUNER_SELECT(HANDLE hDevice, u32 product, u32 band)
 	return res;
 }
 
-int BBM_TUNER_GET_RSSI(HANDLE hDevice, s32 *rssi)
+int bbm_com_tuner_get_rssi(HANDLE hDevice, s32 *rssi)
 {
 	int res = BBM_OK;
 
@@ -197,7 +213,7 @@ int BBM_TUNER_GET_RSSI(HANDLE hDevice, s32 *rssi)
 	return res;
 }
 
-int BBM_SCAN_STATUS(HANDLE hDevice)
+int bbm_com_scan_status(HANDLE hDevice)
 {
 	int res = BBM_OK;
 
@@ -206,130 +222,143 @@ int BBM_SCAN_STATUS(HANDLE hDevice)
 	return res;
 }
 
-int BBM_CHANNEL_SELECT(HANDLE hDevice, u8 subChId,u8 svcChId)
+int bbm_com_channel_select(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_channel_select(hDevice, subChId, svcChId);
+	res = fc8050_channel_select(hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-int BBM_VIDEO_SELECT(HANDLE hDevice, u8 subChId,u8 svcChId, u8 cdiId)
+int bbm_com_video_select(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id, u8 cdiId)
 {
 	int res;
 
-	res = fc8050_video_select(hDevice, subChId, svcChId, cdiId);
+	res = fc8050_video_select(
+		hDevice, subchannel_id, service_channel_id, cdiId);
 
 	return res;
 }
 
-int BBM_AUDIO_SELECT(HANDLE hDevice, u8 subChId,u8 svcChId)
+int bbm_com_audio_select(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_audio_select(hDevice, subChId, svcChId);
+	res = fc8050_audio_select(hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-int BBM_DATA_SELECT(HANDLE hDevice, u8 subChId,u8 svcChId)
+int bbm_com_data_select(HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_data_select(hDevice, subChId, svcChId);
+	res = fc8050_data_select(hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-int BBM_CHANNEL_DESELECT(HANDLE hDevice, u8 subChId, u8 svcChId)
+int bbm_com_channel_deselect(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_channel_deselect(hDevice, subChId, svcChId);
+	res = fc8050_channel_deselect(
+		hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-int BBM_VIDEO_DESELECT(HANDLE hDevice, u8 subChId, u8 svcChId, u8 cdiId)
+int bbm_com_video_deselect(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id, u8 cdiId)
 {
 	int res;
 
-	res = fc8050_video_deselect(hDevice, subChId, svcChId, cdiId);
+	res = fc8050_video_deselect(
+		hDevice, subchannel_id, service_channel_id, cdiId);
 
 	return res;
 }
 
-int BBM_AUDIO_DESELECT(HANDLE hDevice, u8 subChId, u8 svcChId)
+int bbm_com_audio_deselect(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_audio_deselect(hDevice, subChId, svcChId);
+	res = fc8050_audio_deselect(hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-int BBM_DATA_DESELECT(HANDLE hDevice, u8 subChId, u8 svcChId)
+int bbm_com_data_deselect(
+	HANDLE hDevice, u8 subchannel_id, u8 service_channel_id)
 {
 	int res;
 
-	res = fc8050_data_deselect(hDevice, subChId, svcChId);
+	res = fc8050_data_deselect(hDevice, subchannel_id, service_channel_id);
 
 	return res;
 }
 
-void BBM_ISR(HANDLE hDevice)
+void bbm_com_isr(HANDLE hDevice)
 {
 	fc8050_isr(hDevice);
 }
 
-int BBM_HOSTIF_SELECT(HANDLE hDevice, u8 hostif)
+int bbm_com_hostif_select(HANDLE hDevice, u8 hostif)
 {
 	int res = BBM_NOK;
 
 	res = bbm_hostif_select(hDevice, hostif);
 
 	return res;
-}		
+}
 
-int BBM_HOSTIF_DESELECT(HANDLE hDevice)
+int bbm_com_hostif_deselect(HANDLE hDevice)
 {
 	int res = BBM_NOK;
 
 	res = bbm_hostif_deselect(hDevice);
 
 	return res;
-}		
+}
 
-int BBM_FIC_CALLBACK_REGISTER(u32 userdata, int (*callback)(u32 userdata, u8 *data, int length))
+int bbm_com_fic_callback_register(
+	u32 userdata
+	, int (*callback)(u32 userdata, u8 *data, int length))
 {
-	gFicUserData = userdata;
-	pFicCallback = callback;
+	fic_user_data = userdata;
+	fic_callback = callback;
 
 	return BBM_OK;
 }
 
-int BBM_MSC_CALLBACK_REGISTER(u32 userdata, int (*callback)(u32 userdata, u8 subChId, u8 *data, int length))
+int bbm_com_msc_callback_register(
+	u32 userdata
+	, int (*callback)(u32 userdata, u8 subchannel_id, u8 *data, int length))
 {
-	gMscUserData = userdata;
-	pMscCallback = callback;
+	msc_user_data = userdata;
+	msc_callback = callback;
 
 	return BBM_OK;
 }
 
-int BBM_FIC_CALLBACK_DEREGISTER(HANDLE hDevice)
+int bbm_com_fic_callback_deregister(HANDLE hDevice)
 {
-	gFicUserData = 0;
-	pFicCallback = NULL;
+	fic_user_data = 0;
+	fic_callback = NULL;
 
 	return BBM_OK;
 }
 
-int BBM_MSC_CALLBACK_DEREGISTER(HANDLE hDevice)
+int bbm_com_msc_callback_deregister(HANDLE hDevice)
 {
-	gMscUserData = 0;
-	pMscCallback = NULL;
+	msc_user_data = 0;
+	msc_callback = NULL;
 
 	return BBM_OK;
 }
-

@@ -19,7 +19,6 @@ struct si4709_data {
 };
 
 /*I2C Setting*/
-#define SI4709_I2C_ADDRESS      0x20
 
 static struct i2c_driver Si4709_i2c_driver;
 

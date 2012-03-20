@@ -1,7 +1,7 @@
 /*
  * MC-1N2 ASoC codec driver
  *
- * Copyright (c) 2010 Yamaha Corporation
+ * Copyright (c) 2010-2011 Yamaha Corporation
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -98,7 +98,8 @@ struct mc1n2_ctrl_args {
 #define MCDRV_NOTIFY_VOICE_REC_STOP	0x00000009
 #define MCDRV_NOTIFY_HDMI_START		0x0000000A
 #define MCDRV_NOTIFY_HDMI_STOP		0x0000000B
-#define MCDRV_NOTIFY_2MIC_CALL_START	0x0000000C
+#define	MCDRV_NOTIFY_RECOVER		0x0000000C
+#define MCDRV_NOTIFY_2MIC_CALL_START	0x0000000D
 
 #define MC1N2_MODE_IDLE			(0x00)
 #define MC1N2_MODE_CALL_ON		(0x1<<0)
@@ -119,11 +120,5 @@ struct mc1n2_setup {
  * Codec Status definitions (for backward compatibility)
  */
 #define CMD_CODEC_EMERGENCY_RECOVERY 9 // Emergency recovery for Error like -EIO, -ESTRPIPE, and etc.
-
-/*
- * Exported symbols
- */
-extern struct snd_soc_dai mc1n2_dai[];
-extern struct snd_soc_codec_device soc_codec_dev_mc1n2;
 
 #endif

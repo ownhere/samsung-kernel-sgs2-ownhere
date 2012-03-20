@@ -25,9 +25,13 @@
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
-#include <linux/modemctl.h>
+#include <linux/phone_svn/modemctl.h>
 
 #define HOST_WUP_LEVEL 0
+
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+static int sprd_boot_complete;
+#endif
 
 enum {
 	HOST_WAKEUP_LOW = 1,
@@ -64,6 +68,10 @@ int mc_control_active_state(int val)
 	if (!global_mc)
 		return -EFAULT;
 
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	return 0;
+#endif
+
 	if (mc_is_modem_on()) {
 		gpio_set_value(global_mc->gpio_active_state, val ? 1 : 0);
 		dev_dbg(global_mc->dev, "ACTIVE_STATE:%d\n", val ? 1 : 0);
@@ -90,6 +98,10 @@ int mc_control_slave_wakeup(int val)
 	if (!global_mc)
 		return -EFAULT;
 
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	return 0;
+#endif
+
 	gpio_set_value(global_mc->gpio_ipc_slave_wakeup, val ? 1 : 0);
 	dev_dbg(global_mc->dev, ">SLAV_WUP:%d,%d\n", val ? 1 : 0,
 		gpio_get_value(global_mc->gpio_ipc_slave_wakeup));
@@ -102,6 +114,10 @@ int mc_is_host_wakeup(void)
 	if (!global_mc)
 		return 0;
 
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	return 0;
+#endif
+
 	return (gpio_get_value(global_mc->gpio_ipc_host_wakeup)
 		== HOST_WUP_LEVEL) ? 1 : 0;
 }
@@ -111,6 +127,10 @@ int mc_is_suspend_request(void)
 {
 	if (!global_mc)
 		return 0;
+
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+		return 0;
+#endif
 
 	printk(KERN_DEBUG "%s:suspend requset val=%d\n", __func__,
 		gpio_get_value(global_mc->gpio_suspend_request));
@@ -125,6 +145,10 @@ int mc_prepare_resume(int ms_time)
 
 	if (!mc)
 		return -EFAULT;
+
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+		return 0;
+#endif
 
 	val = gpio_get_value(mc->gpio_ipc_slave_wakeup);
 	if (val) {
@@ -170,11 +194,11 @@ int mc_reconnect_gpio(void)
 	dev_err(mc->dev, "TRY Reconnection...\n");
 
 	gpio_set_value(mc->gpio_active_state, 0);
-	msleep(10);
+	msleep(20);
 	gpio_set_value(mc->gpio_ipc_slave_wakeup, 1);
-	msleep(10);
+	msleep(20);
 	gpio_set_value(mc->gpio_ipc_slave_wakeup, 0);
-	msleep(10);
+	msleep(20);
 	gpio_set_value(mc->gpio_active_state, 1);
 
 	return 0;
@@ -213,6 +237,10 @@ static int modem_on(struct modemctl *mc)
 	if (!mc->ops || !mc->ops->modem_on)
 		return -ENXIO;
 
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	sprd_boot_complete = 0;
+#endif
+
 	mc->ops->modem_on(mc);
 
 	return 0;
@@ -243,11 +271,14 @@ static int modem_reset(struct modemctl *mc)
 static int modem_boot(struct modemctl *mc)
 {
 	dev_dbg(mc->dev, "%s\n", __func__);
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	sprd_boot_complete = 1;
+#else
 	if (!mc->ops || !mc->ops->modem_boot)
 		return -ENXIO;
 
 	mc->ops->modem_boot(mc);
-
+#endif
 	return 0;
 }
 
@@ -260,6 +291,11 @@ static int modem_get_active(struct modemctl *mc)
 	dev_dbg(mc->dev, "cp %d phone %d\n",
 			gpio_get_value(mc->gpio_cp_reset),
 			gpio_get_value(mc->gpio_phone_active));
+
+	if (gpio_get_value(mc->gpio_phone_active))
+		return 1;
+	else
+		return 0;
 
 	if (gpio_get_value(mc->gpio_cp_reset))
 		return !!gpio_get_value(mc->gpio_phone_active);
@@ -452,6 +488,11 @@ static void mc_work(struct work_struct *work_arg)
 	int cpdump_int;
 	char *envs[2] = { NULL, NULL };
 
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	if (!sprd_boot_complete)
+		return;
+#endif
+
 	error = modem_get_active(mc);
 	if (error < 0) {
 		dev_err(mc->dev, "Not initialized\n");
@@ -475,7 +516,7 @@ static void mc_work(struct work_struct *work_arg)
 			return;
 		}
 		if (mc->cpcrash_flag > 3) {
-			dev_dbg(mc->dev, "send uevnet to RIL [cpdump_int:%d]\n",
+			dev_dbg(mc->dev, "send uevent to RIL [cpdump_int:%d]\n",
 				cpdump_int);
 			kobject_uevent_env(&mc->dev->kobj, KOBJ_OFFLINE, envs);
 		} else {
@@ -483,6 +524,13 @@ static void mc_work(struct work_struct *work_arg)
 			schedule_delayed_work(&mc->work, msecs_to_jiffies(50));
 		}
 	}
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	if (cpdump_int) {
+		dev_dbg(mc->dev, "send uevent to RIL [cpdump_int:%d]\n",
+			cpdump_int);
+		kobject_uevent_env(&mc->dev->kobj, KOBJ_OFFLINE, envs);
+	}
+#endif
 }
 
 static irqreturn_t modemctl_resume_thread(int irq, void *dev_id)
@@ -490,6 +538,10 @@ static irqreturn_t modemctl_resume_thread(int irq, void *dev_id)
 	struct modemctl *mc = (struct modemctl *)dev_id;
 	int val = gpio_get_value(mc->gpio_ipc_host_wakeup);
 	int err;
+
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	return IRQ_HANDLED;
+#endif
 
 	dev_dbg(mc->dev, "svn <HOST_WUP:%d\n", val);
 	if (val != HOST_WUP_LEVEL) {
@@ -504,12 +556,9 @@ static irqreturn_t modemctl_resume_thread(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	if (val == HOST_WUP_LEVEL) {
-		err = usbsvn_request_resume();
-		if (err < 0)
-			dev_err(mc->dev, "request resume failed: %d\n", err);
+	if (val == HOST_WUP_LEVEL)
 		mc->debug_cnt++;
-	}
+
 	if (mc->debug_cnt > 30) {
 		dev_err(mc->dev, "Abnormal Host wakeup -- over 30times");
 		disable_irq(irq);
@@ -591,6 +640,8 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	int irq;
 	int error;
 
+	printk(KERN_ERR "[%s]\n ", __func__);
+
 	if (!pdata) {
 		dev_err(dev, "No platform data\n");
 		return -EINVAL;
@@ -656,9 +707,15 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	enable_irq_wake(irq);
 
 	irq = gpio_to_irq(pdata->gpio_cp_dump_int);
+#if defined(CONFIG_CHN_CMCC_SPI_SPRD)
+	error = request_irq(irq, modemctl_irq_handler,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			"CP_DUMP_INT", mc);
+#else
 	error = request_irq(irq, modemctl_cpdump_irq,
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 			"CP_DUMP_INT", mc);
+#endif
 	if (error) {
 		dev_err(dev, "Failed to allocate an interrupt(%d)\n", irq);
 		goto fail;
@@ -670,6 +727,7 @@ static int __devinit modemctl_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
 	platform_set_drvdata(pdev, mc);
 	global_mc = mc;
+	printk("[%s Done]\n ", __func__);
 	return 0;
 
 fail:

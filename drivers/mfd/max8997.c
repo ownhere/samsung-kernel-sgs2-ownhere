@@ -195,8 +195,9 @@ static const struct i2c_device_id max8997_i2c_id[] = {
 MODULE_DEVICE_TABLE(i2c, max8997_i2c_id);
 
 #ifdef CONFIG_PM
-static int max8997_suspend(struct i2c_client *i2c, pm_message_t state)
+static int max8997_suspend(struct device *dev)
 {
+	struct i2c_client *i2c = container_of(dev, struct i2c_client, dev);
 	struct max8997_dev *max8997 = i2c_get_clientdata(i2c);
 
 	if (max8997->wakeup)
@@ -207,8 +208,9 @@ static int max8997_suspend(struct i2c_client *i2c, pm_message_t state)
 	return 0;
 }
 
-static int max8997_resume(struct i2c_client *i2c)
+static int max8997_resume(struct device *dev)
 {
+	struct i2c_client *i2c = container_of(dev, struct i2c_client, dev);
 	struct max8997_dev *max8997 = i2c_get_clientdata(i2c);
 
 	if (max8997->wakeup)
@@ -218,19 +220,24 @@ static int max8997_resume(struct i2c_client *i2c)
 
 	return 0;
 }
+#else
+#define max8997_suspend		NULL
+#define max8997_resume		NULL
 #endif /* CONFIG_PM */
+
+const struct dev_pm_ops max8997_pm = {
+	.suspend = max8997_suspend,
+	.resume = max8997_resume,
+};
 
 static struct i2c_driver max8997_i2c_driver = {
 	.driver = {
 		   .name = "max8997",
 		   .owner = THIS_MODULE,
+		   .pm = &max8997_pm,
 	},
 	.probe = max8997_i2c_probe,
 	.remove = max8997_i2c_remove,
-#ifdef CONFIG_PM
-	.suspend = max8997_suspend,
-	.resume = max8997_resume,
-#endif /* CONFIG_PM */
 	.id_table = max8997_i2c_id,
 };
 

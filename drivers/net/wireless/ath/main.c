@@ -56,3 +56,26 @@ struct sk_buff *ath_rxbuf_alloc(struct ath_common *common,
 	return skb;
 }
 EXPORT_SYMBOL(ath_rxbuf_alloc);
+
+void ath_printk(const char *level, const char *fmt, ...)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	struct va_format vaf;
+#endif
+	va_list args;
+
+	va_start(args, fmt);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk("%sath: %pV", level, &vaf);
+#else
+	printk("%sath: ", level);
+	vprintk(fmt, args);
+#endif
+
+	va_end(args);
+}
+EXPORT_SYMBOL(ath_printk);

@@ -16,6 +16,8 @@
 #include <asm/uaccess.h>             /* user space access */
 #include <asm/atomic.h>
 #include <linux/device.h>
+#include <linux/debugfs.h>
+
 #include "arch/config.h"             /* Configuration for current platform. The symlinc for arch is set by Makefile */
 #include "ump_ioctl.h"
 #include "ump_kernel_common.h"
@@ -33,6 +35,11 @@
 #include "ump_ukk_wrappers.h"
 #include "ump_ukk_ref_wrappers.h"
 
+#ifdef CONFIG_ION_EXYNOS
+#include <linux/ion.h>
+extern struct ion_device *ion_exynos;
+struct ion_client *ion_client_ump = NULL;
+#endif
 
 /* Module parameter to control log level */
 int ump_debug_level = 3;
@@ -48,6 +55,7 @@ MODULE_PARM_DESC(ump_major, "Device major number");
 static char ump_dev_name[] = "ump"; /* should be const, but the functions we call requires non-cost */
 
 
+static struct dentry *ump_debugfs_dir = NULL;
 
 /*
  * The data which we attached to each virtual memory mapping request we get.
@@ -129,12 +137,32 @@ static int ump_initialize_module(void)
  */
 static void ump_cleanup_module(void)
 {
+#ifdef CONFIG_ION_EXYNOS
+	if (ion_client_ump)
+	    ion_client_destroy(ion_client_ump);
+#endif
+
 	DBG_MSG(2, ("Unloading UMP device driver\n"));
 	ump_kernel_destructor();
 	DBG_MSG(2, ("Module unloaded\n"));
 }
 
 
+
+static ssize_t ump_memory_used_read(struct file *filp, char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+        char buf[64];
+        size_t r;
+        u32 mem = _ump_ukk_report_memory_usage();
+
+        r = snprintf(buf, 64, "%u\n", mem);
+        return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
+}
+
+static const struct file_operations ump_memory_usage_fops = {
+        .owner = THIS_MODULE,
+        .read = ump_memory_used_read,
+};
 
 /*
  * Initialize the UMP device driver.
@@ -143,6 +171,15 @@ int ump_kernel_device_initialize(void)
 {
 	int err;
 	dev_t dev = 0;
+	ump_debugfs_dir = debugfs_create_dir(ump_dev_name, NULL);
+	if (ERR_PTR(-ENODEV) == ump_debugfs_dir)
+	{
+			ump_debugfs_dir = NULL;
+	}
+	else
+	{
+		debugfs_create_file("memory_usage", 0400, ump_debugfs_dir, NULL, &ump_memory_usage_fops);
+	}
 
 	if (0 == ump_major)
 	{
@@ -219,6 +256,9 @@ void ump_kernel_device_terminate(void)
 
 	/* free major */
 	unregister_chrdev_region(dev, 1);
+
+	if(ump_debugfs_dir)
+		debugfs_remove_recursive(ump_debugfs_dir);
 }
 
 /*
@@ -306,6 +346,11 @@ static int ump_file_ioctl(struct inode *inode, struct file *filp, unsigned int c
 		case UMP_IOC_ALLOCATE :
 			err = ump_allocate_wrapper((u32 __user *)argument, session_data);
 			break;
+#ifdef CONFIG_ION_EXYNOS
+		case UMP_IOC_ION_IMPORT:
+			err = ump_ion_import_wrapper((u32 __user *)argument, session_data);
+			break;
+#endif
 
 		case UMP_IOC_RELEASE:
 			err = ump_release_wrapper((u32 __user *)argument, session_data);
@@ -357,7 +402,7 @@ static int ump_file_mmap(struct file * filp, struct vm_area_struct * vma)
 
 	/* Validate the session data */
 	session_data = (struct ump_session_data *)filp->private_data;
-	if (NULL == session_data)
+	if (NULL == session_data || NULL == session_data->cookies_map->table->mappings)
 	{
 		MSG_ERR(("mmap() called without any session data available\n"));
 		return -EFAULT;

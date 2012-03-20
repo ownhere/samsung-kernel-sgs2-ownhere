@@ -30,7 +30,7 @@
 /*for mmu and os memory*/
 #define MEM_BASE_ADDR    0x40000000
 #define MEM_TOTAL_SIZE   0x40000000
-#define MEM_MALI_OS_SIZE 0x18000000
+#define MEM_MALI_OS_SIZE 0x40000000
 
 /*for dedicated memory*/
 //#define MEM_MALI_BASE    0x58000000

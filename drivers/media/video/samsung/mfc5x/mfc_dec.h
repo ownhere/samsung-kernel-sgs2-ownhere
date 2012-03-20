@@ -21,38 +21,47 @@
 #include "mfc_inst.h"
 
 /* display status */
+/* cropping information */
+#define DISP_CROP_MASK		0x1
+#define DISP_CROP_SHIFT		6
+
 /* resolution change */
-#define RC_MASK		0x3
-#define RC_SHIFT	4
-#define RC_NO		0
-#define RC_INC		1
-#define RC_DEC		2
+#define DISP_RC_MASK		0x3
+#define DISP_RC_SHIFT		4
+#define DISP_RC_NO		0
+#define DISP_RC_INC		1
+#define DISP_RC_DEC		2
 
 /* progressive/interface */
-#define PI_MASK		0x1
-#define PI_SHIFT	3
-#define PI_PROGRESSIVE	0
-#define PI_INTERFACE	1
+#define DISP_PI_MASK		0x1
+#define DISP_PI_SHIFT		3
+#define DISP_PI_PROGRESSIVE	0
+#define DISP_PI_INTERFACE	1
 
-#define DISP_S_MASK	0x3	/* FIXME: 0x7 */
+#define DISP_S_MASK		0x7
 enum disp_status {
-	DISP_S_DECODING	= 0,
-	DISP_S_DD	= 1,
-	DISP_S_DISPLAY	= 2,
-	DISP_S_FINISH	= 3,
-	/* RES_CHANGE is not the value of register bit */
-	DISP_S_RES_CHANGE = 4,
+	DISP_S_DECODING		= 0,
+	DISP_S_DD		= 1,
+	DISP_S_DISPLAY		= 2,
+	DISP_S_FINISH		= 3,
+	DISP_S_RES_CHANGE	= 4,	/* not H/W bit */
 };
 
 /* decoding status */
 /* CRC */
-#define CRC_G_MASK	0x1
-#define CRC_G_SHIFT	5
+#define DEC_CRC_G_MASK		0x1
+#define DEC_CRC_G_SHIFT		5
 
-#define CRC_N_MASK	0x1
-#define CRC_N_SHIFT	4
-#define CRC_TWO		0
-#define CRC_FOUR	1
+#define DEC_CRC_N_MASK		0x1
+#define DEC_CRC_N_SHIFT		4
+#define DEC_CRC_TWO		0
+#define DEC_CRC_FOUR		1
+
+/* progressive/interface */
+#define DEC_PI_MASK		0x1
+#define DEC_PI_SHIFT		3
+#define DEC_PI_PROGRESSIVE	0
+#define DEC_PI_INTERFACE	1
 
 #define DEC_S_MASK	0x7
 enum dec_status {
@@ -63,6 +72,7 @@ enum dec_status {
 	DEC_S_NO	= 4,
 };
 
+/* decode frame type in SFR */
 #define DEC_FRM_MASK	0x7
 enum dec_frame {
 	DEC_FRM_N	= 0,
@@ -72,13 +82,23 @@ enum dec_frame {
 	DEC_FRM_OTHER	= 4,
 };
 
-#define DISP_FRM_MASK	0x3
+/* display frame type in SHM */
+#define DISP_IDR_MASK	0x1
+#define DISP_IDR_SHIFT	5
+
+#define DISP_FRM_MASK	0x7
+#define DISP_FRM_SHIFT	2
 enum disp_frame {
-	DISP_FRM_N = 0,
-	DISP_FRM_I = 1,
-	DISP_FRM_P = 2,
-	DISP_FRM_B = 3,
+	DISP_FRM_X	= -1,	/* not H/W bit */
+	DISP_FRM_N	= 0,
+	DISP_FRM_I	= 1,
+	DISP_FRM_P	= 2,
+	DISP_FRM_B	= 3,
+	DISP_FRM_OTHER	= 4,
 };
+#define get_disp_frame_type()	((read_shm(ctx, DISP_PIC_FRAME_TYPE) >> DISP_FRM_SHIFT) & DISP_FRM_MASK)
+
+#define DISP_CODED_MASK	0x3
 
 enum dec_pc {
 	DPC_ONLY_P	= 0,
@@ -110,10 +130,12 @@ struct mfc_dec_ctx {
 
 	/* exec */
 	unsigned int consumed;		/* H */
-	int predisplay_Yaddr;		/* H */
-	int predisplay_Caddr;		/* H */
+	int predisplumaaddr;		/* H */
+	int predispchromaaddr;		/* H */
+	int predispframetype;		/* H */
+	int predispframetag;		/* H */
 
-	enum dec_frame frametype;	/* H */
+	enum dec_frame decframetype;	/* H */
 
 	enum disp_status dispstatus;	/* H */
 	enum dec_status decstatus;	/* H */
@@ -143,6 +165,9 @@ struct mfc_dec_h264 {
 	unsigned int crop_l_ofs;	/* H */
 	unsigned int crop_b_ofs;	/* H */
 	unsigned int crop_t_ofs;	/* H */
+
+	unsigned int sei_parse;		/* H */
+	struct mfc_frame_packing fp;	/* H */
 };
 
 struct mfc_dec_mpeg4 {

@@ -1,15 +1,12 @@
 #!/system/bin/sh
 
-busybox_recovery mount -o remount,rw rootfs /
-busybox_recovery mkdir -p /customkernel/property
-echo true >> /customkernel/property/customkernel.cf-root
-echo true >> /customkernel/property/customkernel.base.cf-root
-echo CF-Root >> /customkernel/property/customkernel.name
-echo "CF-Root 5.3" >> /customkernel/property/customkernel.namedisplay
-echo 105 >> /customkernel/property/customkernel.version.number
-echo 5.3 >> /customkernel/property/customkernel.version.name
-echo true >> /customkernel/property/customkernel.bootani.zip
-echo true >> /customkernel/property/customkernel.bootani.bin
-echo true >> /customkernel/property/customkernel.cwm
-echo 5.0.2.7 >> /customkernel/property/customkernel.cwm.version
-busybox_recovery mount -o remount,ro rootfs /
+setprop customkernel.cf-root true
+setprop customkernel.base.cf-root true
+setprop customkernel.name CF-Root
+setprop customkernel.namedisplay "CF-Root.ownhere.MOD"
+setprop customkernel.version.number 100
+setprop customkernel.version.name 5.4
+setprop customkernel.bootani.zip true
+setprop customkernel.bootani.bin true
+setprop customkernel.cwm true
+setprop customkernel.cwm.version 5.8.1.5

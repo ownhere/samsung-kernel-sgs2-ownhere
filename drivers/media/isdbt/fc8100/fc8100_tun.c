@@ -7,7 +7,7 @@
 
  History :
  ----------------------------------------------------------------------
- 2009/09/29 	bruce		initial
+ 2009/09/29	bruce		initial
 *******************************************************************************/
 #include "fci_types.h"
 #include "fci_oal.h"
@@ -349,4 +349,3 @@ int fc8100_get_rssi(HANDLE hDevice, s32 *rssi)
 
 	return res;
 }
-

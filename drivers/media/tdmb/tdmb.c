@@ -1,11 +1,21 @@
-/* drivers/media/tdmb/tdmb.c
- *
- *  TDMB Driver for Linux
- *
- *  klaatu, Copyright (c) 2009 Samsung Electronics
- *      http://www.samsung.com/
- *
- */
+/*
+*
+* drivers/media/tdmb/tdmb.c
+*
+* tdmb driver
+*
+* Copyright (C) (2011, Samsung Electronics)
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation version 2.
+*
+* This program is distributed "as is" WITHOUT ANY WARRANTY of any
+* kind, whether express or implied; without even the implied warranty
+* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+*/
 
 #include <linux/kernel.h>
 #include <linux/fs.h>
@@ -36,161 +46,93 @@
 #include <asm/mach/irq.h>
 #include <linux/interrupt.h>
 #include <linux/vmalloc.h>
-#include <linux/spi/spi.h>
 
 #include <linux/io.h>
 #include <mach/gpio.h>
 
 #include "tdmb.h"
-
-
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-#include "INC_INCLUDES.h"
-#else if defined(CONFIG_TDMB_FC8050)
-#include "DMBDrv_wrap_FC8050.h"
-#endif
-
-#if !defined(FALSE)
-#define FALSE 0
-#endif
-#if !defined(TRUE)
-#define TRUE 1
-#endif
-
-#define TDMB_DEBUG
-
-#ifdef TDMB_DEBUG
-#define DPRINTK(x...) printk(KERN_DEBUG "TDMB " x)
-#else
-#define DPRINTK(x...) do {} while (0) /* null */
-#endif
-
-#define TDMB_DEV_NAME	"tdmb"
-#define TDMB_DEV_MAJOR	225
-#define TDMB_DEV_MINOR	0
-#define TDMB_PRE_MALLOC	1
+#define TDMB_PRE_MALLOC 1
 
 static struct class *tdmb_class;
-static int tdmb_major;
 
 /* ring buffer */
-char *TS_RING;
-unsigned int *ts_head;
-unsigned int *ts_tail;
-char *ts_buffer;
-unsigned int ts_size;
+char *ts_ring;
+unsigned int *tdmb_ts_head;
+unsigned int *tdmb_ts_tail;
+char *tdmb_ts_buffer;
+unsigned int tdmb_ts_size;
 
 unsigned int *cmd_head;
 unsigned int *cmd_tail;
-char *cmd_buffer;
-unsigned int cmd_size;
+static char *cmd_buffer;
+static unsigned int cmd_size;
 
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-ST_SUBCH_INFO *g_pStChInfo;
-#endif
+static unsigned long tdmb_last_ch;
 
-extern void TDMBDrv_PowerInit(void);
-extern tdmb_type g_TDMBGlobal;
+static struct tdmb_platform_data gpio_cfg;
+static struct tdmb_drv_func *tdmbdrv_func;
 
-#ifdef CONFIG_TDMB_SPI
-struct spi_device *spi_dmb;
-static int tdmbspi_probe(struct spi_device *spi)
+static bool tdmb_pwr_on;
+static bool tdmb_power_on(void)
 {
-  int ret;
-  
-	spi_dmb = spi;
+	bool ret;
 
-  DPRINTK("tdmbspi_probe() spi_dmb : 0x%x \n", spi_dmb);
+	if (tdmb_create_databuffer(tdmbdrv_func->get_int_size()) == false) {
+		DPRINTK("%s : tdmb_create_databuffer fail\n", __func__);
+		ret = false;
+	} else if (tdmb_create_workqueue() == true) {
+		DPRINTK("%s : tdmb_create_workqueue ok\n", __func__);
+		ret = tdmbdrv_func->power_on();
+	} else {
+		ret = false;
+	}
+	tdmb_pwr_on = ret;
+	DPRINTK("%s : ret(%d)\n", __func__, ret);
+	return ret;
+}
+static bool tdmb_power_off(void)
+{
+	DPRINTK("%s : tdmb_pwr_on(%d)\n", __func__, tdmb_pwr_on);
 
-	spi->mode = SPI_MODE_0;
-	spi->bits_per_word = 8;
-    ret = spi_setup(spi);
-	if (ret < 0) {
-    DPRINTK("spi_setup() fail ret : %d \n", ret);
-        return ret;
-    }		
+	if (tdmb_pwr_on) {
+		tdmbdrv_func->power_off();
+		tdmb_destroy_workqueue();
+		tdmb_destroy_databuffer();
+		tdmb_pwr_on = false;
+	}
+	tdmb_last_ch = 0;
 
-	return 0;
+	return true;
 }
 
-static int __devexit tdmbspi_remove(struct spi_device *spi)
-{
-	return 0;
-}
-
-static struct spi_driver tdmbspi_driver = {
-	.driver = {
-		.name	= "tdmbspi",
-		.bus	= &spi_bus_type,
-		.owner	= THIS_MODULE,
-	},
-	.probe	= tdmbspi_probe,
-	.remove	= __devexit_p(tdmbspi_remove),
-};
-
-int tdmbspi_init(void)
-{
-	DPRINTK("This is test program for S3C64XX's SPI Driver\n");
-
-	return spi_register_driver(&tdmbspi_driver);
-}
-
-void tdmbspi_exit(void)
-{
-	spi_unregister_driver(&tdmbspi_driver);
-}
-#endif
-
-#ifdef CONFIG_TDMB_EBI
-#include <linux/io.h>
-#define TDMB_BASE_ADDR_PHYS 0x98000000
-void *addr_TDMB_CS4_V;
-
-int tdmb_ebi2_init(void)
-{
-	addr_TDMB_CS4_V = ioremap(TDMB_BASE_ADDR_PHYS, PAGE_SIZE);
-	DPRINTK("TDMB EBI2 Init addr_TDMB_CS4_V(0x%x)\n", addr_TDMB_CS4_V);
-	return 0;
-}
-#endif
-
-int tdmb_open(struct inode *inode, struct file *filp)
+static int tdmb_open(struct inode *inode, struct file *filp)
 {
 	DPRINTK("tdmb_open!\n");
 	return 0;
 }
 
-int tdmb_read(struct inode *inode, struct file *filp)
+static ssize_t
+tdmb_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 {
-	DPRINTK("tdmb_read!\n");
+	DPRINTK("tdmb_read\n");
 
 	return 0;
 }
 
-
-#ifdef TDMB_FROM_FILE
-extern void tfftimer_exit(void);
-#endif
-
-int tdmb_release(struct inode *inode, struct file *filp)
+static int tdmb_release(struct inode *inode, struct file *filp)
 {
-	DPRINTK("tdmb_release! \r\n");
+	DPRINTK("tdmb_release\n");
 
-#ifdef TDMB_FROM_FILE
-	tfftimer_exit();
-#endif
-	/* For tdmb_release() without TDMB POWER OFF (App abnormal -> kernal panic) */
-	if (IsTDMBPowerOn())
-		TDMB_PowerOff();
+	tdmb_power_off();
 
 #if TDMB_PRE_MALLOC
-	ts_size = 0;
+	tdmb_ts_size = 0;
 	cmd_size = 0;
 #else
-	if (TS_RING != 0) {
-		kfree(TS_RING);
-		TS_RING = 0;
-		ts_size = 0;
+	if (ts_ring != 0) {
+		kfree(ts_ring);
+		ts_ring = 0;
+		tdmb_ts_size = 0;
 		cmd_size = 0;
 	}
 #endif
@@ -199,7 +141,7 @@ int tdmb_release(struct inode *inode, struct file *filp)
 }
 
 #if TDMB_PRE_MALLOC
-int tdmb_makeRingBuffer()
+static void tdmb_make_ring_buffer(void)
 {
 	size_t size = TDMB_RING_BUFFER_MAPPING_SIZE;
 
@@ -207,15 +149,13 @@ int tdmb_makeRingBuffer()
 	if (size % PAGE_SIZE) /* klaatu hard coding */
 		size = size + size % PAGE_SIZE;
 
-	TS_RING = kmalloc(size, GFP_KERNEL);
+	ts_ring = kmalloc(size, GFP_KERNEL);
 	DPRINTK("RING Buff Create OK\n");
-
-	return 0;
 }
 
 #endif
 
-int tdmb_mmap(struct file *filp, struct vm_area_struct *vma)
+static int tdmb_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	size_t size;
 	unsigned long pfn;
@@ -228,517 +168,306 @@ int tdmb_mmap(struct file *filp, struct vm_area_struct *vma)
 
 #if TDMB_PRE_MALLOC
 	size = TDMB_RING_BUFFER_MAPPING_SIZE;
-	if (!TS_RING) {
-		DPRINTK("RING Buff ReAlloc !!\n", size);
+	if (!ts_ring) {
+		DPRINTK("RING Buff ReAlloc(%d)!!\n", size);
 #endif
 		/* size should aligned in PAGE_SIZE */
 		if (size % PAGE_SIZE) /* klaatu hard coding */
 			size = size + size % PAGE_SIZE;
 
-		TS_RING = kmalloc(size, GFP_KERNEL);
+		ts_ring = kmalloc(size, GFP_KERNEL);
 #if TDMB_PRE_MALLOC
 	}
 #endif
 
-	pfn = virt_to_phys(TS_RING) >> PAGE_SHIFT;
+	pfn = virt_to_phys(ts_ring) >> PAGE_SHIFT;
 
-	DPRINTK("vm_start:%x,TS_RING:%x,size:%x,prot:%x,pfn:%x\n",
-			vma->vm_start, TS_RING, size, vma->vm_page_prot, pfn);
+	DPRINTK("vm_start:%lx,ts_ring:%p,size:%x,prot:%lx,pfn:%lx\n",
+			vma->vm_start, ts_ring, size, vma->vm_page_prot, pfn);
 
 	if (remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot))
 		return -EAGAIN;
 
 	DPRINTK("succeeded\n");
 
-	ts_head = TS_RING;
-	ts_tail = TS_RING + 4;
-	ts_buffer = TS_RING + 8;
+	tdmb_ts_head = (unsigned int *)ts_ring;
+	tdmb_ts_tail = (unsigned int *)(ts_ring + 4);
+	tdmb_ts_buffer = ts_ring + 8;
 
-	*ts_head = 0;
-	*ts_tail = 0;
+	*tdmb_ts_head = 0;
+	*tdmb_ts_tail = 0;
 
-	ts_size = size-8; /* klaatu hard coding */
-	ts_size = ((ts_size / DMB_TS_SIZE) * DMB_TS_SIZE) - (30 * DMB_TS_SIZE);
+	tdmb_ts_size = size-8; /* klaatu hard coding */
+	tdmb_ts_size
+	= ((tdmb_ts_size / DMB_TS_SIZE) * DMB_TS_SIZE) - (30 * DMB_TS_SIZE);
 
-	DPRINTK("ts_head : %x, ts_tail : %x, ts_buffer : %x,ts_size : %x\n",
-				ts_head, ts_tail, ts_buffer, ts_size);
+	DPRINTK("head : %x, tail : %x, buffer : %x, size : %x\n",
+			(unsigned int)tdmb_ts_head, (unsigned int)tdmb_ts_tail,
+			(unsigned int)tdmb_ts_buffer, tdmb_ts_size);
 
-	cmd_buffer = ts_buffer + ts_size + 8;
-	cmd_head = cmd_buffer - 8;
-	cmd_tail = cmd_buffer - 4;
+	cmd_buffer = tdmb_ts_buffer + tdmb_ts_size + 8;
+	cmd_head = (unsigned int *)(cmd_buffer - 8);
+	cmd_tail = (unsigned int *)(cmd_buffer - 4);
 
 	*cmd_head = 0;
 	*cmd_tail = 0;
 
 	cmd_size = 30 * DMB_TS_SIZE - 8; /* klaatu hard coding */
 
-	DPRINTK("cmd_head : %x, cmd_tail : %x, cmd_buffer : %x, cmd_size : %x\n",
-				cmd_head, cmd_tail, cmd_buffer, cmd_size);
+	DPRINTK("cmd head : %x, tail : %x, buffer : %x, size : %x\n",
+			(unsigned int)cmd_head, (unsigned int)cmd_tail,
+			(unsigned int)cmd_buffer, cmd_size);
 
 	return 0;
 }
 
 
-int _tdmb_cmd_update(
-	unsigned char *byCmdsHeader,
-	unsigned char byCmdsHeaderSize,
-	unsigned char *byCmds,
-	unsigned short bySize)
+static int _tdmb_cmd_update(
+	unsigned char *cmd_header,
+	unsigned char cmd_header_size,
+	unsigned char *data,
+	unsigned short data_size)
 {
 	unsigned int size;
 	unsigned int head;
 	unsigned int tail;
 	unsigned int dist;
 	unsigned int temp_size;
-	unsigned int dataSize;
+	unsigned int data_size_tmp;
 
-	if (bySize > cmd_size) {
+	if (data_size > cmd_size) {
 		DPRINTK(" Error - cmd size too large\n");
-		return FALSE;
+		return false;
 	}
 
 	head = *cmd_head;
 	tail = *cmd_tail;
 	size = cmd_size;
-	dataSize = bySize + byCmdsHeaderSize;
+	data_size_tmp = data_size + cmd_header_size;
 
 	if (head >= tail)
 		dist = head-tail;
 	else
 		dist = size + head-tail;
 
-	if (size - dist <= dataSize) {
-		DPRINTK("_tdmb_cmd_update too small space is left in Command Ring Buffer!!\n");
-		return FALSE;
+	if (size - dist <= data_size_tmp) {
+		DPRINTK("too small space is left in Cmd Ring Buffer!!\n");
+		return false;
 	}
 
-	DPRINTK("Error - %x head %d tail %d\n", cmd_buffer, head, tail);
+	DPRINTK("%x head %d tail %d\n", (unsigned int)cmd_buffer, head, tail);
 
-	if (head+dataSize <= size) {
-		memcpy((cmd_buffer + head), (char *)byCmdsHeader, byCmdsHeaderSize);
-		memcpy((cmd_buffer + head + byCmdsHeaderSize), (char *)byCmds, size);
-		head += dataSize;
+	if (head+data_size_tmp <= size) {
+		memcpy((cmd_buffer + head),
+			(char *)cmd_header, cmd_header_size);
+		memcpy((cmd_buffer + head + cmd_header_size),
+			(char *)data, size);
+		head += data_size_tmp;
 		if (head == size)
 			head = 0;
 	} else {
 		temp_size = size - head;
-		if (temp_size < byCmdsHeaderSize) {
-			memcpy((cmd_buffer+head), (char *)byCmdsHeader, temp_size);
-			memcpy((cmd_buffer), (char *)byCmdsHeader+temp_size, (byCmdsHeaderSize - temp_size));
-			head = byCmdsHeaderSize - temp_size;
+		if (temp_size < cmd_header_size) {
+			memcpy((cmd_buffer+head),
+				(char *)cmd_header, temp_size);
+			memcpy((cmd_buffer),
+				(char *)cmd_header+temp_size,
+				(cmd_header_size - temp_size));
+			head = cmd_header_size - temp_size;
 		} else {
-			memcpy((cmd_buffer+head), (char *)byCmdsHeader, byCmdsHeaderSize);
-			head += byCmdsHeaderSize;
+			memcpy((cmd_buffer+head),
+				(char *)cmd_header, cmd_header_size);
+			head += cmd_header_size;
 			if (head == size)
 				head = 0;
 		}
 
 		temp_size = size - head;
-		memcpy((cmd_buffer + head), (char *)byCmds, temp_size);
-		head = dataSize - temp_size;
-		memcpy(cmd_buffer, (char *)(byCmds + temp_size), head);
+		memcpy((cmd_buffer + head), (char *)data, temp_size);
+		head = data_size_tmp - temp_size;
+		memcpy(cmd_buffer, (char *)(data + temp_size), head);
 	}
 
 	*cmd_head = head;
 
-	return TRUE ;
+	return true;
 }
 
-unsigned char _tdmb_make_result(
-	unsigned char byCmd,
-	unsigned short byDataLength,
-	unsigned char  *pbyData)
+unsigned char tdmb_make_result(
+	unsigned char cmd,
+	unsigned short data_len,
+	unsigned char  *data)
 {
-	unsigned char byCmds[256] = {0,};
+	unsigned char cmd_header[4] = {0,};
 
-	byCmds[0] = TDMB_CMD_START_FLAG;
-	byCmds[1] = byCmd;
-	byCmds[2] = (byDataLength>>8)&0xff;
-	byCmds[3] = byDataLength&0xff;
+	cmd_header[0] = TDMB_CMD_START_FLAG;
+	cmd_header[1] = cmd;
+	cmd_header[2] = (data_len>>8)&0xff;
+	cmd_header[3] = data_len&0xff;
 
-#if 0
-	if (byDataLength > 0) {
-		if (pbyData == NULL) {
-			/* to error  */
-			return FALSE;
-		}
-		memcpy(byCmds + 8, pbyData, byDataLength) ;
-	}
-#endif
-	_tdmb_cmd_update(byCmds, 4 , pbyData,  byDataLength);
+	_tdmb_cmd_update(cmd_header, 4 , data,  data_len);
 
-	return TRUE;
+	return true;
 }
 
-
-int UpdateEnsembleInfo(EnsembleInfoType *ensembleInfo, unsigned long freq)
+unsigned long tdmb_get_chinfo(void)
 {
-	int i;
-	int j;
-	int nSubChIdx = 0;
-	int nCnt;
-	const char *ensembleName = NULL;
-
-	DPRINTK("UpdateEnsembleInfo - freq(%d)\n", freq);
-
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-
-	INC_CHANNEL_INFO *pINC_SubChInfo;
-
-	if (INTERFACE_GETDMB_CNT() + INTERFACE_GETDAB_CNT() > 0) {
-		ensembleInfo->TotalSubChNumber = 0;
-		ensembleName = (char *)INTERFACE_GETENSEMBLE_LABEL(TDMB_I2C_ID80);
-
-		if (ensembleName)
-			strncpy((char *)ensembleInfo->EnsembleLabelCharField, (char *)ensembleName, ENSEMBLE_LABEL_SIZE_MAX);
-
-		ensembleInfo->EnsembleFrequency = freq;
-
-		for (i = 0; i < 2; i++) {
-			nCnt = (i == 0) ? INTERFACE_GETDMB_CNT() : INTERFACE_GETDAB_CNT();
-
-			for (j = 0; j < nCnt; j++, nSubChIdx++) {
-				pINC_SubChInfo = (i == 0) ? INTERFACE_GETDB_DMB(j) : INTERFACE_GETDB_DAB(j);
-				ensembleInfo->SubChInfo[nSubChIdx].SubChID      = pINC_SubChInfo->ucSubChID;
-				ensembleInfo->SubChInfo[nSubChIdx].StartAddress = pINC_SubChInfo->uiStarAddr;
-				ensembleInfo->SubChInfo[nSubChIdx].TMId         = pINC_SubChInfo->uiTmID;
-				ensembleInfo->SubChInfo[nSubChIdx].Type         = pINC_SubChInfo->ucServiceType;
-				ensembleInfo->SubChInfo[nSubChIdx].ServiceID    = pINC_SubChInfo->ulServiceID;
-				memcpy(ensembleInfo->SubChInfo[nSubChIdx].ServiceLabel, pINC_SubChInfo->aucLabel, SERVICE_LABEL_SIZE_MAX);
-			}
-		}
-	}
-
-	ensembleInfo->TotalSubChNumber = nSubChIdx;
-
-#elif defined(CONFIG_TDMB_FC8050)
-
-	SubChInfoTypeDB *pFCI_SubChInfo;
-
-	if (DMBDrv_GetDMBSubChCnt() + DMBDrv_GetDABSubChCnt() > 0) {
-		ensembleInfo->TotalSubChNumber = 0;
-		ensembleName = (char *)DMBDrv_GetEnsembleLabel();
-		if (ensembleName)
-			strncpy((char *)ensembleInfo->EnsembleLabelCharField, (char *)ensembleName, ENSEMBLE_LABEL_SIZE_MAX);
-
-		ensembleInfo->EnsembleFrequency = freq;
-
-		DPRINTK("UpdateEnsembleInfo - ensembleName(%s)\n", ensembleName);
-
-		for (i = 0; i < 2; i++) {
-			nCnt = (i == 0) ? DMBDrv_GetDMBSubChCnt() : DMBDrv_GetDABSubChCnt();
-
-			for (j = 0; j < nCnt; j++, nSubChIdx++) {
-				pFCI_SubChInfo = (i == 0) ? DMBDrv_GetFICDMB(j) : DMBDrv_GetFICDAB(j);
-
-				ensembleInfo->EnsembleID                        = pFCI_SubChInfo->uiEnsembleID;
-				ensembleInfo->SubChInfo[nSubChIdx].SubChID      = pFCI_SubChInfo->ucSubchID;
-				ensembleInfo->SubChInfo[nSubChIdx].StartAddress = pFCI_SubChInfo->uiStartAddress;
-				ensembleInfo->SubChInfo[nSubChIdx].TMId         = pFCI_SubChInfo->ucTMId;
-				ensembleInfo->SubChInfo[nSubChIdx].Type         = pFCI_SubChInfo->ucServiceType;
-				ensembleInfo->SubChInfo[nSubChIdx].ServiceID    = pFCI_SubChInfo->ulServiceID;
-				if (i == 0)
-					memcpy(ensembleInfo->SubChInfo[nSubChIdx].ServiceLabel, (char *)DMBDrv_GetSubChDMBLabel(j), SERVICE_LABEL_SIZE_MAX);
-				else
-					memcpy(ensembleInfo->SubChInfo[nSubChIdx].ServiceLabel, (char *)DMBDrv_GetSubChDABLabel(j), SERVICE_LABEL_SIZE_MAX);
-
-				DPRINTK("UpdateEnsembleInfo - EnsembleID(%d)\n", ensembleInfo->EnsembleID);
-				DPRINTK("UpdateEnsembleInfo - SubChID(0x%x), StartAddress(0x%x)\n", ensembleInfo->SubChInfo[nSubChIdx].SubChID, ensembleInfo->SubChInfo[nSubChIdx].StartAddress);
-				DPRINTK("UpdateEnsembleInfo - TMId(0x%x), Type(0x%x)\n", ensembleInfo->SubChInfo[nSubChIdx].TMId, ensembleInfo->SubChInfo[nSubChIdx].Type);
-				DPRINTK("UpdateEnsembleInfo - ServiceID(0x%x)\n", ensembleInfo->SubChInfo[nSubChIdx].ServiceID);
-				DPRINTK("UpdateEnsembleInfo - ServiceLabel(%s)\n", ensembleInfo->SubChInfo[nSubChIdx].ServiceLabel);
-			}
-		}
-	}
-
-	ensembleInfo->TotalSubChNumber = nSubChIdx;
-
-#endif
-
-	return nSubChIdx;
+	return tdmb_last_ch;
 }
 
-unsigned char g_IsChannelStart = 0;
-static int tdmb_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
+void tdmb_pull_data(struct work_struct *work)
 {
-	int ret = 0;
-	int copy_to_user_return = 0;
-	unsigned long ulFreq = 0;
-	unsigned char subChID = 0;
-	unsigned char svcType = 0;
+	tdmbdrv_func->pull_data();
+}
 
-	DPRINTK("call tdmb_ioctl : %d\n", cmd);
-
-	if (!IsTDMBPowerOn()) {
-		if (cmd == IOCTL_TDMB_POWER_OFF) {
-			DPRINTK("%d cmd : current state poweroff\n", cmd);
-			return TRUE;
-		} else if (cmd > IOCTL_TDMB_POWER_ON) {
-			DPRINTK("error %d cmd : current state poweroff\n", cmd);
-			return FALSE;
+bool tdmb_control_irq(bool set)
+{
+	bool ret = true;
+	int irq_ret;
+	if (set) {
+		irq_set_irq_type(gpio_cfg.irq, IRQ_TYPE_EDGE_FALLING);
+		irq_ret = request_irq(gpio_cfg.irq
+						, tdmb_irq_handler
+						, IRQF_DISABLED
+						, TDMB_DEV_NAME
+						, NULL);
+		if (irq_ret < 0) {
+			DPRINTK("request_irq failed !! \r\n");
+			ret = false;
 		}
 	} else {
-		if (cmd == IOCTL_TDMB_POWER_ON) {
-			DPRINTK("%d cmd : current state poweron\n", cmd);
-			return TRUE;
-		}
+		free_irq(gpio_cfg.irq, NULL);
+	}
+
+	return ret;
+}
+
+void tdmb_control_gpio(bool poweron)
+{
+	if (poweron)
+		gpio_cfg.gpio_on();
+	else
+		gpio_cfg.gpio_off();
+}
+
+static long tdmb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	unsigned long fig_freq = 0;
+	struct ensemble_info_type *ensemble_info;
+	struct tdmb_dm dm_buff;
+
+	DPRINTK("call tdmb_ioctl : 0x%x\n", cmd);
+
+	if (_IOC_TYPE(cmd) != IOCTL_MAGIC) {
+		DPRINTK("tdmb_ioctl : _IOC_TYPE error\n");
+		return -EINVAL;
+	}
+	if (_IOC_NR(cmd) >= IOCTL_MAXNR) {
+		DPRINTK("tdmb_ioctl : _IOC_NR(cmd) 0x%x\n", _IOC_NR(cmd));
+		return -EINVAL;
 	}
 
 	switch (cmd) {
 	case IOCTL_TDMB_GET_DATA_BUFFSIZE:
-		DPRINTK("IOCTL_TDMB_GET_DATA_BUFFSIZE %d\n", ts_size);
-		ret = copy_to_user((unsigned int *)arg, &ts_size, sizeof(unsigned int));
+		DPRINTK("IOCTL_TDMB_GET_DATA_BUFFSIZE %d\n", tdmb_ts_size);
+		ret = copy_to_user((unsigned int *)arg,
+				&tdmb_ts_size, sizeof(unsigned int));
 		break;
 
 	case IOCTL_TDMB_GET_CMD_BUFFSIZE:
 		DPRINTK("IOCTL_TDMB_GET_CMD_BUFFSIZE %d\n", cmd_size);
-		ret = copy_to_user((unsigned int *)arg, &cmd_size, sizeof(unsigned int));
+		ret = copy_to_user((unsigned int *)arg,
+				&cmd_size, sizeof(unsigned int));
 		break;
 
 	case IOCTL_TDMB_POWER_ON:
 		DPRINTK("IOCTL_TDMB_POWER_ON\n");
-		ret = TDMB_PowerOn();
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-        g_IsChannelStart = 0;
-		if (g_pStChInfo == NULL) {
-			g_pStChInfo = vmalloc(sizeof(ST_SUBCH_INFO));
-			if (g_pStChInfo == NULL) {
-				TDMB_PowerOff();
-				ret = FALSE;
-				DPRINTK("tdmb vmalloc error\n");
-			}
-		}
-#endif
-		DPRINTK("IOCTL_TDMB_POWER_ON 2\n");
+		ret = tdmb_power_on();
 		break;
 
 	case IOCTL_TDMB_POWER_OFF:
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-        g_IsChannelStart = 0;
-		if (g_pStChInfo != NULL) {
-			vfree(g_pStChInfo);
-			g_pStChInfo = NULL;
-		}
-#endif
 		DPRINTK("IOCTL_TDMB_POWER_OFF\n");
-		TDMB_PowerOff();
-		ret = TRUE;
+		ret = tdmb_power_off();
 		break;
 
 	case IOCTL_TDMB_SCAN_FREQ_ASYNC:
-		{
-			unsigned long FIG_Frequency;
-			FIG_Frequency = arg;
+		DPRINTK("IOCTL_TDMB_SCAN_FREQ_ASYNC\n");
 
-			DPRINTK("IOCTL_TDMB_SCAN_FREQ_ASYNC\n");
+		fig_freq = arg;
 
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-			ulFreq = arg / 1000;
-			if (INTERFACE_SCAN(TDMB_I2C_ID80, ulFreq) == INC_SUCCESS) {
-				/* TODO Scan good code .... */
-				ret = TRUE;
-			}
-#elif defined(CONFIG_TDMB_FC8050)
-			ulFreq = arg / 1000;
-			if (DMBDrv_ScanCh(ulFreq) == TDMB_SUCCESS) {
-				/* TODO Scan good code .... */
-				ret = TRUE;
-			}
-#endif
+		ensemble_info = vmalloc(sizeof(struct ensemble_info_type));
+		memset((char *)ensemble_info, 0x00\
+			, sizeof(struct ensemble_info_type));
 
-			if (ret == TRUE) {
-				EnsembleInfoType *pEnsembleInfo = vmalloc(sizeof(EnsembleInfoType));
-				if (pEnsembleInfo != NULL) {
-					memset((char *)pEnsembleInfo, 0x00, sizeof(EnsembleInfoType));
-					UpdateEnsembleInfo(pEnsembleInfo, FIG_Frequency);
-					_tdmb_make_result(DMB_FIC_RESULT_DONE, sizeof(EnsembleInfoType), pEnsembleInfo);
-					vfree(pEnsembleInfo);
-				}
-			} else {
-				_tdmb_make_result(DMB_FIC_RESULT_FAIL, sizeof(unsigned long), &FIG_Frequency);
-			}
-		}
+		ret = tdmbdrv_func->scan_ch(ensemble_info, fig_freq);
+		if (ret == true)
+			tdmb_make_result(DMB_FIC_RESULT_DONE,
+				sizeof(struct ensemble_info_type),
+				(unsigned char *)ensemble_info);
+		else
+			tdmb_make_result(DMB_FIC_RESULT_FAIL,
+				sizeof(unsigned long),
+				(unsigned char *)&fig_freq);
+
+		vfree(ensemble_info);
+		tdmb_last_ch = 0;
 		break;
 
 	case IOCTL_TDMB_SCAN_FREQ_SYNC:
-		{
-			EnsembleInfoType *pEnsembleInfo = (EnsembleInfoType *)arg;
-			unsigned long FIG_Frequency = pEnsembleInfo->EnsembleFrequency;
+		fig_freq = ((struct ensemble_info_type *)arg)->ensem_freq;
+		DPRINTK("IOCTL_TDMB_SCAN_FREQ_SYNC %ld\n", fig_freq);
 
-			DPRINTK("IOCTL_TDMB_SCAN_FREQ_SYNC %d\n", FIG_Frequency);
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-			ulFreq = pEnsembleInfo->EnsembleFrequency / 1000;
-			if (INTERFACE_SCAN(TDMB_I2C_ID80, ulFreq) == INC_SUCCESS) {
-				/* TODO Scan good code .... */
-				ret = TRUE;
-			}
-#elif defined(CONFIG_TDMB_FC8050)
-			ulFreq = pEnsembleInfo->EnsembleFrequency / 1000;
-			if (DMBDrv_ScanCh(ulFreq) == TDMB_SUCCESS) {
-				DPRINTK("DMBDrv_ScanCh Success\n");
-				/* TODO Scan good code .... */
-				ret = TRUE;
-			} else {
-				DPRINTK("DMBDrv_ScanCh Fail\n");
-			}
-#endif
-			if (ret == TRUE) {
-				EnsembleInfoType *pTempEnsembleInfo = vmalloc(sizeof(EnsembleInfoType));
-				if (pTempEnsembleInfo != NULL) {
-					memset((char *)pTempEnsembleInfo, 0x00, sizeof(EnsembleInfoType));
-					UpdateEnsembleInfo(pTempEnsembleInfo, FIG_Frequency);
-					 copy_to_user_return=copy_to_user((EnsembleInfoType *)arg, pTempEnsembleInfo, sizeof(EnsembleInfoType));
-					vfree(pTempEnsembleInfo);
-				}
-			}
+		ensemble_info = vmalloc(sizeof(struct ensemble_info_type));
+		memset((char *)ensemble_info, 0x00\
+			, sizeof(struct ensemble_info_type));
+
+		ret = tdmbdrv_func->scan_ch(ensemble_info, fig_freq);
+		if (ret == true) {
+			if (copy_to_user((struct ensemble_info_type *)arg,
+					ensemble_info,
+					sizeof(struct ensemble_info_type))
+				)
+				DPRINTK("cmd(%x) : copy_to_user failed\n", cmd);
 		}
+
+		vfree(ensemble_info);
+		tdmb_last_ch = 0;
 		break;
 
 	case IOCTL_TDMB_SCANSTOP:
 		DPRINTK("IOCTL_TDMB_SCANSTOP\n");
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-		ret = FALSE; /* temp */
-#endif
+		ret = false;
 		break;
 
 	case IOCTL_TDMB_ASSIGN_CH:
-		DPRINTK("IOCTL_TDMB_ASSIGN_CH %d\n", arg);
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-		if (g_pStChInfo != NULL) {
-			INC_UINT8 reErr;
-
-			g_pStChInfo->nSetCnt = 1;
-			g_pStChInfo->astSubChInfo[0].ulRFFreq = arg / 1000;
-			g_pStChInfo->astSubChInfo[0].ucSubChID = arg % 1000;
-			g_pStChInfo->astSubChInfo[0].ucServiceType = 0x0;
-			if (g_pStChInfo->astSubChInfo[0].ucSubChID >= 64) {
-				g_pStChInfo->astSubChInfo[0].ucSubChID -= 64;
-				g_pStChInfo->astSubChInfo[0].ucServiceType = 0x18;
-			}
-
-            g_IsChannelStart = 0;
-			reErr = INTERFACE_START(TDMB_I2C_ID80, g_pStChInfo);
-			if (reErr == INC_SUCCESS) {
-				/* TODO Ensemble  good code .... */
-                g_IsChannelStart = 1;                
-				ret = TRUE;
-			} else if (reErr == INC_RETRY) {
-				int temp_ts_size = ts_size;
-
-				DPRINTK("IOCTL_TDMB_ASSIGN_CH retry\n");
-
-				TDMB_PowerOff();
-				TDMB_PowerOn();
-				ts_size = temp_ts_size;
-
-				if (INTERFACE_START(TDMB_I2C_ID80, g_pStChInfo) == INC_SUCCESS){
-                    g_IsChannelStart = 1;
-					ret = TRUE;
-			}
-		}
-		}
-#elif defined(CONFIG_TDMB_FC8050)
-		ulFreq  = arg / 1000;
-		subChID = arg % 1000;
-		svcType = 0x0;
-		DPRINTK("IOCTL_TDMB_ASSIGN_CH ulFreq:%d, subChID:%d, svcType:%d\n", ulFreq, subChID, svcType);
-
-		if (subChID >= 64) {
-			subChID -= 64;
-			svcType  = 0x18;
-		}
-
-		if (DMBDrv_SetCh(ulFreq, subChID, svcType) == 1) {
-			DPRINTK("DMBDrv_SetCh Success\n");
-			ret = TRUE;
-		} else {
-			DPRINTK("DMBDrv_SetCh Fail\n");
-		}
-#endif
-		break;
-
-	case IOCTL_TDMB_GET_DM:
-		{
-			tdmb_dm dmBuff;
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-			extern INC_UINT8 INC_GET_SAMSUNG_ANT_LEVEL(INC_UINT8 ucI2CID);
-
-            if(g_IsChannelStart == 1)
-            {
-                INC_STATUS_CHECK(TDMB_I2C_ID80);
-			dmBuff.rssi = INC_GET_RSSI(TDMB_I2C_ID80);
-			dmBuff.BER = INC_GET_SAMSUNG_BER(TDMB_I2C_ID80);
-			dmBuff.PER = 0;
-			dmBuff.antenna = INC_GET_SAMSUNG_ANT_LEVEL(TDMB_I2C_ID80);
-            }
-            else
-            {
-                dmBuff.rssi = 100;
-                dmBuff.BER = 2000;
-                dmBuff.PER = 0;
-                dmBuff.antenna = 0;
-            }
-#elif defined(CONFIG_TDMB_FC8050)
-			dmBuff.antenna = DMBDrv_GetAntLevel();
-			dmBuff.rssi = DMBDrv_GetRSSI();
-			dmBuff.BER = DMBDrv_GetBER();
-			dmBuff.PER = 0;
-#endif
-			ret = copy_to_user((tdmb_dm *)arg, &dmBuff, sizeof(tdmb_dm));
-			DPRINTK("rssi %d, ber %d, ANT %d\n", dmBuff.rssi, dmBuff.BER, dmBuff.antenna);
-			/* to do... */
-		}
+		DPRINTK("IOCTL_TDMB_ASSIGN_CH %ld\n", arg);
+		tdmb_init_data();
+		ret = tdmbdrv_func->set_ch(arg, (arg % 1000), false);
+		if (ret == true)
+			tdmb_last_ch = arg;
+		else
+			tdmb_last_ch = 0;
 		break;
 
 	case IOCTL_TDMB_ASSIGN_CH_TEST:
-		DPRINTK("IOCTL_TDMB_ASSIGN_CH_TEST %d\n", arg);
-#if defined(CONFIG_TDMB_T3700) || defined(CONFIG_TDMB_T3900)
-		if (g_pStChInfo != NULL) {
-			INC_UINT8 reErr;
+		DPRINTK("IOCTL_TDMB_ASSIGN_CH_TEST %ld\n", arg);
+		tdmb_init_data();
+		ret = tdmbdrv_func->set_ch(arg, (arg % 1000), true);
+		if (ret == true)
+			tdmb_last_ch = arg;
+		else
+			tdmb_last_ch = 0;
+		break;
 
-			g_pStChInfo->nSetCnt = 1;
-			g_pStChInfo->astSubChInfo[0].ulRFFreq = arg / 1000;
-			g_pStChInfo->astSubChInfo[0].ucSubChID = arg % 1000;
-			g_pStChInfo->astSubChInfo[0].ucServiceType = 0x0;
-			if (g_pStChInfo->astSubChInfo[0].ucSubChID >= 64) {
-				g_pStChInfo->astSubChInfo[0].ucSubChID -= 64;
-				g_pStChInfo->astSubChInfo[0].ucServiceType = 0x18;
-			}
-
-			reErr = INTERFACE_START_TEST(TDMB_I2C_ID80, g_pStChInfo);
-			if (reErr == INC_SUCCESS) {
-				/* TODO Ensemble  good code .... */
-				g_IsChannelStart = 1;
-				ret = TRUE;
-			} else if (reErr == INC_RETRY) {
-				int temp_ts_size = ts_size;
-
-				DPRINTK("IOCTL_TDMB_ASSIGN_CH retry\n");
-
-				TDMB_PowerOff();
-				TDMB_PowerOn();
-				ts_size = temp_ts_size;
-
-				if (INTERFACE_START_TEST(TDMB_I2C_ID80, g_pStChInfo) == INC_SUCCESS){
-					g_IsChannelStart = 1;
-					ret = TRUE;
-				}
-			}
-		}
-#elif defined(CONFIG_TDMB_FC8050)
-		ulFreq  = arg / 1000;
-		subChID = arg % 1000;
-		svcType = 0x0;
-		DPRINTK("IOCTL_TDMB_ASSIGN_CH ulFreq:%d, subChID:%d, svcType:%d\n", ulFreq, subChID, svcType);
-
-		if (subChID >= 64) {
-			subChID -= 64;
-			svcType = 0x18;
-		}
-
-		if (DMBDrv_SetCh(ulFreq, subChID, svcType) == 1)
-			ret = TRUE;
-#endif
+	case IOCTL_TDMB_GET_DM:
+		tdmbdrv_func->get_dm(&dm_buff);
+		if (copy_to_user((struct tdmb_dm *)arg\
+			, &dm_buff, sizeof(struct tdmb_dm)))
+			DPRINTK("IOCTL_TDMB_GET_DM : copy_to_user failed\n");
+		ret = true;
+		DPRINTK("rssi %d, ber %d, ANT %d\n",
+			dm_buff.rssi, dm_buff.ber, dm_buff.antenna);
 		break;
 	}
 
@@ -746,19 +475,38 @@ static int tdmb_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 }
 
 static const struct file_operations tdmb_ctl_fops = {
-owner:		THIS_MODULE,
-open :		tdmb_open,
-read :		tdmb_read,
-ioctl :		tdmb_ioctl,
-mmap :		tdmb_mmap,
-release :	tdmb_release,
-llseek :	no_llseek,
+	.owner          = THIS_MODULE,
+	.open           = tdmb_open,
+	.read           = tdmb_read,
+	.unlocked_ioctl  = tdmb_ioctl,
+	.mmap           = tdmb_mmap,
+	.release	    = tdmb_release,
+	.llseek         = no_llseek,
 };
 
-int tdmb_probe(struct platform_device *pdev)
+static struct tdmb_drv_func *tdmb_get_drv_func(void)
+{
+	struct tdmb_drv_func * (*func)(void);
+#if defined(CONFIG_TDMB_T3900) || defined(CONFIG_TDMB_T39F0)
+	func = t3900_drv_func;
+#elif defined(CONFIG_TDMB_FC8050)
+	func = fc8050_drv_func;
+#elif defined(CONFIG_TDMB_MTV318)
+	func = mtv318_drv_func;
+#elif defined(CONFIG_TDMB_TCC3170)
+	func = tcc3170_drv_func;
+#else
+	#error what???
+#endif
+
+	return func();
+}
+
+static int tdmb_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct device *tdmb_dev_t;
+	struct device *tdmb_dev;
+	struct tdmb_platform_data *p = pdev->dev.platform_data;
 
 	DPRINTK("call tdmb_probe\n");
 
@@ -775,62 +523,54 @@ int tdmb_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	tdmb_major = TDMB_DEV_MAJOR;
-	tdmb_dev_t = device_create(tdmb_class, NULL, MKDEV(tdmb_major, 0), NULL, TDMB_DEV_NAME);
-	if (IS_ERR(tdmb_dev_t)) {
+	tdmb_dev = device_create(tdmb_class, NULL,
+				MKDEV(TDMB_DEV_MAJOR, TDMB_DEV_MINOR),
+				NULL, TDMB_DEV_NAME);
+	if (IS_ERR(tdmb_dev)) {
 		DPRINTK("device_create failed!\n");
+
+		unregister_chrdev(TDMB_DEV_MAJOR, TDMB_DEV_NAME);
+		class_destroy(tdmb_class);
+
 		return -EFAULT;
 	}
 
-#if defined(CONFIG_TDMB_SPI)
-	tdmbspi_init();
-#endif
-#ifdef CONFIG_TDMB_EBI
-	tdmb_ebi2_init();
-#endif
+	memcpy(&gpio_cfg, p, sizeof(struct tdmb_platform_data));
 
-	/*	TDMBDrv_PowerInit();	*/
+	tdmb_init_bus();
+	tdmbdrv_func = tdmb_get_drv_func();
+	if (tdmbdrv_func->init)
+		tdmbdrv_func->init();
 
 #if TDMB_PRE_MALLOC
-	tdmb_makeRingBuffer();
+	tdmb_make_ring_buffer();
 #endif
 
 	return 0;
 }
 
-int tdmb_remove(struct platform_device *pdev)
+static int tdmb_remove(struct platform_device *pdev)
 {
-#if 0
-	DPRINTK("Call tdmb_remove!\n");
-#endif
-  return 0;
-}
-
-int tdmb_suspend(struct platform_device *pdev, pm_message_t mesg)
-{
-#if 0
-	DPRINTK("Call tdmb_suspend!\n");
-#endif
-  return 0;
-}
-
-int tdmb_resume(struct platform_device *pdev, pm_message_t mesg)
-{
-#if 0
-	DPRINTK("Call tdmb_resume!\n");
-#endif
 	return 0;
 }
 
-static struct platform_device *tdmbdrv_device;
+static int tdmb_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	return 0;
+}
+
+static int tdmb_resume(struct platform_device *pdev)
+{
+	return 0;
+}
 
 static struct platform_driver tdmb_driver = {
-	.probe  = tdmb_probe,
+	.probe	= tdmb_probe,
 	.remove = tdmb_remove,
-	.suspend  = tdmb_suspend,
+	.suspend = tdmb_suspend,
 	.resume = tdmb_resume,
 	.driver = {
-		.owner  = THIS_MODULE,
+		.owner	= THIS_MODULE,
 		.name = "tdmb"
 	},
 };
@@ -839,19 +579,17 @@ static int __init tdmb_init(void)
 {
 	int ret;
 
+#ifdef CONFIG_BATTERY_SEC
+	if (is_lpcharging_state()) {
+		pr_info("%s : LPM Charging Mode! return 0\n", __func__);
+		return 0;
+	}
+#endif
+
 	DPRINTK("<klaatu TDMB> module init\n");
 	ret = platform_driver_register(&tdmb_driver);
 	if (ret)
 		return ret;
-
-	DPRINTK("platform_driver_register!\n");
-	tdmbdrv_device = platform_device_register_simple("tdmb", -1, NULL, 0);
-	if (IS_ERR(tdmbdrv_device)) {
-		DPRINTK("platform_device_register!\n");
-		return PTR_ERR(tdmbdrv_device);
-	}
-
-	g_TDMBGlobal.b_isTDMB_Enable = 0;
 
 	return 0;
 }
@@ -860,28 +598,23 @@ static void __exit tdmb_exit(void)
 {
 	DPRINTK("<klaatu TDMB> module exit\n");
 #if TDMB_PRE_MALLOC
-	if (TS_RING != 0) {
-		kfree(TS_RING);
-		TS_RING = 0;
+	if (ts_ring != 0) {
+		kfree(ts_ring);
+		ts_ring = 0;
 	}
 #endif
 	unregister_chrdev(TDMB_DEV_MAJOR, "tdmb");
-	device_destroy(tdmb_class, MKDEV(tdmb_major, 0));
+	device_destroy(tdmb_class, MKDEV(TDMB_DEV_MAJOR, TDMB_DEV_MINOR));
 	class_destroy(tdmb_class);
 
-	platform_device_unregister(tdmbdrv_device);
 	platform_driver_unregister(&tdmb_driver);
+
+	tdmb_exit_bus();
 }
 
 module_init(tdmb_init);
 module_exit(tdmb_exit);
 
 MODULE_AUTHOR("Samsung");
-#if defined(CONFIG_TDMB_T3700)
-MODULE_DESCRIPTION("TDMB Driver(T3700)");
-#elif defined(CONFIG_TDMB_T3900)
-MODULE_DESCRIPTION("TDMB Driver(T3900)");
-#elif defined(CONFIG_TDMB_FC8050)
-MODULE_DESCRIPTION("TDMB Driver(FC8050)");
-#endif
+MODULE_DESCRIPTION("TDMB Driver");
 MODULE_LICENSE("GPL v2");

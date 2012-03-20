@@ -94,23 +94,6 @@ static int fimc_g_ctrl(struct file *filp, void *fh, struct v4l2_control *c)
 	return ret;
 }
 
-static int fimc_g_ext_ctrls(struct file *filp, void *fh, struct v4l2_ext_controls *c)
-{
-	struct fimc_control *ctrl = ((struct fimc_prv_data *)fh)->ctrl;
-	int ret = -1;
-
-	if (ctrl->cap != NULL) {
-		ret = fimc_g_ext_ctrls_capture(ctrl, c);
-	} else if (ctrl->out != NULL) {
-		/* How about "ret = fimc_s_ext_ctrls_output(fh, c);"? */
-	} else {
-		fimc_err("%s: Invalid case\n", __func__);
-		return -EINVAL;
-	}
-
-	return ret;
-}
-
 static int fimc_s_ctrl(struct file *filp, void *fh, struct v4l2_control *c)
 {
 	struct fimc_control *ctrl = ((struct fimc_prv_data *)fh)->ctrl;
@@ -125,6 +108,20 @@ static int fimc_s_ctrl(struct file *filp, void *fh, struct v4l2_control *c)
 		return -EINVAL;
 	}
 
+	return ret;
+}
+
+static int fimc_g_ext_ctrls(struct file *filp, void *fh, struct v4l2_ext_controls *c)
+{
+	struct fimc_control *ctrl = ((struct fimc_prv_data *)fh)->ctrl;
+	int ret = -1;
+
+	if (ctrl->cap != NULL) {
+		ret = fimc_g_ext_ctrls_capture(fh, c);
+	} else {
+		fimc_err("%s: Invalid case\n", __func__);
+		return -EINVAL;
+	}
 	return ret;
 }
 
@@ -271,6 +268,18 @@ static int fimc_dqbuf(struct file *filp, void *fh, struct v4l2_buffer *b)
 	return ret;
 }
 
+static int fimc_log_status(struct file *filp, void *fh)
+{
+	struct fimc_control *ctrl = ((struct fimc_prv_data *)fh)->ctrl;
+
+	printk(KERN_INFO "fimc%d ctrl->status is %d\n", ctrl->id, ctrl->status);
+
+#if defined (CONFIG_ARCH_EXYNOS4)
+	fimc_sfr_dump(ctrl);
+#endif
+	return 0;
+}
+
 const struct v4l2_ioctl_ops fimc_v4l2_ops = {
 	.vidioc_querycap		= fimc_querycap,
 	.vidioc_reqbufs			= fimc_reqbufs,
@@ -289,6 +298,7 @@ const struct v4l2_ioctl_ops fimc_v4l2_ops = {
 	.vidioc_enum_fmt_vid_cap	= fimc_enum_fmt_vid_capture,
 	.vidioc_g_fmt_vid_cap		= fimc_g_fmt_vid_capture,
 	.vidioc_s_fmt_vid_cap		= fimc_s_fmt_vid_capture,
+	.vidioc_s_fmt_type_private	= fimc_s_fmt_vid_private,
 	.vidioc_try_fmt_vid_cap		= fimc_try_fmt_vid_capture,
 	.vidioc_enum_input		= fimc_enum_input,
 	.vidioc_g_input			= fimc_g_input,
@@ -307,4 +317,5 @@ const struct v4l2_ioctl_ops fimc_v4l2_ops = {
 	.vidioc_s_fmt_vid_overlay	= fimc_s_fmt_vid_overlay,
 	.vidioc_enum_framesizes		= fimc_enum_framesizes,
 	.vidioc_enum_frameintervals	= fimc_enum_frameintervals,
+	.vidioc_log_status		= fimc_log_status,
 };

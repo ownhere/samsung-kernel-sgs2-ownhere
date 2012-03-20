@@ -7,7 +7,7 @@
 
  History :
  ----------------------------------------------------------------------
- 2009/08/31 	jason		initial
+ 2009/08/31	jason		initial
 *******************************************************************************/
 
 #ifndef __FCI_TYPES_H__
@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 #ifndef HANDLE
-typedef int 		HANDLE;
+typedef int		HANDLE;
 #endif
 
 #define s8		char
@@ -26,7 +26,7 @@ typedef int 		HANDLE;
 #define s32		int
 
 #define u8		unsigned char
-#define u16 		unsigned short
+#define u16		unsigned short
 #define u32		unsigned int
 
 #define TRUE		1
@@ -37,7 +37,7 @@ typedef int 		HANDLE;
 #endif
 
 #define BBM_OK		0
-#define BBM_NOK 	1
+#define BBM_NOK		1
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,7 @@
 /*
  * MC-1N2 ASoC codec driver
  *
- * Copyright (c) 2010 Yamaha Corporation
+ * Copyright (c) 2010-2011 Yamaha Corporation
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -30,11 +30,90 @@
  */
 /* #define ALSA_VER_1_0_19 */
 /* #define ALSA_VER_1_0_21 */
-#define ALSA_VER_1_0_23
+/* #define ALSA_VER_1_0_23 */
+/* #define ALSA_VER_ANDROID_2_6_35 */
+#define ALSA_VER_ANDROID_3_0
 
 #define DIO0_DAI_ENABLE
 /* #define DIO1_DAI_ENABLE */
 /* #define DIO2_DAI_ENABLE */
+
+#ifdef ALSA_VER_ANDROID_3_0
+static struct mc1n2_setup mc1n2_cfg_setup = {
+	{  /* MCDRV_INIT_INFO */
+		MCDRV_CKSEL_CMOS, /* bCkSel */
+		41,               /* bDivR0 */
+		126,              /* bDivF0 */
+		41,               /* bDivR1 */
+		126,              /* bDivF1 */
+		0,                /* bRange0*/
+		0,                /* bRange1*/
+		0,                /* bBypass*/
+		MCDRV_DAHIZ_LOW,  /* bDioSdo0Hiz */
+		MCDRV_DAHIZ_LOW,  /* bDioSdo1Hiz */
+		MCDRV_DAHIZ_LOW,  /* bDioSdo2Hiz */
+		MCDRV_DAHIZ_HIZ,  /* bDioClk0Hiz */
+		MCDRV_DAHIZ_HIZ,  /* bDioClk1Hiz */
+		MCDRV_DAHIZ_HIZ,  /* bDioClk2Hiz */
+		MCDRV_PCMHIZ_HIZ, /* bPcmHiz */
+		MCDRV_LINE_STEREO,/* bLineIn1Dif */
+		0,                /* bLineIn2Dif */
+		MCDRV_LINE_STEREO,/* bLineOut1Dif */
+		MCDRV_LINE_STEREO,/* bLineOUt2Dif */
+		MCDRV_SPMN_ON,    /* bSpmn */
+		MCDRV_MIC_DIF,    /* bMic1Sng */
+		MCDRV_MIC_DIF,    /* bMic2Sng */
+		MCDRV_MIC_DIF,    /* bMic3Sng */
+		MCDRV_POWMODE_NORMAL, /* bPowerMode */
+		MCDRV_SPHIZ_PULLDOWN, /* bSpHiz */
+		MCDRV_LDO_ON,     /* bLdo */
+		MCDRV_PAD_GPIO,   /* bPad0Func */
+		MCDRV_PAD_GPIO,   /* bPad1Func */
+		MCDRV_PAD_GPIO,   /* bPad2Func */
+		MCDRV_OUTLEV_4,   /* bAvddLev */
+		0,                /* bVrefLev */
+		MCDRV_DCLGAIN_12, /* bDclGain */
+		MCDRV_DCLLIMIT_0, /* bDclLimit */
+		1,                   /* set Hi-power mode 0: HP mode 1: normal */
+		0,                /* bReserved1 */
+		0,                /* bReserved2 */
+		0,                /* bReserved3 */
+		0,                /* bReserved4 */
+		0,                /* bReserved5 */
+		{                 /* sWaitTime */
+			130000,         /* dAdHpf */
+			25000,          /* dMic1Cin */
+			25000,          /* dMic2Cin */
+			25000,          /* dMic3Cin */
+			25000,          /* dLine1Cin */
+			25000,          /* dLine2Cin */
+			5000,           /* dVrefRdy1 */
+			15000,          /* dVrefRdy2 */
+			9000,           /* dHpRdy */
+			13000,          /* dSpRdy */
+			0,              /* dPdm */
+			1000,           /* dAnaRdyInterval */
+			1000,           /* dSvolInterval */
+			1000,           /* dAnaRdyTimeOut */
+			1000            /* dSvolTimeOut */
+		}
+	}, /* MCDRV_INIT_INFO end */
+	{  /* pcm_extend */
+		0, 0, 0
+	}, /* pcm_extend end */
+	{  /* pcm_hiz_redge */
+		MCDRV_PCMHIZTIM_FALLING, MCDRV_PCMHIZTIM_FALLING, MCDRV_PCMHIZTIM_FALLING
+	}, /* pcm_hiz_redge end */
+	{  /* pcm_hperiod */
+		1, 1, 1
+	}, /* pcm_hperiod end */
+	{  /* slot */
+		{ {0, 1}, {0, 1} },
+		{ {0, 1}, {0, 1} },
+		{ {0, 1}, {0, 1} }
+	}  /* slot end */
+};
+#endif
 
 static const MCDRV_DIO_INFO stDioInfo_Default = {
 	{

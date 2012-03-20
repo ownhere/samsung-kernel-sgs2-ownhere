@@ -19,6 +19,10 @@
 #define DEBUG(fmt, args...) 	do {} while (0)
 #endif
 
+#ifdef CONFIG_S3C_DMA_MEM
+#include "s3c_dma_mem.h"
+#endif
+
 #define MEM_IOCTL_MAGIC			'M'
 
 #define S3C_MEM_ALLOC			_IOWR(MEM_IOCTL_MAGIC, 310, struct s3c_mem_alloc)
@@ -29,6 +33,12 @@
 
 #define S3C_MEM_CACHEABLE_ALLOC		_IOWR(MEM_IOCTL_MAGIC, 316, struct s3c_mem_alloc)
 #define S3C_MEM_CACHEABLE_SHARE_ALLOC	_IOWR(MEM_IOCTL_MAGIC, 317, struct s3c_mem_alloc)
+
+#ifdef CONFIG_S3C_DMA_MEM
+#define S3C_MEM_DMA_COPY		_IOWR(MEM_IOCTL_MAGIC, 318, struct s3c_mem_dma_param)
+#endif
+
+#define S3C_MEM_GET_PADDR		_IOWR(MEM_IOCTL_MAGIC, 320, struct s3c_mem_alloc)
 
 #define MEM_ALLOC			1
 #define MEM_ALLOC_SHARE			2
@@ -57,10 +67,8 @@ struct s3c_mem_alloc {
 #endif
 };
 
-struct s3c_mem_dma_param {
-	int		size;
-	unsigned int 	src_addr;
-	unsigned int 	dst_addr;
-	int		cfg;
-};
-
+#ifdef CONFIG_S3C_DMA_MEM
+#define s3c_dma_init() s3c_dma_mem_init()
+#else
+#define s3c_dma_init() do { } while (0)
+#endif

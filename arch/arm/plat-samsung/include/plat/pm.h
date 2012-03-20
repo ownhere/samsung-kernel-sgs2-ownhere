@@ -15,6 +15,10 @@
  * management
 */
 
+#include <linux/irq.h>
+
+struct sys_device;
+
 #ifdef CONFIG_PM
 
 extern __init int s3c_pm_init(void);
@@ -39,10 +43,9 @@ extern unsigned long s3c_irqwake_eintallow;
 
 extern void (*pm_cpu_prep)(void);
 extern void (*pm_cpu_sleep)(void);
-
-extern int (*pm_begin)(void);
+extern void (*pm_cpu_restore)(void);
 extern int (*pm_prepare)(void);
-extern void (*pm_end)(void);
+extern void (*pm_finish)(void);
 
 /* Flags for PM Control */
 
@@ -52,12 +55,10 @@ extern unsigned char pm_uart_udivslot;  /* true to save UART UDIVSLOT */
 
 /* from sleep.S */
 
-extern int  s3c_cpu_save(unsigned long *saveblk);
+extern int  s3c_cpu_save(unsigned long *saveblk, long);
 extern void s3c_cpu_resume(void);
 
 extern void s3c2410_cpu_suspend(void);
-
-extern unsigned long s3c_sleep_save_phys;
 
 /* sleep save info */
 
@@ -97,8 +98,6 @@ struct pm_uart_save {
 	u32	udivslot;
 };
 
-struct sys_device;
-
 /* helper functions to save/restore lists of registers. */
 
 extern void s3c_pm_do_save(struct sleep_save *ptr, int count);
@@ -106,14 +105,18 @@ extern void s3c_pm_do_restore(struct sleep_save *ptr, int count);
 extern void s3c_pm_do_restore_core(struct sleep_save *ptr, int count);
 
 #ifdef CONFIG_PM
-extern int s3c_irqext_wake(unsigned int irqno, unsigned int state);
-extern int s3c24xx_irq_suspend(struct sys_device *dev, pm_message_t state);
-extern int s3c24xx_irq_resume(struct sys_device *dev);
+extern int s3c_irq_wake(struct irq_data *data, unsigned int state);
+extern int s3c_irqext_wake(struct irq_data *data, unsigned int state);
+extern int s3c24xx_irq_suspend(void);
+extern void s3c24xx_irq_resume(void);
 #else
+#define s3c_irq_wake NULL
 #define s3c_irqext_wake NULL
 #define s3c24xx_irq_suspend NULL
 #define s3c24xx_irq_resume  NULL
 #endif
+
+extern struct syscore_ops s3c24xx_irq_syscore_ops;
 
 /* PM debug functions */
 
@@ -130,17 +133,7 @@ extern void s3c_pm_dbg(const char *msg, ...);
 
 #define S3C_PMDBG(fmt...) s3c_pm_dbg(fmt)
 #else
-#define S3C_PMDBG(fmt...) printk(KERN_DEBUG fmt)
-#endif
-
-/**
- * This is temporary log for sleep/wakeup problem.
- * This will be omitted after debugging this problem.
- */
-#ifdef CONFIG_SEC_DEBUG_PM_TEMP
-#define S3C_PMINFO(fmt...) S3C_PMDBG(fmt)
-#else
-#define S3C_PMINFO(fmt...)
+#define S3C_PMDBG(fmt...) pr_debug(fmt)
 #endif
 
 #ifdef CONFIG_S3C_PM_DEBUG_LED_SMDK
@@ -163,10 +156,10 @@ extern void s3c_pm_check_restore(void);
 extern void s3c_pm_check_cleanup(void);
 extern void s3c_pm_check_store(void);
 #else
-#define s3c_pm_check_prepare() do { } while(0)
-#define s3c_pm_check_restore() do { } while(0)
-#define s3c_pm_check_cleanup() do { } while(0)
-#define s3c_pm_check_store()   do { } while(0)
+#define s3c_pm_check_prepare() do { } while (0)
+#define s3c_pm_check_restore() do { } while (0)
+#define s3c_pm_check_cleanup() do { } while (0)
+#define s3c_pm_check_store()   do { } while (0)
 #endif
 
 /**
@@ -193,13 +186,7 @@ extern void s3c_pm_restore_gpios(void);
  */
 extern void s3c_pm_save_gpios(void);
 
-/**
- * s3c_pm_cb_flushcache - callback for assembly code
- *
- * Callback to issue flush_cache_all() as this call is
- * not a directly callable object.
- */
-extern void s3c_pm_cb_flushcache(void);
-
 extern void s3c_pm_save_core(void);
 extern void s3c_pm_restore_core(void);
+
+extern unsigned long s3c_suspend_wakeup_stat;

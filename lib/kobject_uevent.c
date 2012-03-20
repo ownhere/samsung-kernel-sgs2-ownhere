@@ -123,7 +123,7 @@ static int kobj_usermode_filter(struct kobject *kobj)
  * @kobj: struct kobject that the action is happening to
  * @envp_ext: pointer to environmental data
  *
- * Returns 0 if kobject_uevent() is completed with success or the
+ * Returns 0 if kobject_uevent_env() is completed with success or the
  * corresponding error when it fails.
  */
 int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
@@ -282,7 +282,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 							    kobj_bcast_filter,
 							    kobj);
 			/* ENOBUFS should be handled in userspace */
-			if (retval == -ENOBUFS)
+			if (retval == -ENOBUFS || retval == -ESRCH)
 				retval = 0;
 		} else
 			retval = -ENOMEM;
@@ -317,7 +317,7 @@ exit:
 EXPORT_SYMBOL_GPL(kobject_uevent_env);
 
 /**
- * kobject_uevent - notify userspace by ending an uevent
+ * kobject_uevent - notify userspace by sending an uevent
  *
  * @action: action that is happening
  * @kobj: struct kobject that the action is happening to

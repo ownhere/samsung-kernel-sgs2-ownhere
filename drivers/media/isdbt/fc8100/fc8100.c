@@ -28,7 +28,7 @@ int dmb_open (struct inode *inode, struct file *filp);
 loff_t dmb_llseek (struct file *filp, loff_t off, int whence);
 ssize_t dmb_read (struct file *filp, char *buf, size_t count, loff_t *f_pos);
 ssize_t dmb_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos);
-int dmb_ioctl (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg);
+static long dmb_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
 int dmb_release (struct inode *inode, struct file *filp);
 
 /* GPIO Setting */
@@ -39,9 +39,9 @@ void dmb_hw_deinit(void);
 static struct file_operations dmb_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= dmb_llseek,
-	.read 		= dmb_read,
+	.read		= dmb_read,
 	.write		= dmb_write,
-	.ioctl		= dmb_ioctl,
+	.unlocked_ioctl		= dmb_ioctl,
 	.open		= dmb_open,
 	.release	= dmb_release,
 };
@@ -83,7 +83,7 @@ ssize_t dmb_write (struct file *filp, const char *buf, size_t count, loff_t *f_p
 	return 0x43;
 }
 
-int dmb_ioctl (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
+static long dmb_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	s32 res = BBM_NOK;
 	int status = 0;
@@ -269,4 +269,3 @@ module_init(dmb_init);
 module_exit(dmb_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
-

@@ -16,16 +16,13 @@
 #include <linux/fs.h>       /* file system operations */
 #include <linux/cdev.h>     /* character device definitions */
 #include <linux/mm.h> /* memory mananger definitions */
-#include <asm/uaccess.h>    /* user space access */
 #include <linux/device.h>
-#include <linux/proc_fs.h>
 
 /* the mali kernel subsystem types */
 #include "mali_kernel_subsystem.h"
 
 /* A memory subsystem always exists, so no need to conditionally include it */
 #include "mali_kernel_common.h"
-#include "mali_kernel_mem.h"
 #include "mali_kernel_session_manager.h"
 #include "mali_kernel_core.h"
 
@@ -36,8 +33,15 @@
 #include "mali_ukk_wrappers.h"
 #include "mali_kernel_pm.h"
 
+#include "mali_kernel_sysfs.h"
+
 /* */
 #include "mali_kernel_license.h"
+
+#include "mali_platform.h"
+
+/* from the __malidrv_build_info.c file that is generated during build */
+extern const char *__malidrv_build_info(void);
 
 /* Module parameter to control log level */
 int mali_debug_level = 2;
@@ -65,10 +69,90 @@ extern int mali_max_job_runtime;
 module_param(mali_max_job_runtime, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mali_max_job_runtime, "Maximum allowed job runtime in msecs.\nJobs will be killed after this no matter what");
 
+#if defined(USING_MALI400_L2_CACHE)
+extern int mali_l2_max_reads;
+module_param(mali_l2_max_reads, int, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mali_l2_max_reads, "Maximum reads for Mali L2 cache");
+#endif
+
+#if MALI_TIMELINE_PROFILING_ENABLED
+extern int mali_boot_profiling;
+module_param(mali_boot_profiling, int, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mali_boot_profiling, "Start profiling as a part of Mali driver initialization");
+#endif
+
 #if MALI_DVFS_ENABLED
 extern int mali_dvfs_control;
 module_param(mali_dvfs_control, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(mali_dvfs_control, "Mali Current DVFS");
+#if defined(CONFIG_CPU_EXYNOS4210)
+#else
+extern int step0_clk;
+module_param(step0_clk, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step0_clk, "Mali Current step0_clk");
+#ifdef DEBUG
+extern int step0_vol;
+module_param(step0_vol, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step0_vol, "Mali Current step0_vol");
+#endif
+
+#if (MALI_DVFS_STEPS > 1)
+extern int step1_clk;
+module_param(step1_clk, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step1_clk, "Mali Current step1_clk");
+
+extern int step0_up;
+module_param(step0_up, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step0_up, "Mali Current step0_up");
+
+extern int step1_down;
+module_param(step1_down, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step1_down, "Mali Current step1_down");
+#ifdef DEBUG
+extern int step1_vol;
+module_param(step1_vol, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step1_vol, "Mali Current step1_vol");
+#endif
+
+#if (MALI_DVFS_STEPS > 2)
+extern int step2_clk;
+module_param(step2_clk, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step2_clk, "Mali Current step2_clk");
+
+extern int step1_up;
+module_param(step1_up, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step1_up, "Mali Current step1_up");
+
+extern int step2_down;
+module_param(step2_down, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step2_down, "Mali Current step2_down");
+#ifdef DEBUG
+extern int step2_vol;
+module_param(step2_vol, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step2_vol, "Mali Current step2_vol");
+#endif
+
+#if (MALI_DVFS_STEPS > 3)
+extern int step3_clk;
+module_param(step3_clk, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step3_clk, "Mali Current step3_clk");
+
+extern int step2_up;
+module_param(step2_up, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step2_up, "Mali Current step2_up");
+
+extern int step3_down;
+module_param(step3_down, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step3_down, "Mali Current step3_down");
+#ifdef DEBUG
+extern int step3_vol;
+module_param(step3_vol, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(step3_vol, "Mali Current step3_vol");
+#endif
+#endif
+#endif
+#endif
+#endif
 #endif
 
 extern int mali_gpu_clk;
@@ -83,23 +167,11 @@ extern int gpu_power_state;
 module_param(gpu_power_state, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
 MODULE_PARM_DESC(gpu_power_state, "Mali Power State");
 
-struct mali_dev
-{
-	struct cdev cdev;
-#if MALI_LICENSE_IS_GPL
-	struct class *  mali_class;
-#endif
-};
 
 static char mali_dev_name[] = "mali"; /* should be const, but the functions we call requires non-cost */
 
 /* the mali device */
 static struct mali_dev device;
-
-#if MALI_STATE_TRACKING
-static struct proc_dir_entry *proc_entry;
-static int mali_proc_read(char *page, char **start, off_t off, int count, int *eof, void *data);
-#endif
 
 
 static int mali_open(struct inode *inode, struct file *filp);
@@ -141,40 +213,29 @@ int mali_driver_init(void)
 #endif
 #endif
 #endif
-    err = mali_kernel_constructor();
-    if (_MALI_OSK_ERR_OK != err)
-    {
-        MALI_PRINT(("Failed to initialize driver (error %d)\n", err));
-        return -EFAULT;
-    }
+	err = mali_kernel_constructor();
+	if (_MALI_OSK_ERR_OK != err)
+	{
+#if USING_MALI_PMM
+#if MALI_LICENSE_IS_GPL
+#ifdef CONFIG_PM
+		_mali_dev_platform_unregister();
+#endif
+#endif
+#endif
+		MALI_PRINT(("Failed to initialize driver (error %d)\n", err));
+		return -EFAULT;
+	}
+
+	/* print build options */
+	MALI_DEBUG_PRINT(2, ("%s\n", __malidrv_build_info()));
 
     return 0;
 }
 
 void mali_driver_exit(void)
 {
-
-#if USING_MALI_PMM
-#if MALI_LICENSE_IS_GPL
-#ifdef CONFIG_PM_RUNTIME
-#if MALI_PMM_RUNTIME_JOB_CONTROL_ON
-
-	_mali_osk_pmm_dev_activate();
-#endif
-#endif
-#endif
-#endif
-	 mali_kernel_destructor();
-
-#if USING_MALI_PMM
-#if MALI_LICENSE_IS_GPL
-#ifdef CONFIG_PM_RUNTIME
-#if MALI_PMM_RUNTIME_JOB_CONTROL_ON
-	_mali_osk_pmm_dev_idle();
-#endif
-#endif
-#endif
-#endif
+	mali_kernel_destructor();
 
 #if USING_MALI_PMM
 #if MALI_LICENSE_IS_GPL
@@ -190,7 +251,6 @@ int initialize_kernel_device(void)
 {
 	int err;
 	dev_t dev = 0;
-
 	if (0 == mali_major)
 	{
 		/* auto select a major */
@@ -204,60 +264,39 @@ int initialize_kernel_device(void)
 		err = register_chrdev_region(dev, 1/*count*/, mali_dev_name);
 	}
 
-	if (0 == err)
+	if (err)
 	{
-		memset(&device, 0, sizeof(device));
-
-		/* initialize our char dev data */
-		cdev_init(&device.cdev, &mali_fops);
-		device.cdev.owner = THIS_MODULE;
-		device.cdev.ops = &mali_fops;
-
-		/* register char dev with the kernel */
-		err = cdev_add(&device.cdev, dev, 1/*count*/);
-
-		if (0 == err)
-		{
-#if MALI_STATE_TRACKING
-			proc_entry = create_proc_entry(mali_dev_name, 0444, NULL);
-			if (proc_entry != NULL)
-			{
-				proc_entry->read_proc = mali_proc_read;
-#endif
-#if MALI_LICENSE_IS_GPL
-				device.mali_class = class_create(THIS_MODULE, mali_dev_name);
-				if (IS_ERR(device.mali_class))
-				{
-					err = PTR_ERR(device.mali_class);
-				}
-				else
-				{
-					struct device * mdev;
-					mdev = device_create(device.mali_class, NULL, dev, NULL, mali_dev_name);
-					if (!IS_ERR(mdev))
-					{
-						return 0;
-					}
-
-					err = PTR_ERR(mdev);
-				}
-				cdev_del(&device.cdev);
-#else
-				return 0;
-#endif
-#if MALI_STATE_TRACKING
-				remove_proc_entry(mali_dev_name, NULL);
-			}
-			else
-			{
-				err = EFAULT;
-			}
-#endif
-		}
-		unregister_chrdev_region(dev, 1/*count*/);
+			goto init_chrdev_err;
 	}
 
+	memset(&device, 0, sizeof(device));
 
+	/* initialize our char dev data */
+	cdev_init(&device.cdev, &mali_fops);
+	device.cdev.owner = THIS_MODULE;
+	device.cdev.ops = &mali_fops;
+
+	/* register char dev with the kernel */
+	err = cdev_add(&device.cdev, dev, 1/*count*/);
+	if (err)
+	{
+			goto init_cdev_err;
+	}
+
+	err = mali_sysfs_register(&device, dev, mali_dev_name);
+	if (err)
+	{
+			goto init_sysfs_err;
+	}
+
+	/* Success! */
+	return 0;
+
+init_sysfs_err:
+	cdev_del(&device.cdev);
+init_cdev_err:
+	unregister_chrdev_region(dev, 1/*count*/);
+init_chrdev_err:
 	return err;
 }
 
@@ -266,14 +305,7 @@ void terminate_kernel_device(void)
 {
 	dev_t dev = MKDEV(mali_major, 0);
 	
-#if MALI_LICENSE_IS_GPL
-	device_destroy(device.mali_class, dev);
-	class_destroy(device.mali_class);
-#endif
-
-#if MALI_STATE_TRACKING
-	remove_proc_entry(mali_dev_name, NULL);
-#endif
+	mali_sysfs_unregister(&device, dev, mali_dev_name);
 
 	/* unregister char device */
 	cdev_del(&device.cdev);
@@ -365,8 +397,8 @@ static long mali_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 {
-    int err;
-    struct mali_session_data *session_data;
+	int err;
+	struct mali_session_data *session_data;
 
 #ifndef HAVE_UNLOCKED_IOCTL
 	/* inode not used */
@@ -375,94 +407,98 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 	MALI_DEBUG_PRINT(7, ("Ioctl received 0x%08X 0x%08lX\n", cmd, arg));
 
-    session_data = (struct mali_session_data *)filp->private_data;
-    if (NULL == session_data)
+	session_data = (struct mali_session_data *)filp->private_data;
+	if (NULL == session_data)
 	{
 		MALI_DEBUG_PRINT(7, ("filp->private_data was NULL\n"));
 		return -ENOTTY;
 	}
-    if (NULL == (void *)arg)
+
+	if (NULL == (void *)arg)
 	{
 		MALI_DEBUG_PRINT(7, ("arg was NULL\n"));
 		return -ENOTTY;
 	}
 
+	switch(cmd)
+	{
+		case MALI_IOC_GET_SYSTEM_INFO_SIZE:
+			err = get_system_info_size_wrapper(session_data, (_mali_uk_get_system_info_size_s __user *)arg);
+			break;
 
-    switch(cmd)
-    {
-        case MALI_IOC_GET_SYSTEM_INFO_SIZE:
-            err = get_system_info_size_wrapper(session_data, (_mali_uk_get_system_info_size_s __user *)arg);
-            break;
+		case MALI_IOC_GET_SYSTEM_INFO:
+			err = get_system_info_wrapper(session_data, (_mali_uk_get_system_info_s __user *)arg);
+			break;
 
-        case MALI_IOC_GET_SYSTEM_INFO:
-            err = get_system_info_wrapper(session_data, (_mali_uk_get_system_info_s __user *)arg);
-            break;
+		case MALI_IOC_WAIT_FOR_NOTIFICATION:
+			err = wait_for_notification_wrapper(session_data, (_mali_uk_wait_for_notification_s __user *)arg);
+			break;
 
-        case MALI_IOC_WAIT_FOR_NOTIFICATION:
-            err = wait_for_notification_wrapper(session_data, (_mali_uk_wait_for_notification_s __user *)arg);
-            break;
+		case MALI_IOC_GET_API_VERSION:
+			err = get_api_version_wrapper(session_data, (_mali_uk_get_api_version_s __user *)arg);
+			break;
 
-        case MALI_IOC_GET_API_VERSION:
-            err = get_api_version_wrapper(session_data, (_mali_uk_get_api_version_s __user *)arg);
-            break;
-
-        case MALI_IOC_POST_NOTIFICATION:
-            err = post_notification_wrapper(session_data, (_mali_uk_post_notification_s __user *)arg);
-            break;
+		case MALI_IOC_POST_NOTIFICATION:
+			err = post_notification_wrapper(session_data, (_mali_uk_post_notification_s __user *)arg);
+			break;
 
 #if MALI_TIMELINE_PROFILING_ENABLED
-        case MALI_IOC_PROFILING_START:
-            err = profiling_start_wrapper(session_data, (_mali_uk_profiling_start_s __user *)arg);
-            break;
+		case MALI_IOC_PROFILING_START:
+			err = profiling_start_wrapper(session_data, (_mali_uk_profiling_start_s __user *)arg);
+			break;
 
 		case MALI_IOC_PROFILING_ADD_EVENT:
-            err = profiling_add_event_wrapper(session_data, (_mali_uk_profiling_add_event_s __user *)arg);
-            break;
+			err = profiling_add_event_wrapper(session_data, (_mali_uk_profiling_add_event_s __user *)arg);
+			break;
 
 		case MALI_IOC_PROFILING_STOP:
-            err = profiling_stop_wrapper(session_data, (_mali_uk_profiling_stop_s __user *)arg);
-            break;
+			err = profiling_stop_wrapper(session_data, (_mali_uk_profiling_stop_s __user *)arg);
+			break;
 
 		case MALI_IOC_PROFILING_GET_EVENT:
-            err = profiling_get_event_wrapper(session_data, (_mali_uk_profiling_get_event_s __user *)arg);
-            break;
+			err = profiling_get_event_wrapper(session_data, (_mali_uk_profiling_get_event_s __user *)arg);
+			break;
 
 		case MALI_IOC_PROFILING_CLEAR:
-            err = profiling_clear_wrapper(session_data, (_mali_uk_profiling_clear_s __user *)arg);
-            break;
+			err = profiling_clear_wrapper(session_data, (_mali_uk_profiling_clear_s __user *)arg);
+			break;
+
+		case MALI_IOC_PROFILING_GET_CONFIG:
+			err = profiling_get_config_wrapper(session_data, (_mali_uk_profiling_get_config_s __user *)arg);
+			break;
 #endif
 
-        case MALI_IOC_MEM_INIT:
-            err = mem_init_wrapper(session_data, (_mali_uk_init_mem_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_INIT:
+			err = mem_init_wrapper(session_data, (_mali_uk_init_mem_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_TERM:
-            err = mem_term_wrapper(session_data, (_mali_uk_term_mem_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_TERM:
+			err = mem_term_wrapper(session_data, (_mali_uk_term_mem_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_MAP_EXT:
-            err = mem_map_ext_wrapper(session_data, (_mali_uk_map_external_mem_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_MAP_EXT:
+			err = mem_map_ext_wrapper(session_data, (_mali_uk_map_external_mem_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_UNMAP_EXT:
-            err = mem_unmap_ext_wrapper(session_data, (_mali_uk_unmap_external_mem_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_UNMAP_EXT:
+			err = mem_unmap_ext_wrapper(session_data, (_mali_uk_unmap_external_mem_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
-            err = mem_query_mmu_page_table_dump_size_wrapper(session_data, (_mali_uk_query_mmu_page_table_dump_size_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
+			err = mem_query_mmu_page_table_dump_size_wrapper(session_data, (_mali_uk_query_mmu_page_table_dump_size_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_DUMP_MMU_PAGE_TABLE:
-            err = mem_dump_mmu_page_table_wrapper(session_data, (_mali_uk_dump_mmu_page_table_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_DUMP_MMU_PAGE_TABLE:
+			err = mem_dump_mmu_page_table_wrapper(session_data, (_mali_uk_dump_mmu_page_table_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_GET_BIG_BLOCK:
-            err = mem_get_big_block_wrapper(filp, (_mali_uk_get_big_block_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_GET_BIG_BLOCK:
+			err = mem_get_big_block_wrapper(filp, (_mali_uk_get_big_block_s __user *)arg);
+			break;
 
-        case MALI_IOC_MEM_FREE_BIG_BLOCK:
-            err = mem_free_big_block_wrapper(session_data, (_mali_uk_free_big_block_s __user *)arg);
-            break;
+		case MALI_IOC_MEM_FREE_BIG_BLOCK:
+			err = mem_free_big_block_wrapper(session_data, (_mali_uk_free_big_block_s __user *)arg);
+			break;
 
 #if MALI_USE_UNIFIED_MEMORY_PROVIDER != 0
 
@@ -478,70 +514,63 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 		case MALI_IOC_MEM_ATTACH_UMP:
 		case MALI_IOC_MEM_RELEASE_UMP: /* FALL-THROUGH */
-        	MALI_DEBUG_PRINT(2, ("UMP not supported\n", cmd, arg));
-            err = -ENOTTY;
+			MALI_DEBUG_PRINT(2, ("UMP not supported\n"));
+			err = -ENOTTY;
 			break;
 #endif
 
-        case MALI_IOC_PP_START_JOB:
-            err = pp_start_job_wrapper(session_data, (_mali_uk_pp_start_job_s __user *)arg);
-            break;
+		case MALI_IOC_PP_START_JOB:
+			err = pp_start_job_wrapper(session_data, (_mali_uk_pp_start_job_s __user *)arg);
+			break;
 
-        case MALI_IOC_PP_ABORT_JOB:
-            err = pp_abort_job_wrapper(session_data, (_mali_uk_pp_abort_job_s __user *)arg);
-            break;
+		case MALI_IOC_PP_ABORT_JOB:
+			err = pp_abort_job_wrapper(session_data, (_mali_uk_pp_abort_job_s __user *)arg);
+			break;
 
-        case MALI_IOC_PP_NUMBER_OF_CORES_GET:
-            err = pp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_pp_number_of_cores_s __user *)arg);
-            break;
+		case MALI_IOC_PP_NUMBER_OF_CORES_GET:
+			err = pp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_pp_number_of_cores_s __user *)arg);
+			break;
 
-        case MALI_IOC_PP_CORE_VERSION_GET:
-            err = pp_get_core_version_wrapper(session_data, (_mali_uk_get_pp_core_version_s __user *)arg);
-            break;
+		case MALI_IOC_PP_CORE_VERSION_GET:
+			err = pp_get_core_version_wrapper(session_data, (_mali_uk_get_pp_core_version_s __user *)arg);
+			break;
 
-        case MALI_IOC_GP2_START_JOB:
-            err = gp_start_job_wrapper(session_data, (_mali_uk_gp_start_job_s __user *)arg);
-            break;
+		case MALI_IOC_GP2_START_JOB:
+			err = gp_start_job_wrapper(session_data, (_mali_uk_gp_start_job_s __user *)arg);
+			break;
 
-        case MALI_IOC_GP2_ABORT_JOB:
-            err = gp_abort_job_wrapper(session_data, (_mali_uk_gp_abort_job_s __user *)arg);
-            break;
+		case MALI_IOC_GP2_ABORT_JOB:
+			err = gp_abort_job_wrapper(session_data, (_mali_uk_gp_abort_job_s __user *)arg);
+			break;
 
-        case MALI_IOC_GP2_NUMBER_OF_CORES_GET:
-            err = gp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_gp_number_of_cores_s __user *)arg);
-            break;
+		case MALI_IOC_GP2_NUMBER_OF_CORES_GET:
+			err = gp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_gp_number_of_cores_s __user *)arg);
+			break;
 
-        case MALI_IOC_GP2_CORE_VERSION_GET:
-            err = gp_get_core_version_wrapper(session_data, (_mali_uk_get_gp_core_version_s __user *)arg);
-            break;
+		case MALI_IOC_GP2_CORE_VERSION_GET:
+			err = gp_get_core_version_wrapper(session_data, (_mali_uk_get_gp_core_version_s __user *)arg);
+			break;
 
-        case MALI_IOC_GP2_SUSPEND_RESPONSE:
-            err = gp_suspend_response_wrapper(session_data, (_mali_uk_gp_suspend_response_s __user *)arg);
-            break;
+		case MALI_IOC_GP2_SUSPEND_RESPONSE:
+			err = gp_suspend_response_wrapper(session_data, (_mali_uk_gp_suspend_response_s __user *)arg);
+			break;
 
-        default:
-        	MALI_DEBUG_PRINT(2, ("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
-            err = -ENOTTY;
-    };
-
-    return err;
-}
-
-#if MALI_STATE_TRACKING
-static int mali_proc_read(char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-	MALI_DEBUG_PRINT(1, ("mali_proc_read(page=%p, start=%p, off=%u, count=%d, eof=%p, data=%p\n", page, start, off, count, eof, data));
-
-	/*
-	 * A more elegant solution would be to gather information from all subsystems and
-	 * then report it all in the /proc/mali file, but this would require a bit more work.
-	 * Use MALI_PRINT for now so we get the information in the dmesg log at least.
-	 */
-	_mali_kernel_core_dump_state();
-
-	return 0;	
-}
+		case MALI_IOC_VSYNC_EVENT_REPORT:
+			err = vsync_event_report_wrapper(session_data, (_mali_uk_vsync_event_report_s __user *)arg);
+			break;
+#if MALI_TRACEPOINTS_ENABLED
+		case MALI_IOC_TRANSFER_SW_COUNTERS:
+			err = transfer_sw_counters_wrapper(session_data, (_mali_uk_sw_counters_s __user *)arg);
 #endif
+			break;
+
+		default:
+			MALI_DEBUG_PRINT(2, ("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
+			err = -ENOTTY;
+	};
+
+	return err;
+}
 
 
 module_init(mali_driver_init);
@@ -550,3 +579,9 @@ module_exit(mali_driver_exit);
 MODULE_LICENSE(MALI_KERNEL_LINUX_LICENSE);
 MODULE_AUTHOR("ARM Ltd.");
 MODULE_VERSION(SVN_REV_STRING);
+
+#if MALI_TRACEPOINTS_ENABLED
+/* Create the trace points (otherwise we just get code to call a tracepoint) */
+#define CREATE_TRACE_POINTS
+#include "mali_linux_trace.h"
+#endif

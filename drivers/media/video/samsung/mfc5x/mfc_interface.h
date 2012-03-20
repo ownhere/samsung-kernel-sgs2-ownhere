@@ -27,13 +27,13 @@
 #include "mfc_errno.h"
 #include "SsbSipMfcApi.h"
 
-#define IOCTL_MFC_DEC_INIT			(0x00800001)
-#define IOCTL_MFC_ENC_INIT			(0x00800002)
-#define IOCTL_MFC_DEC_EXE			(0x00800003)
-#define IOCTL_MFC_ENC_EXE			(0x00800004)
+#define IOCTL_MFC_DEC_INIT		(0x00800001)
+#define IOCTL_MFC_ENC_INIT		(0x00800002)
+#define IOCTL_MFC_DEC_EXE		(0x00800003)
+#define IOCTL_MFC_ENC_EXE		(0x00800004)
 
 #define IOCTL_MFC_GET_IN_BUF		(0x00800010)
-#define IOCTL_MFC_FREE_BUF			(0x00800011)
+#define IOCTL_MFC_FREE_BUF		(0x00800011)
 #define IOCTL_MFC_GET_REAL_ADDR		(0x00800012)
 #define IOCTL_MFC_GET_MMAP_SIZE		(0x00800014)
 #define IOCTL_MFC_SET_IN_BUF		(0x00800018)
@@ -223,7 +223,7 @@ struct mfc_enc_exe_arg {
 	unsigned int in_strm_st;  /*[IN]Out-buffer start addr of encoded strm*/
 	unsigned int in_strm_end; /*[IN]Out-buffer end addr of encoded strm */
 	unsigned int in_frametag;	/* [IN]  unique frame ID */
-	
+
 	unsigned int out_frame_type; /* [OUT] frame type  */
 	int out_encoded_size;        /* [OUT] Length of Encoded video stream */
 	unsigned int out_Y_addr;    /*[OUT]Out-buffer addr of encoded Y component */
@@ -259,6 +259,11 @@ struct mfc_dec_init_arg {
 	int out_buf_height;	/* [OUT] height of YUV420 frame */
 
 	int out_dpb_cnt;	/* [OUT] the number of buffers which is nessary during decoding. */
+
+	int out_crop_right_offset;	/* [OUT] crop information for h264 */
+	int out_crop_left_offset;
+	int out_crop_bottom_offset;
+	int out_crop_top_offset;
 };
 
 struct mfc_dec_exe_arg {
@@ -281,7 +286,7 @@ struct mfc_dec_exe_arg {
 	int out_display_status;
 	/* [OUT] unique frame ID of an output frame or top field */
 	unsigned int out_frametag_top;
-	 /* [OUT] unique frame ID of bottom field */
+	/* [OUT] unique frame ID of bottom field */
 	unsigned int out_frametag_bottom;
 	int out_pic_time_top;
 	int out_pic_time_bottom;
@@ -306,25 +311,40 @@ struct mfc_dec_exe_arg {
 	int out_img_width;	/* [OUT] width	of YUV420 frame */
 	int out_img_height;	/* [OUT] height of YUV420 frame */
 	int out_buf_width;	/* [OUT] width	of YUV420 frame */
-	int out_buf_height;	/* [OUT] height of YUV420 frame */	
+	int out_buf_height;	/* [OUT] height of YUV420 frame */
+
+	int out_disp_pic_frame_type;		 /* [OUT] display picture frame type information */
 };
 
-struct mfc_get_config_arg {
-	/* [IN] Configurable parameter type */
-	int in_config_param;
-
-	/* [IN] Values to get for the configurable parameter. */
-	/* Maximum four integer values can be obtained; */
-	int out_config_value[4];
+struct mfc_basic_config {
+	int values[4];
 };
 
-struct mfc_set_config_arg {
-	/* [IN] Configurable parameter type */
-	int in_config_param;
+struct mfc_frame_packing {
+	int		available;
+	unsigned int	arrangement_id;
+	int		arrangement_cancel_flag;
+	unsigned char	arrangement_type;
+	int		quincunx_sampling_flag;
+	unsigned char	content_interpretation_type;
+	int		spatial_flipping_flag;
+	int		frame0_flipped_flag;
+	int		field_views_flag;
+	int		current_frame_is_frame0_flag;
+	unsigned char	frame0_grid_pos_x;
+	unsigned char	frame0_grid_pos_y;
+	unsigned char	frame1_grid_pos_x;
+	unsigned char	frame1_grid_pos_y;
+};
 
-	/* [IN]  Values to be set for the configurable parameter. */
-	/* Maximum four integer values can be set. */
-	int in_config_value[4];
+union _mfc_config_arg {
+	struct mfc_basic_config basic;
+	struct mfc_frame_packing frame_packing;
+};
+
+struct mfc_config_arg {
+	int type;
+	union _mfc_config_arg args;
 };
 
 struct mfc_get_real_addr_arg {
@@ -393,8 +413,7 @@ union mfc_args {
 	struct mfc_dec_init_arg dec_init;
 	struct mfc_dec_exe_arg dec_exe;
 
-	struct mfc_get_config_arg get_config;
-	struct mfc_set_config_arg set_config;
+	struct mfc_config_arg config;
 
 	struct mfc_buf_alloc_arg buf_alloc;
 	struct mfc_buf_free_arg buf_free;
@@ -424,6 +443,11 @@ struct mfc_enc_hier_p_qp {
 	int t0_frame_qp;
 	int t2_frame_qp;
 	int t3_frame_qp;
+};
+
+struct mfc_enc_set_config {
+	int enable;
+	int number;
 };
 
 typedef struct

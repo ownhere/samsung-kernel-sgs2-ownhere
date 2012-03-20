@@ -12,21 +12,18 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/init.h>
+#include <media/v4l2-device.h>
 #include <linux/delay.h>
 #include <linux/version.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
-#include <media/v4l2-i2c-drv.h>
 #ifdef CONFIG_VIDEO_SAMSUNG_V4L2
 #include <linux/videodev2_samsung.h>
 #endif
 #include <media/s5k5bafx_platform.h>
 
 #include "s5k5bafx.h"
-
-#ifdef CONFIG_CPU_FREQ
-#include <mach/cpufreq.h>
-#endif
 
 #ifdef S5K5BAFX_USLEEP
 #include <linux/hrtimer.h>
@@ -59,6 +56,10 @@ static s32 large_file;
 				cam_err("i2c failed, err %d\n", x); \
 				return x; \
 			}
+
+#define NELEMS(array) (sizeof(array) / sizeof(array[0]))
+
+extern struct class *camera_class;
 
 #ifdef S5K5BAFX_USLEEP
 /*
@@ -232,7 +233,7 @@ static int loadFile(void)
 			}
 		} else if (check && !starCheck) {
 			if (testBuf[max_size - i].data == '/') {
-				if(testBuf[max_size-i].nextBuf != NULL) {
+				if (testBuf[max_size-i].nextBuf != NULL) {
 					if (testBuf[max_size-i].nextBuf->data == '*') {
 						starCheck = 1; /* when find '/ *' */
 						check = 0;
@@ -275,11 +276,11 @@ static int loadFile(void)
 	}
 #endif
 
-#if 0 // for print
+#if 0 /* for print */
 	printk("i = %d\n", i);
 	nextBuf = &testBuf[0];
 	while (1) {
-		//printk("sdfdsf\n");
+		/* printk("sdfdsf\n"); */
 		if (nextBuf->nextBuf == NULL)
 			break;
 		printk("%c", nextBuf->data);
@@ -448,6 +449,15 @@ static int s5k5bafx_read_reg(struct v4l2_subdev *sd,
 	return 0;
 }
 
+#ifdef S5K5BAFX_BURST_MODE
+	static u16 addr, value;
+
+	static int len;
+	static u8 buf[SZ_2K] = {0,};
+#else
+	static u8 buf[4] = {0,};
+#endif
+
 /* program multiple registers */
 static int s5k5bafx_write_regs(struct v4l2_subdev *sd,
 		const u32 *packet, u32 num)
@@ -459,14 +469,6 @@ static int s5k5bafx_write_regs(struct v4l2_subdev *sd,
 	u16 delay = 0;
 	int retry_count = 5;
 
-#ifdef S5K5BAFX_BURST_MODE
-	u16 addr, value;
-
-	int len = 0;
-	u8 buf[SZ_2K] = {0,};
-#else
-	u8 buf[4] = {0,};
-#endif
 	struct i2c_msg msg = {
 		msg.addr = client->addr,
 		msg.flags = 0,
@@ -540,7 +542,7 @@ s5k5bafx_burst_write:
 		if (unlikely(state->vt_mode))
 			if (!(num%200))
 				s5k5bafx_usleep(3);
-#endif		
+#endif
 	}
 
 	if (unlikely(ret < 0)) {
@@ -572,7 +574,7 @@ static int s5k5bafx_get_exif(struct v4l2_subdev *sd)
 	s5k5bafx_read_reg(sd, REG_PAGE_ISO, REG_ADDR_ISO, &val);
 	cam_dbg("val = %d\n", val);
 	gain = val * 10 / 256;
-	for (index = 0; index < sizeof(iso_gain_table); index++) {
+	for (index = 0; index < NELEMS(iso_gain_table); index++) {
 		if (gain < iso_gain_table[index])
 			break;
 	}
@@ -626,8 +628,8 @@ static int s5k5bafx_debug_sensor_status(struct v4l2_subdev *sd)
 	/* Read REG_TC_GP_EnableCaptureChanged. */
 	err = s5k5bafx_read_reg(sd, 0x7000, 0x01F6, &val);
 	CHECK_ERR(err);
-	
-	switch(val) {
+
+	switch (val) {
 	case 0:
 		cam_info("In normal mode(0)\n");
 		break;
@@ -676,7 +678,7 @@ static inline int s5k5bafx_check_esd(struct v4l2_subdev *sd)
 		return err;
 	}
 
-	return 0;	
+	return 0;
 }
 
 static int s5k5bafx_set_preview_start(struct v4l2_subdev *sd)
@@ -810,7 +812,7 @@ static int s5k5bafx_try_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
 	return err;
 }
 
-static int s5k5bafx_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
+static int s5k5bafx_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *ffmt)
 {
 	struct s5k5bafx_state *state = to_state(sd);
 	u32 *width = NULL, *height = NULL;
@@ -821,15 +823,27 @@ static int s5k5bafx_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
 	 * We need to check here what are the formats the camera support, and
 	 * set the most appropriate one according to the request from FIMC
 	 */
-	memcpy(&state->req_fmt, &fmt->fmt.pix, sizeof(fmt->fmt.pix));
+
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+	if (state->vt_mode == 3) {
+		state->req_fmt.width = fmt->fmt.pix.height;
+		state->req_fmt.height = fmt->fmt.pix.width;
+	}
+#endif
+
+	state->req_fmt.width = ffmt->width;
+	state->req_fmt.height = ffmt->height;
+	state->req_fmt.priv = ffmt->field;
 
 	switch (state->req_fmt.priv) {
 	case V4L2_PIX_FMT_MODE_PREVIEW:
+		cam_dbg("V4L2_PIX_FMT_MODE_PREVIEW\n");
 		width = &state->preview_frmsizes.width;
 		height = &state->preview_frmsizes.height;
 		break;
 
 	case V4L2_PIX_FMT_MODE_CAPTURE:
+		cam_dbg("V4L2_PIX_FMT_MODE_CAPTURE\n");
 		width = &state->capture_frmsizes.width;
 		height = &state->capture_frmsizes.height;
 		break;
@@ -969,23 +983,23 @@ static int s5k5bafx_set_60hz_antibanding(struct v4l2_subdev *sd)
 	FUNC_ENTR();
 
 	u32 s5k5bafx_antibanding60hz[] = {
-	0xFCFCD000,
-	0x00287000,
-	// Anti-Flicker //
-	// End user init script
-	0x002A0400,
-	0x0F12005F,  //REG_TC_DBG_AutoAlgEnBits //Auto Anti-Flicker is enabled bit[5] = 1.
-	0x002A03DC,
-	0x0F120002,  //02 REG_SF_USER_FlickerQuant //Set flicker quantization(0: no AFC, 1: 50Hz, 2: 60 Hz)
-	0x0F120001,
+		0xFCFCD000,
+		0x00287000,
+		/* Anti-Flicker //
+		// End user init script */
+		0x002A0400,
+		0x0F12005F,	/* REG_TC_DBG_AutoAlgEnBits //Auto Anti-Flicker is enabled bit[5] = 1. */
+		0x002A03DC,
+		0x0F120002,	/* 02 REG_SF_USER_FlickerQuant //Set flicker quantization(0: no AFC, 1: 50Hz, 2: 60 Hz) */
+		0x0F120001,
 	};
 
 	err = s5k5bafx_write_regs(sd, s5k5bafx_antibanding60hz,
-				       	sizeof(s5k5bafx_antibanding60hz) / sizeof(s5k5bafx_antibanding60hz[0]));
-	printk("%s:  setting 60hz antibanding \n", __func__);
-	if (unlikely(err))
-	{
-		printk("%s: failed to set 60hz antibanding \n", __func__);
+				  sizeof(s5k5bafx_antibanding60hz) /
+				  sizeof(s5k5bafx_antibanding60hz[0]));
+	pr_info("%s: setting 60hz antibanding\n", __func__);
+	if (unlikely(err)) {
+		pr_info("%s: failed to set 60hz antibanding\n", __func__);
 		return err;
 	}
 
@@ -1031,10 +1045,6 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 
 	cam_dbg("E\n");
 
-#ifdef CONFIG_CPU_FREQ
-	if (s5pv310_cpufreq_lock(DVFS_LOCK_ID_CAM, CPU_L0))
-		cam_err("failed lock DVFS\n");
-#endif
 	/* set initial regster value */
 #ifdef CONFIG_LOAD_FILE
 	if (state->sensor_mode == SENSOR_CAMERA) {
@@ -1055,13 +1065,14 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 		}
 	} else {
 		cam_info("load recording setting\n");
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_NAATT)
-		err = s5k5bafx_write_regs_from_sd(sd,
-			"s5k5bafx_recording_60Hz_common");
-#else
-		err = s5k5bafx_write_regs_from_sd(sd,
-			"s5k5bafx_recording_50Hz_common");
-#endif
+
+		if (ANTI_BANDING_50HZ == state->anti_banding) {
+			err = s5k5bafx_write_regs_from_sd(sd,
+				"s5k5bafx_recording_50Hz_common");
+		} else {
+			err = s5k5bafx_write_regs_from_sd(sd,
+				"s5k5bafx_recording_60Hz_common");
+		}
 	}
 #else
 	if (state->sensor_mode == SENSOR_CAMERA) {
@@ -1071,7 +1082,11 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 				sizeof(s5k5bafx_common) / \
 				sizeof(s5k5bafx_common[0]));
 		} else {
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+			if (state->vt_mode == 1 || state->vt_mode == 3) {
+#else
 			if (state->vt_mode == 1) {
+#endif
 				cam_info("load camera VT call setting\n");
 				err = s5k5bafx_write_regs(sd, s5k5bafx_vt_common,
 					sizeof(s5k5bafx_vt_common) / \
@@ -1085,19 +1100,16 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 		}
 	} else {
 		cam_info("load recording setting\n");
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_NAATT)
-		err = s5k5bafx_write_regs(sd, s5k5bafx_recording_60Hz_common,
-			sizeof(s5k5bafx_recording_60Hz_common) / \
-			sizeof(s5k5bafx_recording_60Hz_common[0]));
-#else
-		err = s5k5bafx_write_regs(sd, s5k5bafx_recording_50Hz_common,
-			sizeof(s5k5bafx_recording_50Hz_common) / \
-			sizeof(s5k5bafx_recording_50Hz_common[0]));
-#endif
+		if (ANTI_BANDING_50HZ == state->anti_banding) {
+			err = s5k5bafx_write_regs(sd, s5k5bafx_recording_50Hz_common,
+				sizeof(s5k5bafx_recording_50Hz_common) / \
+				sizeof(s5k5bafx_recording_50Hz_common[0]));
+		} else {
+			err = s5k5bafx_write_regs(sd, s5k5bafx_recording_60Hz_common,
+				sizeof(s5k5bafx_recording_60Hz_common) / \
+				sizeof(s5k5bafx_recording_60Hz_common[0]));
+		}
 	}
-#endif
-#ifdef CONFIG_CPU_FREQ
-	s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_CAM);
 #endif
 	if (unlikely(err)) {
 		cam_err("failed to init\n");
@@ -1119,76 +1131,6 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 	}
 
 	state->initialized = 1;
-
-	return 0;
-}
-
-/*
- * s_config subdev ops
- * With camera device, we need to re-initialize
- * every single opening time therefor,
- * it is not necessary to be initialized on probe time.
- * except for version checking
- * NOTE: version checking is optional
- */
-static int s5k5bafx_s_config(struct v4l2_subdev *sd,
-		int irq, void *platform_data)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct s5k5bafx_state *state = to_state(sd);
-	struct s5k5bafx_platform_data *pdata;
-#ifdef CONFIG_LOAD_FILE
-	int err = 0;
-#endif
-
-	cam_dbg("E\n");
-
-	state->initialized = 0;
-	state->req_fps = state->set_fps = 8;
-	state->sensor_mode = SENSOR_CAMERA;
-
-	pdata = client->dev.platform_data;
-
-	if (!pdata) {
-		cam_err("no platform data\n");
-		return -ENODEV;
-	}
-
-	/*
-	 * Assign default format and resolution
-	 * Use configured default information in platform data
-	 * or without them, use default information in driver
-	 */
-	if (!(pdata->default_width && pdata->default_height)) {
-		state->preview_frmsizes.width = DEFAULT_PREVIEW_WIDTH;
-		state->preview_frmsizes.height = DEFAULT_PREVIEW_HEIGHT;
-
-	} else {
-		state->preview_frmsizes.width = pdata->default_width;
-		state->preview_frmsizes.height = pdata->default_height;
-	}
-	state->capture_frmsizes.width = DEFAULT_CAPTURE_WIDTH;
-	state->capture_frmsizes.height = DEFAULT_CAPTURE_HEIGHT;
-
-	cam_dbg("preview_width: %d , preview_height: %d, "
-		"capture_width: %d, capture_height: %d",
-		state->preview_frmsizes.width, state->preview_frmsizes.height,
-		state->capture_frmsizes.width, state->capture_frmsizes.height);
-
-	state->req_fmt.width = state->preview_frmsizes.width;
-	state->req_fmt.height = state->preview_frmsizes.height;
-	if (!pdata->pixelformat)
-		state->req_fmt.pixelformat = DEFAULT_FMT;
-	else
-		state->req_fmt.pixelformat = pdata->pixelformat;
-
-#ifdef CONFIG_LOAD_FILE
-	err = loadFile();
-	if (unlikely(err < 0)) {
-		cam_err("failed to load file ERR=%d\n", err);
-		return err;
-	}
-#endif
 
 	return 0;
 }
@@ -1455,39 +1397,6 @@ static int s5k5bafx_set_blur(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	return 0;
 }
 
-#if (0)
-static int s5k5bafx_check_dataline_stop(struct v4l2_subdev *sd)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct s5k5bafx_state *state = to_state(sd);
-	int err = -EINVAL;
-
-	extern int s5k5bafx_power_reset(void);
-
-	cam_warn("Warning: do nothing!!\n");
-	return err;
-
-
-	s5k5bafx_write(client, 0xFCFCD000);
-	s5k5bafx_write(client, 0x0028D000);
-	s5k5bafx_write(client, 0x002A3100);
-    	s5k5bafx_write(client, 0x0F120000);
-
-   //	err =  s5k5bafx_write_regs(sd, s5k5bafx_pattern_off,	sizeof(s5k5bafx_pattern_off) / sizeof(s5k5bafx_pattern_off[0]));
-	printk("%s: sensor reset\n", __func__);
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_EUR) || defined(CONFIG_TARGET_LOCALE_HKTW) || defined(CONFIG_TARGET_LOCALE_HKTW_FET) || defined(CONFIG_TARGET_LOCALE_USAGSM)
-        // dont't know where this code came from - comment out for compile error
-        // s5k5bafx_power_reset();
- #endif
-
-	cam_dbg("load camera init setting\n");
-	err =  s5k5bafx_write_regs(sd, s5k5bafx_common,	sizeof(s5k5bafx_common) / sizeof(s5k5bafx_common[0]));
-	state->check_dataline = 0;
-	/* mdelay(100); */
-	return err;
-}
-#endif
-
 static int s5k5bafx_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
 	/* struct i2c_client *client = v4l2_get_subdevdata(sd); */
@@ -1500,6 +1409,7 @@ static int s5k5bafx_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	if ((ctrl->id != V4L2_CID_CAMERA_CHECK_DATALINE)
 	&& (ctrl->id != V4L2_CID_CAMERA_SENSOR_MODE)
 	&& ((ctrl->id != V4L2_CID_CAMERA_VT_MODE))
+	&& (ctrl->id != V4L2_CID_CAMERA_ANTI_BANDING)
 	&& (!state->initialized)) {
 		cam_warn("camera isn't initialized\n");
 		return 0;
@@ -1531,6 +1441,13 @@ static int s5k5bafx_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 	case V4L2_CID_CAMERA_VT_MODE:
 		state->vt_mode = ctrl->value;
+		break;
+
+	case V4L2_CID_CAMERA_ANTI_BANDING:
+		state->anti_banding = ctrl->value;
+		cam_dbg("V4L2_CID_CAMERA_ANTI_BANDING [%d],[%d]\n",
+				state->anti_banding, ctrl->value);
+		err = 0;
 		break;
 
 	case V4L2_CID_CAMERA_CHECK_DATALINE:
@@ -1574,7 +1491,6 @@ static int s5k5bafx_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 static const struct v4l2_subdev_core_ops s5k5bafx_core_ops = {
 	.init = s5k5bafx_init,		/* initializing API */
-	.s_config = s5k5bafx_s_config,	/* Fetch platform data */
 #if 0
 	.queryctrl = s5k5bafx_queryctrl,
 	.querymenu = s5k5bafx_querymenu,
@@ -1585,13 +1501,11 @@ static const struct v4l2_subdev_core_ops s5k5bafx_core_ops = {
 
 static const struct v4l2_subdev_video_ops s5k5bafx_video_ops = {
 	/*.s_crystal_freq = s5k5bafx_s_crystal_freq,*/
-	.g_fmt	= s5k5bafx_g_fmt,
-	.s_fmt	= s5k5bafx_s_fmt,
+	.s_mbus_fmt	= s5k5bafx_s_fmt,
 	.s_stream = s5k5bafx_s_stream,
 	.enum_framesizes = s5k5bafx_enum_framesizes,
 	/*.enum_frameintervals = s5k5bafx_enum_frameintervals,*/
 	/*.enum_fmt = s5k5bafx_enum_fmt,*/
-	.try_fmt = s5k5bafx_try_fmt,
 	.g_parm	= s5k5bafx_g_parm,
 	.s_parm	= s5k5bafx_s_parm,
 };
@@ -1600,6 +1514,19 @@ static const struct v4l2_subdev_ops s5k5bafx_ops = {
 	.core = &s5k5bafx_core_ops,
 	.video = &s5k5bafx_video_ops,
 };
+
+ssize_t s5k5bafx_camera_type_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *cam_type;
+	cam_info("%s\n", __func__);
+
+	cam_type = "SLSI_S5K5BAFX";
+
+	return sprintf(buf, "%s\n", cam_type);
+}
+
+static DEVICE_ATTR(front_camtype, S_IRUGO, s5k5bafx_camera_type_show, NULL);
 
 /*
  * s5k5bafx_probe
@@ -1611,7 +1538,7 @@ static int s5k5bafx_probe(struct i2c_client *client,
 {
 	struct s5k5bafx_state *state = NULL;
 	struct v4l2_subdev *sd = NULL;
-
+	struct s5k5bafx_platform_data *pdata = NULL;
 	cam_dbg("E\n");
 
 	state = kzalloc(sizeof(struct s5k5bafx_state), GFP_KERNEL);
@@ -1621,8 +1548,64 @@ static int s5k5bafx_probe(struct i2c_client *client,
 	sd = &state->sd;
 	strcpy(sd->name, S5K5BAFX_DRIVER_NAME);
 
+	state->initialized = 0;
+	state->req_fps = state->set_fps = 8;
+	state->sensor_mode = SENSOR_CAMERA;
+
+	pdata = client->dev.platform_data;
+
+	if (!pdata) {
+		cam_err("no platform data\n");
+		return -ENODEV;
+	}
+
 	/* Registering subdev */
 	v4l2_i2c_subdev_init(sd, client, &s5k5bafx_ops);
+
+	if (state->s5k5bafx_dev == NULL) {
+		state->s5k5bafx_dev =
+		    device_create(camera_class, NULL, 0, NULL,
+				  "front");
+		if (IS_ERR(state->s5k5bafx_dev)) {
+			cam_err("failed to create device s5k5bafx_dev!\n");
+		} else {
+			dev_set_drvdata(state->s5k5bafx_dev, state);
+			if (device_create_file
+			    (state->s5k5bafx_dev,
+			     &dev_attr_front_camtype) < 0) {
+				cam_err("failed to create device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+			}
+		}
+	}
+
+	/*
+	 * Assign default format and resolution
+	 * Use configured default information in platform data
+	 * or without them, use default information in driver
+	 */
+	if (!(pdata->default_width && pdata->default_height)) {
+		state->preview_frmsizes.width = DEFAULT_PREVIEW_WIDTH;
+		state->preview_frmsizes.height = DEFAULT_PREVIEW_HEIGHT;
+	} else {
+		state->preview_frmsizes.width = pdata->default_width;
+		state->preview_frmsizes.height = pdata->default_height;
+	}
+	state->capture_frmsizes.width = DEFAULT_CAPTURE_WIDTH;
+	state->capture_frmsizes.height = DEFAULT_CAPTURE_HEIGHT;
+
+	cam_dbg("preview_width: %d , preview_height: %d, "
+	"capture_width: %d, capture_height: %d",
+	state->preview_frmsizes.width, state->preview_frmsizes.height,
+	state->capture_frmsizes.width, state->capture_frmsizes.height);
+
+	state->req_fmt.width = state->preview_frmsizes.width;
+	state->req_fmt.height = state->preview_frmsizes.height;
+
+	if (!pdata->pixelformat)
+		state->req_fmt.pixelformat = DEFAULT_FMT;
+	else
+		state->req_fmt.pixelformat = pdata->pixelformat;
 
 	cam_dbg("probed!!\n");
 
@@ -1637,6 +1620,10 @@ static int s5k5bafx_remove(struct i2c_client *client)
 	cam_dbg("E\n");
 
 	state->initialized = 0;
+
+	device_remove_file(state->s5k5bafx_dev, &dev_attr_front_camtype);
+	device_destroy(camera_class, 0);
+	state->s5k5bafx_dev = NULL;
 
 	v4l2_device_unregister_subdev(sd);
 	kfree(to_state(sd));
@@ -1658,12 +1645,28 @@ static const struct i2c_device_id s5k5bafx_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, s5k5bafx_id);
 
-static struct v4l2_i2c_driver_data v4l2_i2c_data = {
-	.name = S5K5BAFX_DRIVER_NAME,
-	.probe = s5k5bafx_probe,
-	.remove = s5k5bafx_remove,
-	.id_table = s5k5bafx_id,
+static struct i2c_driver s5k5bafx_i2c_driver = {
+	.driver = {
+		.name	= S5K5BAFX_DRIVER_NAME,
+	},
+	.probe		= s5k5bafx_probe,
+	.remove		= s5k5bafx_remove,
+	.id_table	= s5k5bafx_id,
 };
+
+static int __init s5k5bafx_mod_init(void)
+{
+	cam_dbg("E\n");
+	return i2c_add_driver(&s5k5bafx_i2c_driver);
+}
+
+static void __exit s5k5bafx_mod_exit(void)
+{
+	cam_dbg("E\n");
+	i2c_del_driver(&s5k5bafx_i2c_driver);
+}
+module_init(s5k5bafx_mod_init);
+module_exit(s5k5bafx_mod_exit);
 
 MODULE_DESCRIPTION("S5K5BAFX ISP driver");
 MODULE_AUTHOR("DongSeong Lim<dongseong.lim@samsung.com>");

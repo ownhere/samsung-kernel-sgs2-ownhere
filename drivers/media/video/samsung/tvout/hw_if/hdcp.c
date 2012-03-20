@@ -21,10 +21,14 @@
 
 #undef tvout_dbg
 
-#ifdef CONFIG_HDCP_DEBUG
-#define tvout_dbg(fmt, ...)					\
-		printk(KERN_INFO "\t\t[HDCP] %s(): " fmt,	\
-			__func__, ##__VA_ARGS__)
+#ifdef CONFIG_TVOUT_DEBUG
+#define tvout_dbg(fmt, ...)						\
+do {									\
+	if (unlikely(tvout_dbg_flag & (1 << DBG_FLAG_HDCP))) {		\
+		printk(KERN_INFO "\t\t[HDCP] %s(): " fmt,		\
+			__func__, ##__VA_ARGS__);			\
+	}								\
+} while (0)
 #else
 #define tvout_dbg(fmt, ...)
 #endif
@@ -337,9 +341,8 @@ static int s5p_hdcp_read_bcaps(void)
 	if (s5p_ddc_read(HDCP_Bcaps, BCAPS_SIZE, &bcaps) < 0)
 		goto bcaps_read_err;
 
-	if (!s5p_hdmi_reg_get_hpd_status() ||
-	    s5p_hdmi_ctrl_status() == false || on_stop_process)
-		 goto bcaps_read_err;;
+	if (!s5p_hdmi_reg_get_hpd_status() || s5p_hdmi_ctrl_status() == false || on_stop_process)
+		goto bcaps_read_err;
 
 	writeb(bcaps, hdmi_base + S5P_HDMI_HDCP_BCAPS);
 
@@ -482,12 +485,12 @@ static void s5p_hdcp_reset_sw(void)
 static void s5p_hdcp_reset_auth(void)
 {
 	u8 reg;
+	unsigned long spin_flags;
 
 	if (!s5p_hdmi_reg_get_hpd_status() ||
 	    s5p_hdmi_ctrl_status() == false || on_stop_process)
 		return;
-
-	spin_lock_irq(&hdcp_info.reset_lock);
+	spin_lock_irqsave(&hdcp_info.reset_lock, spin_flags);
 
 	hdcp_info.event		= HDCP_EVENT_STOP;
 	hdcp_info.auth_status	= NOT_AUTHENTICATED;
@@ -519,8 +522,7 @@ static void s5p_hdcp_reset_auth(void)
 		S5P_HDMI_UPDATE_RI_INT_OCC;
 	writeb(reg, hdmi_base + S5P_HDMI_STATUS_EN);
 	writeb(S5P_HDMI_HDCP_CP_DESIRED_EN, hdmi_base + S5P_HDMI_HDCP_CTRL1);
-
-	spin_unlock_irq(&hdcp_info.reset_lock);
+	spin_unlock_irqrestore(&hdcp_info.reset_lock, spin_flags);
 }
 
 static int s5p_hdcp_loadkey(void)
@@ -810,7 +812,7 @@ bksv_start_err:
 
 static int s5p_hdcp_second_auth(void)
 {
-	int reg = 0, ret = 0;
+	int ret = 0;
 
 	tvout_dbg("second auth : start\n");
 
@@ -822,55 +824,17 @@ static int s5p_hdcp_second_auth(void)
 		goto second_auth_err;
 
 	ret = s5p_hdmi_check_repeater();
-
-	if (!ret) {
-		hdcp_info.auth_status = SECOND_AUTHENTICATION_DONE;
-		s5p_hdmi_start_encryption();
-	} else if (ret < 0)
-		goto second_auth_err;
-	else {
-		switch (ret) {
-
-		case REPEATER_ILLEGAL_DEVICE_ERROR:
-			writeb(0x01, hdmi_base + S5P_HDMI_HDCP_CTRL2);
-			mdelay(1);
-			writeb(0x0, hdmi_base + S5P_HDMI_HDCP_CTRL2);
-
-			tvout_dbg("repeater : illegal device\n");
-			break;
-		case REPEATER_TIMEOUT_ERROR:
-			reg = readb(hdmi_base + S5P_HDMI_HDCP_CTRL1);
-
-			reg |= S5P_HDMI_HDCP_SET_REPEATER_TIMEOUT;
-			writeb(reg, hdmi_base + S5P_HDMI_HDCP_CTRL1);
-
-			reg &= ~S5P_HDMI_HDCP_SET_REPEATER_TIMEOUT;
-			writeb(reg, hdmi_base + S5P_HDMI_HDCP_CTRL1);
-
-			tvout_dbg("repeater : timeout\n");
-			break;
-		case MAX_CASCADE_EXCEEDED_ERROR:
-
-			tvout_dbg("repeater : exceeded MAX_CASCADE\n");
-			break;
-		case MAX_DEVS_EXCEEDED_ERROR:
-
-			tvout_dbg("repeater : exceeded MAX_DEVS\n");
-			break;
-		default:
-			break;
-		}
-
-		hdcp_info.auth_status = NOT_AUTHENTICATED;
-
+	if (ret)
 		goto second_auth_err;
 
-	}
+	hdcp_info.auth_status = SECOND_AUTHENTICATION_DONE;
+	s5p_hdmi_start_encryption();
 
 	tvout_dbg("second auth : OK\n");
 	return 0;
 
 second_auth_err:
+	hdcp_info.auth_status = NOT_AUTHENTICATED;
 	tvout_err("second auth : failed\n");
 	return -1;
 }
@@ -979,8 +943,7 @@ static void s5p_hdcp_work(void *arg)
 	return;
 work_err:
 	if (!hdcp_info.hdcp_enable || !s5p_hdmi_reg_get_hpd_status() ||
-	    s5p_hdmi_ctrl_status() == false || on_stop_process)
-	{
+	    s5p_hdmi_ctrl_status() == false || on_stop_process)	{
 		return;
 	}
 	s5p_hdcp_reset_auth();
@@ -996,10 +959,12 @@ irqreturn_t s5p_hdcp_irq_handler(int irq, void *dev_id)
 	if (s5p_hdmi_ctrl_status() == false) {
 		hdcp_info.event		= HDCP_EVENT_STOP;
 		hdcp_info.auth_status	= NOT_AUTHENTICATED;
+		tvout_dbg("[WARNING] s5p_hdmi_ctrl_status fail\n");
 		return IRQ_HANDLED;
 	}
 
 	flag = readb(hdmi_base + S5P_HDMI_SYS_STATUS);
+	tvout_dbg("flag = 0x%x\n", flag);
 
 	if (flag & S5P_HDMI_WTFORACTIVERX_INT_OCC) {
 		event |= HDCP_EVENT_READ_BKSV_START;
@@ -1036,8 +1001,8 @@ irqreturn_t s5p_hdcp_irq_handler(int irq, void *dev_id)
 
 	if (hdcp_info.hdcp_enable && s5p_hdmi_reg_get_hpd_status() &&
 	    s5p_hdmi_ctrl_status() == true && !on_stop_process) {
-	hdcp_info.event |= event;
-	queue_work_on(0, hdcp_wq, &hdcp_info.work);
+		hdcp_info.event |= event;
+		queue_work_on(0, hdcp_wq, &hdcp_info.work);
 	} else {
 		hdcp_info.event		= HDCP_EVENT_STOP;
 		hdcp_info.auth_status	= NOT_AUTHENTICATED;
@@ -1048,7 +1013,9 @@ irqreturn_t s5p_hdcp_irq_handler(int irq, void *dev_id)
 
 int s5p_hdcp_init(void)
 {
-	hdcp_wq = create_freezeable_workqueue("hdcp work");
+	hdcp_wq = create_freezable_workqueue("hdcp work");
+	if (!hdcp_wq)
+		return -1;
 	INIT_WORK(&hdcp_info.work, (work_func_t) s5p_hdcp_work);
 
 	spin_lock_init(&hdcp_info.reset_lock);
@@ -1062,15 +1029,16 @@ int s5p_hdcp_init(void)
 int s5p_hdcp_encrypt_stop(bool on)
 {
 	u32 reg;
+	unsigned long spin_flags;
 
 	tvout_dbg("\n");
-	spin_lock_irq(&hdcp_info.reset_lock);
+	spin_lock_irqsave(&hdcp_info.reset_lock, spin_flags);
 
 
 	if (s5p_hdmi_ctrl_status() == false) {
 		hdcp_info.event	= HDCP_EVENT_STOP;
 		hdcp_info.auth_status = NOT_AUTHENTICATED;
-		spin_unlock_irq(&hdcp_info.reset_lock);
+		spin_unlock_irqrestore(&hdcp_info.reset_lock, spin_flags);
 		return -1;
 	}
 
@@ -1102,7 +1070,7 @@ int s5p_hdcp_encrypt_stop(bool on)
 		tvout_dbg("stop encryption by HPD\n");
 	}
 
-	spin_unlock_irq(&hdcp_info.reset_lock);
+	spin_unlock_irqrestore(&hdcp_info.reset_lock, spin_flags);
 
 	return 0;
 }

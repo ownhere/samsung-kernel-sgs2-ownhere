@@ -19,10 +19,12 @@
 #include <linux/file.h>
 #include <linux/mm.h>
 #include <linux/list.h>
+#include <linux/mutex.h>
 #include <linux/debugfs.h>
 #include <linux/android_pmem.h>
 #include <linux/mempolicy.h>
 #include <linux/sched.h>
+#include <linux/vmalloc.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -130,9 +132,9 @@ struct pmem_info {
 	 * this flag */
 	unsigned allocated;
 	/* for debugging, creates a list of pmem file structs, the
-	 * data_list_sem should be taken before pmem_data->sem if both are
+	 * data_list_lock should be taken before pmem_data->sem if both are
 	 * needed */
-	struct semaphore data_list_sem;
+	struct mutex data_list_lock;
 	struct list_head data_list;
 	/* pmem_sem protects the bitmap array
 	 * a write lock should be held when modifying entries in bitmap
@@ -276,7 +278,7 @@ static int pmem_release(struct inode *inode, struct file *file)
 	int id = get_id(file), ret = 0;
 
 
-	down(&pmem[id].data_list_sem);
+	mutex_lock(&pmem[id].data_list_lock);
 	/* if this file is a master, revoke all the memory in the connected
 	 *  files */
 	if (PMEM_FLAGS_MASTERMAP & data->flags) {
@@ -293,7 +295,7 @@ static int pmem_release(struct inode *inode, struct file *file)
 		}
 	}
 	list_del(&data->list);
-	up(&pmem[id].data_list_sem);
+	mutex_unlock(&pmem[id].data_list_lock);
 
 
 	down_write(&data->sem);
@@ -361,9 +363,9 @@ static int pmem_open(struct inode *inode, struct file *file)
 	file->private_data = data;
 	INIT_LIST_HEAD(&data->list);
 
-	down(&pmem[id].data_list_sem);
+	mutex_lock(&pmem[id].data_list_lock);
 	list_add(&data->list, &pmem[id].data_list);
-	up(&pmem[id].data_list_sem);
+	mutex_unlock(&pmem[id].data_list_lock);
 	return ret;
 }
 
@@ -441,7 +443,7 @@ static int pmem_allocate(int id, unsigned long len)
 	return best_fit;
 }
 
-static pgprot_t phys_mem_access_prot(struct file *file, pgprot_t vma_prot)
+static pgprot_t pmem_access_prot(struct file *file, pgprot_t vma_prot)
 {
 	int id = get_id(file);
 #ifdef pgprot_noncached
@@ -631,7 +633,7 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	vma->vm_pgoff = pmem_start_addr(id, data) >> PAGE_SHIFT;
-	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_page_prot);
+	vma->vm_page_prot = pmem_access_prot(file, vma->vm_page_prot);
 
 	if (data->flags & PMEM_FLAGS_CONNECTED) {
 		struct pmem_region_node *region_node;
@@ -806,14 +808,14 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 	if (unlikely(!(data->flags & PMEM_FLAGS_CONNECTED))) {
 		if (pmem_len(id, data) >= SZ_1M) {
 			flush_all_cpu_caches();
-                       	outer_flush_all();
+			outer_flush_all();
 		} else if (pmem_len(id, data) >= SZ_64K) {
 			flush_all_cpu_caches();
 			outer_flush_range(virt_to_phys(vaddr), virt_to_phys(vaddr + pmem_len(id, data)));
 		} else {
 			dmac_flush_range(vaddr, vaddr + pmem_len(id, data));
 			outer_flush_range(virt_to_phys(vaddr), virt_to_phys(vaddr + pmem_len(id, data)));
-		}		
+		}
 		goto end;
 	}
 	/* otherwise, flush the region of the file we are drawing */
@@ -827,14 +829,14 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 
 			if (pmem_len(id, data) >= SZ_1M) {
 				flush_all_cpu_caches();
-	                 	outer_flush_all();
+				outer_flush_all();
 			} else if (pmem_len(id, data) >= SZ_64K) {
 				flush_all_cpu_caches();
 				outer_flush_range(virt_to_phys(flush_start), virt_to_phys(flush_end));
 			} else {
 				dmac_flush_range(flush_start, flush_end);
 				outer_flush_range(virt_to_phys(flush_start), virt_to_phys(flush_end));
-			}			
+			}
 			break;
 		}
 	}
@@ -1208,7 +1210,7 @@ static ssize_t debug_read(struct file *file, char __user *buf, size_t count,
 	n = scnprintf(buffer, debug_bufmax,
 		      "pid #: mapped regions (offset, len) (offset,len)...\n");
 
-	down(&pmem[id].data_list_sem);
+	mutex_lock(&pmem[id].data_list_lock);
 	list_for_each(elt, &pmem[id].data_list) {
 		data = list_entry(elt, struct pmem_data, list);
 		down_read(&data->sem);
@@ -1225,7 +1227,7 @@ static ssize_t debug_read(struct file *file, char __user *buf, size_t count,
 		n += scnprintf(buffer + n, debug_bufmax - n, "\n");
 		up_read(&data->sem);
 	}
-	up(&pmem[id].data_list_sem);
+	mutex_unlock(&pmem[id].data_list_lock);
 
 	n++;
 	buffer[n] = 0;
@@ -1252,6 +1254,9 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	int err = 0;
 	int i, index = 0;
 	int id = id_count;
+	struct page **pages;
+	int nr_pages;
+	int prot;
 	id_count++;
 
 #if defined(CONFIG_S5P_MEM_CMA)
@@ -1266,7 +1271,7 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pmem[id].ioctl = ioctl;
 	pmem[id].release = release;
 	init_rwsem(&pmem[id].bitmap_sem);
-	init_MUTEX(&pmem[id].data_list_sem);
+	mutex_init(&pmem[id].data_list_lock);
 	INIT_LIST_HEAD(&pmem[id].data_list);
 	pmem[id].dev.name = pdata->name;
 	pmem[id].dev.minor = id;
@@ -1295,16 +1300,24 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		}
 	}
 
+	nr_pages = pmem[id].size >> PAGE_SHIFT;
+	pages = kmalloc(nr_pages * sizeof(*pages), GFP_KERNEL);
+	if (!pages)
+		goto err_no_mem_for_pages;
+
+	for (i = 0; i < nr_pages; i++)
+		pages[i] = phys_to_page(pmem[id].base + i * PAGE_SIZE);
+
 	if (pmem[id].cached)
-		pmem[id].vbase = ioremap_cached(pmem[id].base,
-						pmem[id].size);
-#ifdef ioremap_ext_buffered
+		prot = PAGE_KERNEL;
 	else if (pmem[id].buffered)
-		pmem[id].vbase = ioremap_ext_buffered(pmem[id].base,
-						      pmem[id].size);
-#endif
+		prot = pgprot_writecombine(PAGE_KERNEL);
 	else
-		pmem[id].vbase = ioremap(pmem[id].base, pmem[id].size);
+		prot = pgprot_noncached(PAGE_KERNEL);
+
+	pmem[id].vbase = vmap(pages, nr_pages, VM_MAP, prot);
+
+	kfree(pages);
 
 	if (pmem[id].vbase == 0)
 		goto error_cant_remap;
@@ -1319,6 +1332,7 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 #endif
 	return 0;
 error_cant_remap:
+err_no_mem_for_pages:
 	kfree(pmem[id].bitmap);
 err_no_mem_for_metadata:
 	misc_deregister(&pmem[id].dev);

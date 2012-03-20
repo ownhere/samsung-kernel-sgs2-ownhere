@@ -32,9 +32,9 @@ struct mfc_pm {
 	char		pd_name[MFC_NAME_LEN];
 	char		clk_name[MFC_NAME_LEN];
 	struct clk	*clock;
-#ifdef CONFIG_ARCH_S5PV310
-	atomic_t 	power;
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_ARCH_EXYNOS4
+	atomic_t	power;
+#if defined(CONFIG_PM_RUNTIME) || defined(CONFIG_CPU_FREQ)
 	struct device	*device;
 #endif
 #ifdef CONFIG_CPU_FREQ
@@ -65,6 +65,7 @@ struct mfc_mem {
 
 struct mfc_fw {
 	const struct firmware	*info;
+	int			requesting;
 	int			state;
 	int			ver;
 #if defined(CONFIG_VIDEO_MFC_VCM_UMP)
@@ -85,7 +86,13 @@ struct mfc_dev {
 	struct mfc_vcm		vcm_info;
 #endif
 	int			mem_ports;
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	struct mfc_mem		mem_infos[MFC_MAX_MEM_CHUNK_NUM];
+	struct mfc_mem		drm_info;
+	int			drm_playback;
+#else
 	struct mfc_mem		mem_infos[MFC_MAX_MEM_PORT_NUM];
+#endif
 
 	atomic_t		inst_cnt;
 	struct mfc_inst_ctx	*inst_ctx[MFC_MAX_INSTANCE_NUM];
@@ -102,7 +109,7 @@ struct mfc_dev {
 	struct s5p_vcm_mmu	*_vcm_mmu;
 
 	struct device		*device;
-#ifdef CONFIG_CPU_FREQ
+#if defined(CONFIG_BUSFREQ) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
 	atomic_t		busfreq_lock_cnt; /* Bus frequency Lock count */
 #endif
 };

@@ -36,10 +36,21 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#ifdef CONFIG_USB_ANDROID
 #include <linux/switch.h>
+#endif
+/*
+ * USB function drivers should return USB_GADGET_DELAYED_STATUS if they
+ * wish to delay the data/status stages of the control transfer till they
+ * are ready. The control transfer will then be kept from completing till
+ * all the function drivers that requested for USB_GADGET_DELAYED_STAUS
+ * invoke usb_composite_setup_continue().
+ */
+#define USB_GADGET_DELAYED_STATUS       0x7fff	/* Impossibly large value */
 
-
+#ifdef CONFIG_USB_ANDROID
 struct usb_composite_dev;
+#endif
 struct usb_configuration;
 
 /**
@@ -53,6 +64,10 @@ struct usb_configuration;
  * @hs_descriptors: Table of high speed descriptors, using interface and
  *	string identifiers assigned during @bind().  If this pointer is null,
  *	the function will not be available at high speed.
+ * @ss_descriptors: Table of super speed descriptors, using interface and
+ *	string identifiers assigned during @bind(). If this
+ *	pointer is null after initiation, the function will not
+ *	be available at super speed.
  * @config: assigned when @usb_add_function() is called; this is the
  *	configuration with which this function is associated.
  * @bind: Before the gadget can register, all of its functions bind() to the
@@ -71,6 +86,10 @@ struct usb_configuration;
  * @setup: Used for interface-specific control requests.
  * @suspend: Notifies functions when the host stops sending USB traffic.
  * @resume: Notifies functions when the host restarts USB traffic.
+ * @get_status: Returns function status as a reply to
+ *	GetStatus() request when the recepient is Interface.
+ * @func_suspend: callback to be called when
+ *	SetFeature(FUNCTION_SUSPEND) is reseived
  *
  * A single USB function uses one or more interfaces, and should in most
  * cases support operation at both full and high speeds.  Each function is
@@ -100,17 +119,19 @@ struct usb_function {
 	struct usb_gadget_strings	**strings;
 	struct usb_descriptor_header	**descriptors;
 	struct usb_descriptor_header	**hs_descriptors;
+	struct usb_descriptor_header	**ss_descriptors;
 
 	struct usb_configuration	*config;
 
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-	int			(*set_intf_num)(struct usb_function *f,
-					int intf_num,
-					int index_num);
+	int	(*set_intf_num)(struct usb_function *f,
+			int intf_num, int index_num);
+	int	(*set_config_desc)(int conf_num);
 #endif
+#ifdef CONFIG_USB_ANDROID
 	/* disabled is zero if the function is enabled */
 	int				disabled;
-
+#endif
 	/* REVISIT:  bind() functions can be marked __init, which
 	 * makes trouble for section mismatch analysis.  See if
 	 * we can't restructure things to avoid mismatching.
@@ -134,11 +155,17 @@ struct usb_function {
 	void			(*suspend)(struct usb_function *);
 	void			(*resume)(struct usb_function *);
 
+	int			(*get_status)(struct usb_function *);
+	int			(*func_suspend)(struct usb_function *,
+						u8 suspend_opt);
+
 	/* private: */
 	/* internals */
 	struct list_head		list;
 	DECLARE_BITMAP(endpoints, 32);
+#ifdef CONFIG_USB_ANDROID
 	struct device			*dev;
+#endif
 };
 
 int usb_add_function(struct usb_configuration *, struct usb_function *);
@@ -148,9 +175,10 @@ int usb_function_activate(struct usb_function *);
 
 int usb_interface_id(struct usb_configuration *, struct usb_function *);
 
+#ifdef CONFIG_USB_ANDROID
 void usb_function_set_enabled(struct usb_function *, int);
 void usb_composite_force_reset(struct usb_composite_dev *);
-
+#endif
 /**
  * ep_choose - select descriptor endpoint at current device speed
  * @g: gadget, connected and running at some speed
@@ -175,8 +203,6 @@ ep_choose(struct usb_gadget *g, struct usb_endpoint_descriptor *hs,
  *	and by language IDs provided in control requests.
  * @descriptors: Table of descriptors preceding all function descriptors.
  *	Examples include OTG and vendor-specific descriptors.
- * @bind: Called from @usb_add_config() to allocate resources unique to this
- *	configuration and to call @usb_add_function() for each function used.
  * @unbind: Reverses @bind; called as a side effect of unregistering the
  *	driver which added this configuration.
  * @setup: Used to delegate control requests that aren't handled by standard
@@ -204,7 +230,7 @@ ep_choose(struct usb_gadget *g, struct usb_endpoint_descriptor *hs,
  * @bind() method is then used to initialize all the functions and then
  * call @usb_add_function() for them.
  *
- * Those functions would normally be independant of each other, but that's
+ * Those functions would normally be independent of each other, but that's
  * not mandatory.  CDC WMC devices are an example where functions often
  * depend on other functions, with some functions subsidiary to others.
  * Such interdependency may be managed in any way, so long as all of the
@@ -221,8 +247,7 @@ struct usb_configuration {
 	 * we can't restructure things to avoid mismatching...
 	 */
 
-	/* configuration management:  bind/unbind */
-	int			(*bind)(struct usb_configuration *);
+	/* configuration management: unbind/setup */
 	void			(*unbind)(struct usb_configuration *);
 	int			(*setup)(struct usb_configuration *,
 					const struct usb_ctrlrequest *);
@@ -240,28 +265,36 @@ struct usb_configuration {
 	struct list_head	list;
 	struct list_head	functions;
 	u8			next_interface_id;
+	unsigned		superspeed:1;
 	unsigned		highspeed:1;
 	unsigned		fullspeed:1;
 	struct usb_function	*interface[MAX_CONFIG_INTERFACES];
 };
 
 int usb_add_config(struct usb_composite_dev *,
-		struct usb_configuration *);
+		struct usb_configuration *,
+		int (*)(struct usb_configuration *));
 
+int usb_remove_config(struct usb_composite_dev *,
+		struct usb_configuration *);
 
 /**
  * struct usb_composite_driver - groups configurations into a gadget
  * @name: For diagnostics, identifies the driver.
+ * @iProduct: Used as iProduct override if @dev->iProduct is not set.
+ *	If NULL value of @name is taken.
+ * @iManufacturer: Used as iManufacturer override if @dev->iManufacturer is
+ *	not set. If NULL a default "<system> <release> with <udc>" value
+ *	will be used.
  * @dev: Template descriptor for the device, including default device
  *	identifiers.
  * @strings: tables of strings, keyed by identifiers assigned during bind()
  *	and language IDs provided in control requests
- * @bind: (REQUIRED) Used to allocate resources that are shared across the
- *	whole device, such as string IDs, and add its configurations using
- *	@usb_add_config().  This may fail by returning a negative errno
- *	value; it should return zero on successful initialization.
- * @unbind: Reverses @bind(); called as a side effect of unregistering
+ * @needs_serial: set to 1 if the gadget needs userspace to provide
+ * 	a serial number.  If one is not provided, warning will be printed.
+ * @unbind: Reverses bind; called as a side effect of unregistering
  *	this driver.
+ * @disconnect: optional driver disconnect method
  * @suspend: Notifies when the host stops sending USB traffic,
  *	after function notifications
  * @resume: Notifies configuration when the host restarts USB traffic,
@@ -270,7 +303,7 @@ int usb_add_config(struct usb_composite_dev *,
  * Devices default to reporting self powered operation.  Devices which rely
  * on bus powered operation should report this in their @bind() method.
  *
- * Before returning from @bind, various fields in the template descriptor
+ * Before returning from bind, various fields in the template descriptor
  * may be overridden.  These include the idVendor/idProduct/bcdDevice values
  * normally to bind the appropriate host side driver, and the three strings
  * (iManufacturer, iProduct, iSerialNumber) normally used to provide user
@@ -280,29 +313,33 @@ int usb_add_config(struct usb_composite_dev *,
  */
 struct usb_composite_driver {
 	const char				*name;
+	const char				*iProduct;
+	const char				*iManufacturer;
 	const struct usb_device_descriptor	*dev;
 	struct usb_gadget_strings		**strings;
+	unsigned		needs_serial:1;
 
+#ifdef CONFIG_USB_ANDROID
 	struct class		*class;
 	atomic_t		function_count;
-
-	/* REVISIT:  bind() functions can be marked __init, which
-	 * makes trouble for section mismatch analysis.  See if
-	 * we can't restructure things to avoid mismatching...
-	 */
-
-	int			(*bind)(struct usb_composite_dev *);
+#endif
 	int			(*unbind)(struct usb_composite_dev *);
+
+	void			(*disconnect)(struct usb_composite_dev *);
 
 	/* global suspend hooks */
 	void			(*suspend)(struct usb_composite_dev *);
 	void			(*resume)(struct usb_composite_dev *);
 
+#ifdef CONFIG_USB_ANDROID
 	void			(*enable_function)(struct usb_function *f, int enable);
+#endif
 };
 
-extern int usb_composite_register(struct usb_composite_driver *);
-extern void usb_composite_unregister(struct usb_composite_driver *);
+extern int usb_composite_probe(struct usb_composite_driver *driver,
+			       int (*bind)(struct usb_composite_dev *cdev));
+extern void usb_composite_unregister(struct usb_composite_driver *driver);
+extern void usb_composite_setup_continue(struct usb_composite_dev *cdev);
 
 
 /**
@@ -351,29 +388,47 @@ struct usb_composite_dev {
 	struct list_head		configs;
 	struct usb_composite_driver	*driver;
 	u8				next_string_id;
+	u8				manufacturer_override;
+	u8				product_override;
+	u8				serial_override;
 
 	/* the gadget driver won't enable the data pullup
 	 * while the deactivation count is nonzero.
 	 */
 	unsigned			deactivations;
 
-	/* protects at least deactivation count */
+	/* the composite driver won't complete the control transfer's
+	 * data/status stages till delayed_status is zero.
+	 */
+	int				delayed_status;
+
+	/* protects deactivations and delayed_status counts*/
 	spinlock_t			lock;
 
-	struct switch_dev sdev;
-	/* used by usb_composite_force_reset to avoid signalling switch changes */
-	bool				mute_switch;
+#ifdef CONFIG_USB_ANDROID
+	/* switch indicating connected/disconnected state */
+	struct switch_dev		sw_connected;
+	/* switch indicating current configuration */
+	struct switch_dev		sw_config;
+	/* current connected state for sw_connected */
+	bool				connected;
+
 	struct work_struct switch_work;
+#endif
+
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-/* soonyong.cho : Below values are used for samsung composite framework. */
-	unsigned int			product_num; 	/* product number (ex : 0, 1, 2, ..) */
-	struct android_usb_product 	*products;	/* products list */
-	/* number of multi configuration */
-	int				multi_configuration;
+	/* used by enable_store function of android.c
+	 * to avoid signalling switch changes
+	 */
+	bool                            mute_switch;
 #endif
 };
 
 extern int usb_string_id(struct usb_composite_dev *c);
+extern int usb_string_ids_tab(struct usb_composite_dev *c,
+			      struct usb_string *str);
+extern int usb_string_ids_n(struct usb_composite_dev *c, unsigned n);
+
 
 /* messaging utils */
 #define DBG(d, fmt, args...) \

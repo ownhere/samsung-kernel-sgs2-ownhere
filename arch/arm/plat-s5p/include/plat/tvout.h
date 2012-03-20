@@ -16,7 +16,6 @@
 struct platform_device;
 
 struct s5p_platform_hpd {
-
 	void	(*int_src_hdmi_hpd)(struct platform_device *pdev);
 	void	(*int_src_ext_hpd)(struct platform_device *pdev);
 	int	(*read_gpio)(struct platform_device *pdev);
@@ -31,12 +30,14 @@ extern int s5p_hpd_read_gpio(struct platform_device *pdev);
 
 struct s5p_platform_cec {
 
-	void		(*cfg_gpio)(struct platform_device *pdev);
+	void	(*cfg_gpio)(struct platform_device *pdev);
 };
 
 extern void s5p_hdmi_cec_set_platdata(struct s5p_platform_cec *pd);
 
 /* defined by architecture to configure gpio */
 extern void s5p_cec_cfg_gpio(struct platform_device *pdev);
+
+extern void s5p_tv_setup(void);
 
 #endif /* __ASM_PLAT_TV_HPD_H */

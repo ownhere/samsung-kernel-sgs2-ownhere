@@ -23,7 +23,7 @@
 
 #define MFC_ERROR(fmt, ...)					\
 	do {							\
-		printk(KERN_ERR					\
+		printk(KERN_INFO				\
 			"%s-> " fmt, __func__, ##__VA_ARGS__);	\
 	} while (0)
 

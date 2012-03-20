@@ -8,35 +8,32 @@ obj-$(CONFIG_CRYPTO_FIPS) += fips_integrity.o
 endif
 
 obj-$(CONFIG_CRYPTO) += crypto.o
-crypto-objs := $(FIPS)api.o cipher.o compress.o
+crypto-y := api.o cipher.o compress.o
 
 obj-$(CONFIG_CRYPTO_WORKQUEUE) += crypto_wq.o
 
-obj-$(CONFIG_CRYPTO_FIPS) += $(FIPS)fips.o
+obj-$(CONFIG_CRYPTO_FIPS) += fips.o
 
-crypto_algapi-$(CONFIG_PROC_FS) += $(FIPS)proc.o
-crypto_algapi-objs := $(FIPS)algapi.o scatterwalk.o $(crypto_algapi-y)
-
+crypto_algapi-$(CONFIG_PROC_FS) += proc.o
+crypto_algapi-y := algapi.o scatterwalk.o $(crypto_algapi-y)
 obj-$(CONFIG_CRYPTO_ALGAPI2) += crypto_algapi.o
 
 obj-$(CONFIG_CRYPTO_AEAD2) += aead.o
 
-crypto_blkcipher-objs := $(FIPS)ablkcipher.o
-crypto_blkcipher-objs += $(FIPS)blkcipher.o
-
+crypto_blkcipher-y := ablkcipher.o
+crypto_blkcipher-y += blkcipher.o
 obj-$(CONFIG_CRYPTO_BLKCIPHER2) += crypto_blkcipher.o
 obj-$(CONFIG_CRYPTO_BLKCIPHER2) += chainiv.o
 obj-$(CONFIG_CRYPTO_BLKCIPHER2) += eseqiv.o
 obj-$(CONFIG_CRYPTO_SEQIV) += seqiv.o
 
-crypto_hash-objs += $(FIPS)ahash.o
-crypto_hash-objs += $(FIPS)shash.o
-
+crypto_hash-y += ahash.o
+crypto_hash-y += shash.o
 obj-$(CONFIG_CRYPTO_HASH2) += crypto_hash.o
 
-obj-$(CONFIG_CRYPTO_PCOMP) += pcompress.o
+obj-$(CONFIG_CRYPTO_PCOMP2) += pcompress.o
 
-cryptomgr-objs := algboss.o $(FIPS)testmgr.o
+cryptomgr-y := algboss.o testmgr.o
 
 obj-$(CONFIG_CRYPTO_MANAGER2) += cryptomgr.o
 obj-$(CONFIG_CRYPTO_HMAC) += hmac.o
@@ -69,7 +66,7 @@ obj-$(CONFIG_CRYPTO_CRYPTD) += cryptd.o
 obj-$(CONFIG_CRYPTO_DES) += des_generic.o
 obj-$(CONFIG_CRYPTO_FCRYPT) += fcrypt.o
 obj-$(CONFIG_CRYPTO_BLOWFISH) += blowfish.o
-obj-$(CONFIG_CRYPTO_TWOFISH) += twofish.o
+obj-$(CONFIG_CRYPTO_TWOFISH) += twofish_generic.o
 obj-$(CONFIG_CRYPTO_TWOFISH_COMMON) += twofish_common.o
 obj-$(CONFIG_CRYPTO_SERPENT) += serpent.o
 obj-$(CONFIG_CRYPTO_AES) += aes_generic.o
@@ -86,13 +83,16 @@ obj-$(CONFIG_CRYPTO_DEFLATE) += deflate.o
 obj-$(CONFIG_CRYPTO_ZLIB) += zlib.o
 obj-$(CONFIG_CRYPTO_MICHAEL_MIC) += michael_mic.o
 obj-$(CONFIG_CRYPTO_CRC32C) += crc32c.o
-obj-$(CONFIG_CRYPTO_AUTHENC) += authenc.o
+obj-$(CONFIG_CRYPTO_AUTHENC) += authenc.o authencesn.o
 obj-$(CONFIG_CRYPTO_LZO) += lzo.o
 obj-$(CONFIG_CRYPTO_RNG2) += rng.o
 obj-$(CONFIG_CRYPTO_RNG2) += krng.o
-obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += $(FIPS)ansi_cprng.o
-obj-$(CONFIG_CRYPTO_TEST) += $(FIPS)tcrypt.o
+obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += ansi_cprng.o
+obj-$(CONFIG_CRYPTO_TEST) += tcrypt.o
 obj-$(CONFIG_CRYPTO_GHASH) += ghash-generic.o
+obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
+obj-$(CONFIG_CRYPTO_USER_API_HASH) += algif_hash.o
+obj-$(CONFIG_CRYPTO_USER_API_SKCIPHER) += algif_skcipher.o
 
 #
 # generic algorithms and the async_tx api

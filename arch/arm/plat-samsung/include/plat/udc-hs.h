@@ -35,3 +35,4 @@ typedef enum usb_cable_status {
 	USB_OTGHOST_ATTACHED,
 	USB_CABLE_DETACHED_WITHOUT_NOTI,
 } usb_cable_status;
+

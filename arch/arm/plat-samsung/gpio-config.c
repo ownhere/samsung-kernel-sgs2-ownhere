@@ -41,6 +41,37 @@ int s3c_gpio_cfgpin(unsigned int pin, unsigned int config)
 }
 EXPORT_SYMBOL(s3c_gpio_cfgpin);
 
+int s3c_gpio_cfgpin_range(unsigned int start, unsigned int nr,
+			  unsigned int cfg)
+{
+	int ret;
+
+	for (; nr > 0; nr--, start++) {
+		ret = s3c_gpio_cfgpin(start, cfg);
+		if (ret != 0)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(s3c_gpio_cfgpin_range);
+
+int s3c_gpio_cfgall_range(unsigned int start, unsigned int nr,
+			  unsigned int cfg, s3c_gpio_pull_t pull)
+{
+	int ret;
+
+	for (; nr > 0; nr--, start++) {
+		s3c_gpio_setpull(start, pull);
+		ret = s3c_gpio_cfgpin(start, cfg);
+		if (ret != 0)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(s3c_gpio_cfgall_range);
+
 unsigned s3c_gpio_getcfg(unsigned int pin)
 {
 	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
@@ -79,6 +110,25 @@ int s3c_gpio_setpull(unsigned int pin, s3c_gpio_pull_t pull)
 	return ret;
 }
 EXPORT_SYMBOL(s3c_gpio_setpull);
+
+s3c_gpio_pull_t s3c_gpio_getpull(unsigned int pin)
+{
+	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
+	unsigned long flags;
+	int offset;
+	u32 pup = 0;
+
+	if (chip) {
+		offset = pin - chip->chip.base;
+
+		s3c_gpio_lock(chip, flags);
+		pup = s3c_gpio_do_getpull(chip, offset);
+		s3c_gpio_unlock(chip, flags);
+	}
+
+	return (__force s3c_gpio_pull_t)pup;
+}
+EXPORT_SYMBOL(s3c_gpio_getpull);
 
 #ifdef CONFIG_S3C_GPIO_CFG_S3C24XX
 int s3c_gpio_setcfg_s3c24xx_a(struct s3c_gpio_chip *chip,
@@ -228,20 +278,61 @@ s3c_gpio_pull_t s3c_gpio_getpull_updown(struct s3c_gpio_chip *chip,
 	pup &= 0x3;
 	return (__force s3c_gpio_pull_t)pup;
 }
+
+#ifdef CONFIG_S3C_GPIO_PULL_S3C2443
+int s3c_gpio_setpull_s3c2443(struct s3c_gpio_chip *chip,
+				unsigned int off, s3c_gpio_pull_t pull)
+{
+	switch (pull) {
+	case S3C_GPIO_PULL_NONE:
+		pull = 0x01;
+		break;
+	case S3C_GPIO_PULL_UP:
+		pull = 0x00;
+		break;
+	case S3C_GPIO_PULL_DOWN:
+		pull = 0x02;
+		break;
+	}
+	return s3c_gpio_setpull_updown(chip, off, pull);
+}
+
+s3c_gpio_pull_t s3c_gpio_getpull_s3c2443(struct s3c_gpio_chip *chip,
+					unsigned int off)
+{
+	s3c_gpio_pull_t pull;
+
+	pull = s3c_gpio_getpull_updown(chip, off);
+
+	switch (pull) {
+	case 0x00:
+		pull = S3C_GPIO_PULL_UP;
+		break;
+	case 0x01:
+	case 0x03:
+		pull = S3C_GPIO_PULL_NONE;
+		break;
+	case 0x02:
+		pull = S3C_GPIO_PULL_DOWN;
+		break;
+	}
+
+	return pull;
+}
+#endif
 #endif
 
-#ifdef CONFIG_S3C_GPIO_PULL_UP
-int s3c_gpio_setpull_1up(struct s3c_gpio_chip *chip,
-			 unsigned int off, s3c_gpio_pull_t pull)
+#if defined(CONFIG_S3C_GPIO_PULL_UP) || defined(CONFIG_S3C_GPIO_PULL_DOWN)
+static int s3c_gpio_setpull_1(struct s3c_gpio_chip *chip,
+			 unsigned int off, s3c_gpio_pull_t pull,
+			 s3c_gpio_pull_t updown)
 {
 	void __iomem *reg = chip->base + 0x08;
 	u32 pup = __raw_readl(reg);
 
-	pup = __raw_readl(reg);
-
-	if (pup == S3C_GPIO_PULL_UP)
+	if (pull == updown)
 		pup &= ~(1 << off);
-	else if (pup == S3C_GPIO_PULL_NONE)
+	else if (pull == S3C_GPIO_PULL_NONE)
 		pup |= (1 << off);
 	else
 		return -EINVAL;
@@ -250,16 +341,44 @@ int s3c_gpio_setpull_1up(struct s3c_gpio_chip *chip,
 	return 0;
 }
 
-s3c_gpio_pull_t s3c_gpio_getpull_1up(struct s3c_gpio_chip *chip,
-				     unsigned int off)
+static s3c_gpio_pull_t s3c_gpio_getpull_1(struct s3c_gpio_chip *chip,
+				     unsigned int off, s3c_gpio_pull_t updown)
 {
 	void __iomem *reg = chip->base + 0x08;
 	u32 pup = __raw_readl(reg);
 
 	pup &= (1 << off);
-	return pup ? S3C_GPIO_PULL_NONE : S3C_GPIO_PULL_UP;
+	return pup ? S3C_GPIO_PULL_NONE : updown;
+}
+#endif /* CONFIG_S3C_GPIO_PULL_UP || CONFIG_S3C_GPIO_PULL_DOWN */
+
+#ifdef CONFIG_S3C_GPIO_PULL_UP
+s3c_gpio_pull_t s3c_gpio_getpull_1up(struct s3c_gpio_chip *chip,
+				     unsigned int off)
+{
+	return s3c_gpio_getpull_1(chip, off, S3C_GPIO_PULL_UP);
+}
+
+int s3c_gpio_setpull_1up(struct s3c_gpio_chip *chip,
+			 unsigned int off, s3c_gpio_pull_t pull)
+{
+	return s3c_gpio_setpull_1(chip, off, pull, S3C_GPIO_PULL_UP);
 }
 #endif /* CONFIG_S3C_GPIO_PULL_UP */
+
+#ifdef CONFIG_S3C_GPIO_PULL_DOWN
+s3c_gpio_pull_t s3c_gpio_getpull_1down(struct s3c_gpio_chip *chip,
+				     unsigned int off)
+{
+	return s3c_gpio_getpull_1(chip, off, S3C_GPIO_PULL_DOWN);
+}
+
+int s3c_gpio_setpull_1down(struct s3c_gpio_chip *chip,
+			 unsigned int off, s3c_gpio_pull_t pull)
+{
+	return s3c_gpio_setpull_1(chip, off, pull, S3C_GPIO_PULL_DOWN);
+}
+#endif /* CONFIG_S3C_GPIO_PULL_DOWN */
 
 #ifdef CONFIG_S5P_GPIO_DRVSTR
 s5p_gpio_drvstr_t s5p_gpio_get_drvstr(unsigned int pin)
@@ -311,14 +430,13 @@ int s5p_gpio_set_drvstr(unsigned int pin, s5p_gpio_drvstr_t drvstr)
 EXPORT_SYMBOL(s5p_gpio_set_drvstr);
 #endif	/* CONFIG_S5P_GPIO_DRVSTR */
 
-#ifdef CONFIG_S5P_GPIO_CONPDN
-s5p_gpio_conpdn_t s5p_gpio_get_conpdn(unsigned int pin)
+s5p_gpio_pd_cfg_t s5p_gpio_get_pd_cfg(unsigned int pin)
 {
 	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
 	unsigned int off;
 	void __iomem *reg;
 	int shift;
-	u32 conpdn;
+	u32 pd_cfg;
 
 	if (!chip)
 		return -EINVAL;
@@ -327,15 +445,15 @@ s5p_gpio_conpdn_t s5p_gpio_get_conpdn(unsigned int pin)
 	shift = off * 2;
 	reg = chip->base + 0x10;
 
-	conpdn = __raw_readl(reg);
-	conpdn = conpdn >> shift;
-	conpdn &= 0x3;
+	pd_cfg = __raw_readl(reg);
+	pd_cfg = pd_cfg >> shift;
+	pd_cfg &= 0x3;
 
-	return (__force s5p_gpio_conpdn_t)conpdn;
+	return (__force s5p_gpio_pd_cfg_t)pd_cfg;
 }
-EXPORT_SYMBOL(s5p_gpio_get_conpdn);
+EXPORT_SYMBOL(s5p_gpio_get_pd_cfg);
 
-int s5p_gpio_set_conpdn(unsigned int pin, s5p_gpio_conpdn_t conpdn)
+int s5p_gpio_set_pd_cfg(unsigned int pin, s5p_gpio_pd_cfg_t pd_cfg)
 {
 	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
 	unsigned int off;
@@ -352,23 +470,21 @@ int s5p_gpio_set_conpdn(unsigned int pin, s5p_gpio_conpdn_t conpdn)
 
 	tmp = __raw_readl(reg);
 	tmp &= ~(0x3 << shift);
-	tmp |= conpdn << shift;
+	tmp |= pd_cfg << shift;
 
 	__raw_writel(tmp, reg);
 
 	return 0;
 }
-EXPORT_SYMBOL(s5p_gpio_set_conpdn);
-#endif	/* CONFIG_S5P_GPIO_CONPDN */
+EXPORT_SYMBOL(s5p_gpio_set_pd_cfg);
 
-#ifdef CONFIG_S5P_GPIO_PUDPDN
-s5p_gpio_pudpdn_t s5p_gpio_get_pudpdn(unsigned int pin)
+s5p_gpio_pd_pull_t s5p_gpio_get_pd_pull(unsigned int pin)
 {
 	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
 	unsigned int off;
 	void __iomem *reg;
 	int shift;
-	u32 pudpdn;
+	u32 pd_pull;
 
 	if (!chip)
 		return -EINVAL;
@@ -377,15 +493,15 @@ s5p_gpio_pudpdn_t s5p_gpio_get_pudpdn(unsigned int pin)
 	shift = off * 2;
 	reg = chip->base + 0x14;
 
-	pudpdn = __raw_readl(reg);
-	pudpdn = pudpdn >> shift;
-	pudpdn &= 0x3;
+	pd_pull = __raw_readl(reg);
+	pd_pull = pd_pull >> shift;
+	pd_pull &= 0x3;
 
-	return (__force s5p_gpio_pudpdn_t)pudpdn;
+	return (__force s5p_gpio_pd_pull_t)pd_pull;
 }
-EXPORT_SYMBOL(s5p_gpio_get_pudpdn);
+EXPORT_SYMBOL(s5p_gpio_get_pd_pull);
 
-int s5p_gpio_set_pudpdn(unsigned int pin, s5p_gpio_pudpdn_t pudpdn)
+int s5p_gpio_set_pd_pull(unsigned int pin, s5p_gpio_pd_pull_t pd_pull)
 {
 	struct s3c_gpio_chip *chip = s3c_gpiolib_getchip(pin);
 	unsigned int off;
@@ -402,11 +518,10 @@ int s5p_gpio_set_pudpdn(unsigned int pin, s5p_gpio_pudpdn_t pudpdn)
 
 	tmp = __raw_readl(reg);
 	tmp &= ~(0x3 << shift);
-	tmp |= pudpdn << shift;
+	tmp |= pd_pull << shift;
 
 	__raw_writel(tmp, reg);
 
 	return 0;
 }
-EXPORT_SYMBOL(s5p_gpio_set_pudpdn);
-#endif	/* CONFIG_S5P_GPIO_PUDPDN */
+EXPORT_SYMBOL(s5p_gpio_set_pd_pull);

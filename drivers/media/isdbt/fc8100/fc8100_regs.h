@@ -7,7 +7,7 @@
 
  History :
  ----------------------------------------------------------------------
- 2009/09/29 	bruce		initial
+ 2009/09/29	bruce		initial
 *******************************************************************************/
 
 #ifndef __FC8100_REGS_H__
@@ -43,21 +43,21 @@ extern "C" {
 #define RF_LO_BIAS_MODE2                  0x0A
 
 /* // -- PLL,  LNA&Mixer,  CSF, Output Buffer, Bias Top --  */
-#define RF_BIAS_TOP_CTRL 			0x0B
+#define RF_BIAS_TOP_CTRL			0x0B
 
 /* //-- PGA, ADC, AGC, Revision Number, LNA, Common Bias, VGA -- */
 #define RF_LNA_ELNA_Control			0x0C
 #define RF_PLL_MODE1			       0x0D
-#define RF_PLL_CTRL1       			0x0E
+#define RF_PLL_CTRL1				0x0E
 #define RF_ELNA_CONTROL_OFF		0x0F
-#define RF_PLL_CTRL3	       		0x10
+#define RF_PLL_CTRL3			0x10
 #define RF_ELNA_CONTROL_ON		0x11
 #define RF_PLL_CTRL4			       0x12
 #define RF_PLL_CTRL5			       0x13
 #define RF_PLL_CTRL6			       0x14
 #define RF_PLL_CTRL7			       0x15
-#define RF_PLL_K2		              	0x16
-#define RF_NTARGET_VALUE     	       0x17
+#define RF_PLL_K2				0x16
+#define RF_NTARGET_VALUE	       0x17
 #define RF_PLL_K1			              0x18
 #define RF_PLL_K0			              0x19
 #define RF_PLL_N			                     0x1A
@@ -66,44 +66,44 @@ extern "C" {
 #define RF_PLL_CTRL10			       0x1D
 #define RF_PLL_CTRL11			       0x1E
 #define RF_DMB_BANK_MONITOR		0x1F
-#define RF_LOCK_CTRL0         			0x20
-#define RF_LOCK_CTRL1         			0x21
-#define RF_BS_CTRL1         			0x22
-#define RF_BS_CTRL2         			0x23
-#define RF_BS_CTRL3         			0x24
-#define RF_BS_CTRL4         			0x25
-#define RF_BS_MON1         			0x26
-#define RF_BS_MON2         			0x27
-#define RF_LNAMIX_CTL         			0x28
-#define RF_LNA_ICTRL        			0x29
-#define RF_LNAMIX_ICTRL1       		0x2A
-#define RF_AGC_ELNA               		0x2B
-#define RF_LNAMIX_ICTRL2 			0x2C
-#define RF_LNAMIX_ICTRL3              	0x2D
-#define RF_LNAMIX_ICTRL4        		0x2E
-#define RF_LNAMIX_ICTRL5        		0x2F
-#define RF_LNAMIX_ICTRL_MON     		0x30
-#define RF_ELNA_GAIN             		0x31
-#define RF_CSF_MODE         			0x32
-#define RF_CSF_CAPTUNE_MON1       	0x33
+#define RF_LOCK_CTRL0				0x20
+#define RF_LOCK_CTRL1				0x21
+#define RF_BS_CTRL1				0x22
+#define RF_BS_CTRL2				0x23
+#define RF_BS_CTRL3				0x24
+#define RF_BS_CTRL4				0x25
+#define RF_BS_MON1				0x26
+#define RF_BS_MON2				0x27
+#define RF_LNAMIX_CTL				0x28
+#define RF_LNA_ICTRL				0x29
+#define RF_LNAMIX_ICTRL1		0x2A
+#define RF_AGC_ELNA				0x2B
+#define RF_LNAMIX_ICTRL2			0x2C
+#define RF_LNAMIX_ICTRL3		0x2D
+#define RF_LNAMIX_ICTRL4			0x2E
+#define RF_LNAMIX_ICTRL5			0x2F
+#define RF_LNAMIX_ICTRL_MON			0x30
+#define RF_ELNA_GAIN				0x31
+#define RF_CSF_MODE				0x32
+#define RF_CSF_CAPTUNE_MON1		0x33
 #define RF_CSF_CAPTUNE_MON2		0x34
-#define RF_CSFA_I2C_CRNT 			0x35
+#define RF_CSFA_I2C_CRNT			0x35
 #define RF_CSF_I2C_CORE_CRNT_AH	0x36
 #define RF_CSF_I2C_OUT_CRNT_AH	0x37
-#define RF_CSF_RX_CRNT   			0x38
-#define RF_CSF_PRE_CUR   			0x39
-#define RF_CSF_STATE             		0x3A
-#define RF_ELNA_CONTROL3 			0x3B
+#define RF_CSF_RX_CRNT				0x38
+#define RF_CSF_PRE_CUR				0x39
+#define RF_CSF_STATE				0x3A
+#define RF_ELNA_CONTROL3			0x3B
 #define RF_CSF_CAL_CRNT			0x3C
 #define RF_CSF_CF_CLK_DIV_LSB		0x3D
 #define RF_CSF_CLK_DIV_LSB			0x3E
 #define RF_CSF_AUTO_RECAL_PERIOD	0x3F
-#define RF_CSF_CAL_MAN1             	0x40
-#define RF_CSF_CAL_MAN2             	0x41
-#define RF_CSF_AGC_CRNT_LOW     	0x42
-#define RF_BG_CTRL0                      	0x43
-#define RF_PGA_1ST_STATE_CUR    	0x44
-#define RF_PGA_2ND_STATE_CUR   	0x45
+#define RF_CSF_CAL_MAN1			0x40
+#define RF_CSF_CAL_MAN2			0x41
+#define RF_CSF_AGC_CRNT_LOW		0x42
+#define RF_BG_CTRL0				0x43
+#define RF_PGA_1ST_STATE_CUR		0x44
+#define RF_PGA_2ND_STATE_CUR	0x45
 #define RF_ELNA_CONTROL4	              0x46
 #define RF_PGA_MODE			       0x47
 #define RF_AGC_COMP_BIAS			0x48
@@ -116,20 +116,20 @@ extern "C" {
 #define RF_ADC_BIAS3                           0x4F
 #define RF_ADC3_BOUT			       0x50
 #define RF_ADC4_BOUT			       0x51
-#define RF_RFAGC_MODE 			       0x52
+#define RF_RFAGC_MODE			       0x52
 #define RF_RFAGC_MODE2				0x53
 #define RF_IFAGC_MODE1			       0x54
-#define RF_RFAGC_TEST_MODE1 		0x55
-#define RF_RFAGC_TEST_MODE2 	       0x56
-#define RF_IFAGC_TEST_MODE1 		0x57
-#define RF_IFAGC_TEST_MODE2 		0x58
-#define RF_PD1_MAX   				0x59
-#define RF_PD1_MIN	       		       0x5A
-#define RF_PD2_MAX	       		       0x5B
-#define RF_PD2_MIN   				0x5C
-#define RF_AGC_CLK_MODE        	       0x5D
+#define RF_RFAGC_TEST_MODE1		0x55
+#define RF_RFAGC_TEST_MODE2	       0x56
+#define RF_IFAGC_TEST_MODE1		0x57
+#define RF_IFAGC_TEST_MODE2		0x58
+#define RF_PD1_MAX				0x59
+#define RF_PD1_MIN			       0x5A
+#define RF_PD2_MAX			       0x5B
+#define RF_PD2_MIN				0x5C
+#define RF_AGC_CLK_MODE		       0x5D
 #define RF_RFAGC_WAIT_CLK_LNA1      0x5F
-#define RF_RFAGC_WAIT_CLK_LNA2 	0x60
+#define RF_RFAGC_WAIT_CLK_LNA2	0x60
 #define RF_RFAGC_WAIT_CLK_RFVGA    0x61
 #define RF_RFAGC_WAIT_CLK_PD_CHANGE       0x62
 #define RF_RFAGC_WAIT_CLK_STDBY		     0x63
@@ -139,28 +139,28 @@ extern "C" {
 #define RF_IFAGC_WAIT_CLK_HOLD_OFF          0x67
 #define RF_PGA_AGC_STEP                    0x68
 #define RF_RFVGA_L0_MAX                    0x69
-#define RF_RFVGA_L0_MIN 			0x6A
-#define RF_RFVGA_L1_MAX 			0x6B
-#define RF_RFVGA_L1_MIN 			0x6C
-#define RF_RFVGA_L2_MAX 			0x6D
-#define RF_RFVGA_L2_MIN 			0x6E
-#define RF_RFVGA_L3_MAX 			0x6F
-#define RF_RFVGA_L3_MIN 			0x70
-#define RF_RFVGA_L4_MAX 			0x71
-#define RF_RFVGA_L4_MIN 			0x72
-#define RF_RFVGA_L5_MAX 			0x73
-#define RF_RFVGA_L5_MIN 			0x74
-#define RF_RFVGA_L6_MAX 			0x75
-#define RF_RFVGA_L6_MIN 			0x76
-#define RF_IFAGC_PGA_MAX 		       0x77
+#define RF_RFVGA_L0_MIN				0x6A
+#define RF_RFVGA_L1_MAX				0x6B
+#define RF_RFVGA_L1_MIN				0x6C
+#define RF_RFVGA_L2_MAX				0x6D
+#define RF_RFVGA_L2_MIN				0x6E
+#define RF_RFVGA_L3_MAX				0x6F
+#define RF_RFVGA_L3_MIN				0x70
+#define RF_RFVGA_L4_MAX				0x71
+#define RF_RFVGA_L4_MIN				0x72
+#define RF_RFVGA_L5_MAX				0x73
+#define RF_RFVGA_L5_MIN				0x74
+#define RF_RFVGA_L6_MAX				0x75
+#define RF_RFVGA_L6_MIN				0x76
+#define RF_IFAGC_PGA_MAX		       0x77
 #define RF_IFAGC_PGA_MIN		       0x78
 #define RF_STATE_MONITOR1		       0x79
-#define RF_STATE_MONITOR2 			0x7A
-#define RF_STATE_MONITOR3 			0x7B
-#define RF_STATE_MONITOR4 			0x7C
-#define RF_AGC_PD_OFFSET 			0x7D
-#define RF_AGC_SH_SL 		        	0x7E
-#define RF_REVISION_NUMBER 	       0x7F
+#define RF_STATE_MONITOR2			0x7A
+#define RF_STATE_MONITOR3			0x7B
+#define RF_STATE_MONITOR4			0x7C
+#define RF_AGC_PD_OFFSET			0x7D
+#define RF_AGC_SH_SL				0x7E
+#define RF_REVISION_NUMBER	       0x7F
 
 
 /* ----------------------------------------------------
@@ -173,28 +173,28 @@ extern "C" {
 
 /* // 2. Serial Bus Control */
 #define BBM_SBCTRL			              0x02
-#define BBM_SBADDR 				       0x03
+#define BBM_SBADDR				       0x03
 #define BBM_INCTRL		                     0x05
 #define BBM_IOMODE			              0x07
-#define BBM_OUTCTRL0 			       0x08
+#define BBM_OUTCTRL0			       0x08
 #define BBM_OUTCTRL1				0x09
-#define BBM_PLL0 			              0x0C
+#define BBM_PLL0			              0x0C
 #define BBM_PLL1			              0x0D
 #define BBM_PLL2			              0x0E
 
 /* // 3. INTR */
 #define BBM_INTRPT0				       0x11
 #define BBM_INTRPT1				       0x12
-#define BBM_INTSEL0 			       0x14
+#define BBM_INTSEL0			       0x14
 #define BBM_INTSEL1			              0x15
-#define BBM_INTRST0 			       0x17
+#define BBM_INTRST0			       0x17
 #define BBM_INTRST1			              0x18
-#define BBM_RSINTR 			              0x19
+#define BBM_RSINTR			              0x19
 #define BBM_INTFORM			       0x1C
 
 /* // 4. LOCK */
 #define BBM_LOCKF			              0x1D
-#define BBM_GIVEUP 			              0x1E
+#define BBM_GIVEUP			              0x1E
 
 /* // 5. TMCC */
 #define BBM_TMCRNT0                            0x20

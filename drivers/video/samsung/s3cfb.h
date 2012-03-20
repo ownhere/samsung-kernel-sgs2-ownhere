@@ -20,16 +20,8 @@
 #include <linux/wakelock.h>
 #include <linux/earlysuspend.h>
 #endif
-#include <plat/fb.h>
-#ifdef CONFIG_VCM
-#include <plat/s5p-vcm.h>
-#ifdef CONFIG_SUPPORT_UMP
-#include "ump_kernel_interface_ref_drv.h"
+#include <plat/fb-s5p.h>
 #endif
-#endif
-#endif
-
-#define TTT		"s3cfb"
 
 #define S3CFB_NAME		"s3cfb"
 #define S3CFB_AVALUE(r, g, b)	(((r & 0xf) << 8) | \
@@ -39,7 +31,7 @@
 				((g & 0xff) << 8) | \
 				((b & 0xff) << 0))
 
-#if defined(CONFIG_FB_S3C_DUAL_LCD)
+#if defined(CONFIG_FB_S5P_DUAL_LCD)
 #define FIMD_MAX		2
 #else
 #define FIMD_MAX		1
@@ -103,35 +95,6 @@ struct s3cfb_chroma {
 	enum		s3cfb_chroma_dir_t dir;
 };
 
-enum s3cfb_cpu_auto_cmd_rate {
-	DISABLE_AUTO_FRM,
-	PER_TWO_FRM,
-	PER_FOUR_FRM,
-	PER_SIX_FRM,
-	PER_EIGHT_FRM,
-	PER_TEN_FRM,
-	PER_TWELVE_FRM,
-	PER_FOURTEEN_FRM,
-	PER_SIXTEEN_FRM,
-	PER_EIGHTEEN_FRM,
-	PER_TWENTY_FRM,
-	PER_TWENTY_TWO_FRM,
-	PER_TWENTY_FOUR_FRM,
-	PER_TWENTY_SIX_FRM,
-	PER_TWENTY_EIGHT_FRM,
-	PER_THIRTY_FRM,
-};
-
-/*
- * struct s3cfb_lcd_timing
- * @h_fp:	horizontal front porch
- * @h_bp:	horizontal back porch
- * @h_sw:	horizontal sync width
- * @v_fp:	vertical front porch
- * @v_fpe:	vertical front porch for even field
- * @v_bp:	vertical back porch
- * @v_bpe:	vertical back porch for even field
-*/
 struct s3cfb_lcd_timing {
 	int	h_fp;
 	int	h_bp;
@@ -141,8 +104,9 @@ struct s3cfb_lcd_timing {
 	int	v_bp;
 	int	v_bpe;
 	int	v_sw;
-#ifdef CONFIG_FB_S3C_MIPI_LCD
+#if defined(CONFIG_FB_S5P_MIPI_DSIM) || defined(CONFIG_S5P_MIPI_DSI2)
 	int	cmd_allow_len;
+	int	stable_vfp;
 	void	(*cfg_gpio)(struct platform_device *dev);
 	int	(*backlight_on)(struct platform_device *dev);
 	int	(*reset_lcd)(struct platform_device *dev);
@@ -156,7 +120,7 @@ struct s3cfb_lcd_polarity {
 	int inv_vden;
 };
 
-#ifdef CONFIG_FB_S3C_MIPI_LCD
+#ifdef CONFIG_FB_S5P_MIPI_DSIM
 /* for CPU Interface */
 struct s3cfb_cpu_timing {
 	unsigned int	cs_setup;
@@ -166,23 +130,8 @@ struct s3cfb_cpu_timing {
 };
 #endif
 
-/*
- * struct s3cfb_lcd
- * @name:		lcd panel name
- * @width:		horizontal resolution
- * @height:		vertical resolution
- * @width_mm:		width of picture in mm
- * @height_mm:		height of picture in mm
- * @bpp:		bits per pixel
- * @freq:		vframe frequency
- * @timing:		rgb timing values
- * @cpu_timing:		cpu timing values
- * @polarity:		polarity settings
- * @init_ldi:		pointer to LDI init function
- *
-*/
 struct s3cfb_lcd {
-#ifdef CONFIG_FB_S3C_MIPI_LCD
+#ifdef CONFIG_FB_S5P_MIPI_DSIM
 	char	*name;
 #endif
 	int	width;
@@ -191,9 +140,10 @@ struct s3cfb_lcd {
 	int	p_height;
 	int	bpp;
 	int	freq;
+	int	vclk;
 	struct	s3cfb_lcd_timing timing;
 	struct	s3cfb_lcd_polarity polarity;
-#ifdef CONFIG_FB_S3C_MIPI_LCD
+#ifdef CONFIG_FB_S5P_MIPI_DSIM
 	struct	s3cfb_cpu_timing cpu_timing;
 #endif
 	void	(*init_ldi)(void);
@@ -208,6 +158,7 @@ struct s3cfb_fimd_desc {
 
 struct s3cfb_global {
 	void __iomem		*regs;
+	void __iomem		*regs_org;
 	struct mutex		lock;
 	struct device		*dev;
 	struct clk		*clock;
@@ -220,23 +171,12 @@ struct s3cfb_global {
 	enum s3cfb_output_t	output;
 	enum s3cfb_rgb_mode_t	rgb_mode;
 	struct s3cfb_lcd	*lcd;
-#ifdef CONFIG_VCM
-	struct vcm		*s5p_vcm;
-#endif
-
-	int 			system_state;
+	int			system_state;
 #ifdef CONFIG_HAS_WAKELOCK
 	struct early_suspend	early_suspend;
 	struct wake_lock	idle_lock;
 #endif
 };
-
-#ifdef CONFIG_VCM
-struct s3cfb_vcm {
-	struct	vcm	*dev_vcm;
-	struct	vcm_res *dev_vcm_res;
-};
-#endif
 
 struct s3cfb_window {
 	int			id;
@@ -252,12 +192,6 @@ struct s3cfb_window {
 	struct			s3cfb_alpha alpha;
 	struct			s3cfb_chroma chroma;
 	int			power_state;
-
-#ifdef CONFIG_VCM
-	struct s3cfb_vcm	s3cfb_vcm[MAX_BUFFER_NUM];
-	ump_dd_handle		ump_wrapped_buffer[MAX_BUFFER_NUM];
-	struct vcm_res		*s5p_vcm_res;
-#endif
 };
 
 struct s3cfb_user_window {
@@ -299,12 +233,10 @@ struct s3cfb_user_chroma {
 #define S3CFB_SET_WIN_MEM		_IOW('F', 309, \
 						enum s3cfb_mem_owner_t)
 #define S3CFB_GET_FB_PHY_ADDR           _IOR('F', 310, unsigned int)
-
-#ifdef MALI_USE_UNIFIED_MEMORY_PROVIDER
-#define S3CFB_GET_FB_UMP_SECURE_ID_0      _IOWR('m', 310, unsigned int)
-#define S3CFB_GET_FB_UMP_SECURE_ID_1      _IOWR('m', 311, unsigned int)
-#define S3CFB_GET_FB_UMP_SECURE_ID_2      _IOWR('m', 312, unsigned int)
-#endif /* MALI_USE_UNIFIED_MEMORY_PROVIDER */
+#define S3CFB_GET_CUR_WIN_BUF_ADDR	_IOR('F', 311, unsigned int)
+#if defined(CONFIG_CPU_EXYNOS4210)
+#define S3CFB_SET_WIN_MEM_START		_IOW('F', 312, u32)
+#endif
 
 extern struct fb_ops			s3cfb_ops;
 extern struct s3cfb_global	*get_fimd_global(int id);
@@ -361,6 +293,7 @@ extern int s3cfb_display_on(struct s3cfb_global *ctrl);
 extern int s3cfb_display_off(struct s3cfb_global *ctrl);
 extern int s3cfb_set_clock(struct s3cfb_global *ctrl);
 extern int s3cfb_set_polarity(struct s3cfb_global *ctrl);
+extern int s3cfb_set_polarity_only(struct s3cfb_global *ctrl);
 extern int s3cfb_set_timing(struct s3cfb_global *ctrl);
 extern int s3cfb_set_lcd_size(struct s3cfb_global *ctrl);
 extern int s3cfb_set_global_interrupt(struct s3cfb_global *ctrl, int enable);
@@ -377,13 +310,17 @@ extern int s3cfb_set_alpha_value(struct s3cfb_global *ctrl, int value);
 extern int s3cfb_set_window_position(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_window_size(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_buffer_address(struct s3cfb_global *ctrl, int id);
+extern int s3cfb_get_win_cur_buf_addr(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_buffer_size(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_set_chroma_key(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_channel_localpath_on(struct s3cfb_global *ctrl, int id);
 extern int s3cfb_channel_localpath_off(struct s3cfb_global *ctrl, int id);
-#ifdef CONFIG_FB_S3C_MIPI_LCD
+#ifdef CONFIG_FB_S5P_MIPI_DSIM
 extern void s3cfb_set_trigger(struct s3cfb_global *ctrl);
+extern void s3cfb_trigger(void);
 #endif
+extern int s3cfb_check_vsync_status(struct s3cfb_global *ctrl);
+extern int s3cfb_vsync_status_check(void);
 
 #ifdef CONFIG_HAS_WAKELOCK
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -394,5 +331,26 @@ extern void s3cfb_late_resume(struct early_suspend *h);
 
 /* LCD */
 extern void s3cfb_set_lcd_info(struct s3cfb_global *ctrl);
+
+#ifdef CONFIG_FB_S5P_MIPI_DSIM
+extern void s5p_dsim_early_suspend(void);
+extern void s5p_dsim_late_resume(void);
+extern void s6e8ax0_early_suspend(void);
+extern void s6e8ax0_late_resume(void);
+extern int s5p_dsim_fifo_clear(void);
+extern void s5p_dsim_frame_done_interrupt_enable(u8 enable);
+extern void set_dsim_hs_clk_toggle_count(u8 count);
+extern void set_dsim_lcd_enabled(void);
+#endif
+
+
+#ifdef CONFIG_FB_S5P_AMS369FG06
+extern void ams369fg06_ldi_init(void);
+extern void ams369fg06_ldi_enable(void);
+extern void ams369fg06_ldi_disable(void);
+extern void ams369fg06_gpio_cfg(void);
+#elif defined(CONFIG_FB_S5P_LMS501KF03)
+extern void lms501kf03_ldi_disable(void);
+#endif
 
 #endif /* _S3CFB_H */

@@ -15,7 +15,7 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 
-#ifdef CONFIG_ARCH_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 #include <mach/media.h>
 #endif
 #include <plat/media.h>
@@ -46,12 +46,17 @@
 #include "mfc_pm.h"
 
 static int mem_ports = -1;
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+static struct mfc_mem mem_infos[MFC_MAX_MEM_CHUNK_NUM];
+#else
 static struct mfc_mem mem_infos[MFC_MAX_MEM_PORT_NUM];
+#endif
 
 #ifdef CONFIG_VIDEO_MFC_VCM_UMP
 static struct mfc_vcm vcm_info;
 #endif
 
+#ifndef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
 static int mfc_mem_addr_port(unsigned int addr)
 {
 	int i;
@@ -67,6 +72,7 @@ static int mfc_mem_addr_port(unsigned int addr)
 
 	return port;
 }
+#endif
 
 int mfc_mem_count(void)
 {
@@ -93,9 +99,10 @@ unsigned int mfc_mem_data_base(int port)
 {
 	unsigned int addr;
 
+#ifndef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
 	if ((port < 0) || (port >= mem_ports))
 		return 0;
-
+#endif
 	if (port == 0)
 		addr = mem_infos[port].base + MFC_FW_SYSTEM_SIZE;
 	else
@@ -108,9 +115,10 @@ unsigned int mfc_mem_data_size(int port)
 {
 	unsigned int size;
 
+#ifndef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
 	if ((port < 0) || (port >= mem_ports))
 		return 0;
-
+#endif
 	if (port == 0)
 		size = mem_infos[port].size - MFC_FW_SYSTEM_SIZE;
 	else
@@ -119,14 +127,25 @@ unsigned int mfc_mem_data_size(int port)
 	return size;
 }
 
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+unsigned int mfc_mem_hole_size(void)
+{
+	return mfc_mem_data_base(1) -
+		(mfc_mem_data_base(0) + mfc_mem_data_size(0));
+}
+#endif
+
 unsigned int mfc_mem_data_ofs(unsigned int addr, int contig)
 {
 	unsigned int offset;
 	int i;
 	int port;
 
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	port = 0;
+#else
 	port = mfc_mem_addr_port(addr);
-
+#endif
 	if (port < 0)
 		return 0;
 
@@ -144,8 +163,11 @@ unsigned int mfc_mem_base_ofs(unsigned int addr)
 {
 	int port;
 
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	port = 0;
+#else
 	port = mfc_mem_addr_port(addr);
-
+#endif
 	if (port < 0)
 		return 0;
 
@@ -157,6 +179,7 @@ unsigned int mfc_mem_addr_ofs(unsigned int ofs, int port)
 	/* FIXME: right position? */
 	if (port > (mfc_mem_count() - 1))
 		port = mfc_mem_count() - 1;
+
 	return mem_infos[port].base + ofs;
 }
 
@@ -327,8 +350,7 @@ static void mfc_tlb_invalidate(enum vcm_dev_id id)
 	if (mfc_power_chk()) {
 		mfc_clock_on();
 
-		sysmmu_tlb_invalidate(SYSMMU_MFC_L);
-		sysmmu_tlb_invalidate(SYSMMU_MFC_R);
+		s5p_sysmmu_tlb_invalidate(NULL);
 
 		mfc_clock_off();
 	}
@@ -339,8 +361,7 @@ static void mfc_set_pagetable(enum vcm_dev_id id, unsigned long base)
 	if (mfc_power_chk()) {
 		mfc_clock_on();
 
-		sysmmu_set_tablebase_pgd(SYSMMU_MFC_L, base);
-		sysmmu_set_tablebase_pgd(SYSMMU_MFC_R, base);
+		s5p_sysmmu_set_tablebase_pgd(NULL, base);
 
 		mfc_clock_off();
 	}
@@ -485,6 +506,47 @@ int mfc_init_mem_mgr(struct mfc_dev *dev)
 #else	/* not SYSMMU_MFC_ON */
 	/* early allocator */
 #if defined(CONFIG_S5P_MEM_CMA)
+#ifdef  CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	size = MFC_MEMSIZE_PORT_A;
+	base = cma_alloc(dev->device, "mfc0", size, 0);
+
+	if (IS_ERR_VALUE(base)) {
+		mfc_err("failed to get rsv. memory from CMA on port #0");
+		return -ENOMEM;
+	}
+
+	dev->mem_infos[0].base = ALIGN(base, ALIGN_128KB);
+	align_margin = dev->mem_infos[0].base - base;
+	dev->mem_infos[0].size = size - align_margin;
+	/* kernel direct mapped memory address */
+	dev->mem_infos[0].addr = phys_to_virt(dev->mem_infos[0].base);
+
+	size = MFC_MEMSIZE_DRM;
+	base = cma_alloc(dev->device, "mfc1", size, 0);
+
+	if (IS_ERR_VALUE(base)) {
+		mfc_err("failed to get rsv. memory from CMA for DRM");
+		return -ENOMEM;
+	}
+
+	dev->drm_info.base = base;
+	dev->drm_info.size = size;
+	dev->drm_info.addr = phys_to_virt(base);
+
+	size = MFC_MEMSIZE_PORT_B - MFC_MEMSIZE_DRM;
+	base = cma_alloc(dev->device, "mfc1", size, 0);
+
+	if (IS_ERR_VALUE(base)) {
+		mfc_err("failed to get rsv. memory from CMA on port #1");
+		return -ENOMEM;
+	}
+
+	dev->mem_infos[1].base = ALIGN(base, ALIGN_128KB);
+	align_margin = dev->mem_infos[1].base - base;
+	dev->mem_infos[1].size = size - align_margin;
+	/* kernel direct mapped memory address */
+	dev->mem_infos[1].addr = phys_to_virt(dev->mem_infos[1].base);
+#else
 	if (dev->mem_ports == 1) {
 		size = MFC_MEMSIZE_PORT_A;
 		base = cma_alloc(dev->device, "mfc", size, 0);
@@ -531,9 +593,10 @@ int mfc_init_mem_mgr(struct mfc_dev *dev)
 		mfc_err("failed to get reserved memory from CMA");
 		return -EPERM;
 	}
+#endif
 #elif defined(CONFIG_S5P_MEM_BOOTMEM)
 	for (i = 0; i < dev->mem_ports; i++) {
-#ifdef CONFIG_ARCH_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		base = s5p_get_media_memory_bank(S5P_MDEV_MFC, i);
 #else
 		base = s3c_get_media_memory_bank(S3C_MDEV_MFC, i);
@@ -543,7 +606,7 @@ int mfc_init_mem_mgr(struct mfc_dev *dev)
 			return -EPERM;
 		}
 
-#ifdef CONFIG_ARCH_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		size = s5p_get_media_memsize_bank(S5P_MDEV_MFC, i);
 #else
 		size = s3c_get_media_memsize_bank(S3C_MDEV_MFC, i);
@@ -566,9 +629,13 @@ int mfc_init_mem_mgr(struct mfc_dev *dev)
 #endif	/* end of SYSMMU_MFC_ON */
 
 	mem_ports = dev->mem_ports;
+#ifdef CONFIG_EXYNOS4_CONTENT_PATH_PROTECTION
+	for (i = 0; i < MFC_MAX_MEM_CHUNK_NUM; i++)
+		memcpy(&mem_infos[i], &dev->mem_infos[i], sizeof(struct mfc_mem));
+#else
 	for (i = 0; i < mem_ports; i++)
 		memcpy(&mem_infos[i], &dev->mem_infos[i], sizeof(struct mfc_mem));
-
+#endif
 	return 0;
 }
 

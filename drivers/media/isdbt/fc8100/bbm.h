@@ -7,7 +7,7 @@
 
  History :
  ----------------------------------------------------------------------
- 2009/08/29 	jason		initial
+ 2009/08/29	jason		initial
 *******************************************************************************/
 
 #ifndef __BBM_H__
@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define DRIVER_VER 	"VER 1.0"
+#define DRIVER_VER	"VER 1.0"
 
 #define BBM_HPI		0		/* EBI2	*/
 #define BBM_SPI		1		/* SPI	*/
@@ -59,4 +59,3 @@ extern int BBM_CALLBACK_DEREGISTER(HANDLE hDevice);
 #endif
 
 #endif /* __BBM_H__ */
-

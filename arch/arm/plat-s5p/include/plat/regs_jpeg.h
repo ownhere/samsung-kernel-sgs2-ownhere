@@ -104,7 +104,6 @@
 #define S5P_JPEG_QHTBL_REG_HT_NUM1_AC			(1<<1)
 #define S5P_JPEG_QHTBL_REG_HT_NUM1_DC			(1<<0)
 
-
 /* JPEG Color Mode Register bit */
 #define S5P_JPEG_CMOD_REG_MOD_SEL_RGB			(2<<5)
 #define S5P_JPEG_CMOD_REG_MOD_SEL_YCBCR422		(1<<5)

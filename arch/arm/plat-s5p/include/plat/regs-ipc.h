@@ -18,7 +18,7 @@
 
 /*
  * Registers
-*/ 
+*/
 #define S3C_IPC_ENABLE			(0x00)
 #define S3C_IPC_SRESET			(0x04)
 #define S3C_IPC_SHADOW_UPDATE		(0x08)

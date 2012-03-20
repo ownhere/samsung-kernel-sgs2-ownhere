@@ -1,4 +1,4 @@
-/* linux/arch/arm/plat-s5pc11x/include/plat/regs-dsim.h
+/* linux/arch/arm/plat-s5p/include/plat/regs-dsim.h
  *
  * Register definition file for Samsung MIPI-DSIM driver
  *
@@ -203,8 +203,7 @@
 #define DSIM_PMS(x)			(((x) & 0x7ffff) << DSIM_PMS_SHIFT)
 #define DSIM_FREQ_BAND(x)		(((x) & 0xf) << DSIM_FREQ_BAND_SHIFT)
 
-typedef enum
-{
+typedef enum {
 	PllStable = 1 << 31,
 	SwRstRelease = 1 << 30,
 	SFRFifoEmpty = 1 << 29,
@@ -225,7 +224,7 @@ typedef enum
 	ErrSync1 = 1 << 7,
 	ErrSync0 = 1 << 6,
 	ErrControl3 = 1 << 5,
-	ErrControl2 = 1 << 4, 
+	ErrControl2 = 1 << 4,
 	ErrControl1 = 1 << 3,
 	ErrControl0 = 1 << 2,
 	ErrContentLP0 = 1 << 1,
@@ -233,6 +232,6 @@ typedef enum
 
 	AllDsimIntr = 0xffffffff,
 	ErrDsimIntr = 0xffff,
-}DSIM_INTSRC;
+} DSIM_INTSRC;
 
 #endif /* _REGS_DSIM_H */

@@ -195,7 +195,7 @@
 #define S3C_CISTATUS_GET_FRAME_END(x)		(((x) >> 17) & 0x1)
 #define S3C_CISTATUS_GET_LAST_CAPTURE_END(x)	(((x) >> 16) & 0x1)
 #define S3C_CISTATUS_GET_LCD_STATUS(x)		(((x) >> 9) & 0x1)
-#define S3C_CISTATUS_GET_ENVID_STATUS(x)	((x) & 0x1)
+#define S3C_CISTATUS_GET_ENVID_STATUS(x)	(((x) >> 8) & 0x1)
 
 #define S3C_CISTATUS2_GET_FRAMECOUNT_BEFORE(x)	(((x) >> 7) & 0x3f)
 #define S3C_CISTATUS2_GET_FRAMECOUNT_PRESENT(x)	((x) & 0x3f)
@@ -236,8 +236,8 @@
 #define S3C_ORGOSIZE_VERTICAL(x)		((x) << 16)
 #define S3C_ORGOSIZE_HORIZONTAL(x)		((x) << 0)
 
-#define S3C_CIEXTEN_TARGETH_EXT(x)		(((x) & 0x2000) << 26)
-#define S3C_CIEXTEN_TARGETV_EXT(x)		(((x) & 0x2000) << 24)
+#define S3C_CIEXTEN_TARGETH_EXT(x)		((((x) & 0x2000) >> 13) << 26)
+#define S3C_CIEXTEN_TARGETV_EXT(x)		((((x) & 0x2000) >> 13) << 24)
 #define S3C_CIEXTEN_MAINHORRATIO_EXT(x)		(((x) & 0x3F) << 10)
 #define S3C_CIEXTEN_MAINVERRATIO_EXT(x)		((x) & 0x3F)
 
@@ -284,6 +284,7 @@
 #define S3C_CIGCTRL_IRQ_EDGE			(0 << 20)
 #define S3C_CIGCTRL_IRQ_LEVEL			(1 << 20)
 #define S3C_CIGCTRL_IRQ_CLR			(1 << 19)
+#define S3C_CIGCTRL_IRQ_END_DISABLE		(1 << 18)
 #define S3C_CIGCTRL_IRQ_DISABLE			(0 << 16)
 #define S3C_CIGCTRL_IRQ_ENABLE			(1 << 16)
 #define S3C_CIGCTRL_SHADOW_DISABLE		(1 << 12)
@@ -504,14 +505,6 @@
 
 /* SYSREG for FIMC writeback */
 #define SYSREG_CAMERA_BLK			(S3C_VA_SYS + 0x0218)
-#define FIMD0_WB_DEST_FIMC0			(0x0 << 14)
-#define FIMD0_WB_DEST_FIMC1			(0x1 << 14)
-#define FIMD0_WB_DEST_FIMC2			(0x2 << 14)
-#define FIMD0_WB_DEST_FIMC3			(0x3 << 14)
-
-#define FIMD1_WB_DEST_FIMC0			(0x0 << 10)
-#define FIMD1_WB_DEST_FIMC1			(0x1 << 10)
-#define FIMD1_WB_DEST_FIMC2			(0x2 << 10)
-#define FIMD1_WB_DEST_FIMC3			(0x3 << 10)
+#define SYSREG_ISP_BLK				(S3C_VA_SYS + 0x020c)
 
 #endif /* __ASM_PLAT_REGS_FIMC_H */

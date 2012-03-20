@@ -13,18 +13,26 @@
 #include <linux/resume-trace.h>
 #include <linux/workqueue.h>
 
+#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_ARCH_EXYNOS4)
 #define CONFIG_DVFS_LIMIT
+#endif
+
+#if defined(CONFIG_CPU_EXYNOS4210)
+#define CONFIG_GPU_LOCK
+#endif
 
 #ifdef CONFIG_DVFS_LIMIT
+#include <linux/cpufreq.h>
 #include <mach/cpufreq.h>
+#endif
+
+#ifdef CONFIG_GPU_LOCK
+#include <mach/gpufreq.h>
 #endif
 
 #include "power.h"
 
 DEFINE_MUTEX(pm_mutex);
-
-unsigned int pm_flags;
-EXPORT_SYMBOL(pm_flags);
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -221,6 +229,60 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 power_attr(state);
 
+#ifdef CONFIG_PM_SLEEP
+/*
+ * The 'wakeup_count' attribute, along with the functions defined in
+ * drivers/base/power/wakeup.c, provides a means by which wakeup events can be
+ * handled in a non-racy way.
+ *
+ * If a wakeup event occurs when the system is in a sleep state, it simply is
+ * woken up.  In turn, if an event that would wake the system up from a sleep
+ * state occurs when it is undergoing a transition to that sleep state, the
+ * transition should be aborted.  Moreover, if such an event occurs when the
+ * system is in the working state, an attempt to start a transition to the
+ * given sleep state should fail during certain period after the detection of
+ * the event.  Using the 'state' attribute alone is not sufficient to satisfy
+ * these requirements, because a wakeup event may occur exactly when 'state'
+ * is being written to and may be delivered to user space right before it is
+ * frozen, so the event will remain only partially processed until the system is
+ * woken up by another event.  In particular, it won't cause the transition to
+ * a sleep state to be aborted.
+ *
+ * This difficulty may be overcome if user space uses 'wakeup_count' before
+ * writing to 'state'.  It first should read from 'wakeup_count' and store
+ * the read value.  Then, after carrying out its own preparations for the system
+ * transition to a sleep state, it should write the stored value to
+ * 'wakeup_count'.  If that fails, at least one wakeup event has occurred since
+ * 'wakeup_count' was read and 'state' should not be written to.  Otherwise, it
+ * is allowed to write to 'state', but the transition will be aborted if there
+ * are any wakeup events detected after 'wakeup_count' was written to.
+ */
+
+static ssize_t wakeup_count_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	unsigned int val;
+
+	return pm_get_wakeup_count(&val) ? sprintf(buf, "%u\n", val) : -EINTR;
+}
+
+static ssize_t wakeup_count_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t n)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u", &val) == 1) {
+		if (pm_save_wakeup_count(val))
+			return n;
+	}
+	return -EINVAL;
+}
+
+power_attr(wakeup_count);
+#endif /* CONFIG_PM_SLEEP */
+
 #ifdef CONFIG_PM_TRACE
 int pm_trace_enabled;
 
@@ -244,6 +306,23 @@ pm_trace_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(pm_trace);
+
+static ssize_t pm_trace_dev_match_show(struct kobject *kobj,
+				       struct kobj_attribute *attr,
+				       char *buf)
+{
+	return show_trace_dev_match(buf, PAGE_SIZE);
+}
+
+static ssize_t
+pm_trace_dev_match_store(struct kobject *kobj, struct kobj_attribute *attr,
+			 const char *buf, size_t n)
+{
+	return -EINVAL;
+}
+
+power_attr(pm_trace_dev_match);
+
 #endif /* CONFIG_PM_TRACE */
 
 #ifdef CONFIG_USER_WAKELOCK
@@ -252,167 +331,272 @@ power_attr(wake_unlock);
 #endif
 
 #ifdef CONFIG_DVFS_LIMIT
-static int dvfsctrl_locked;
-static int gdDvfsctrl;
+static int cpufreq_max_limit_val = -1;
+static int cpufreq_min_limit_val = -1;
+DEFINE_MUTEX(cpufreq_limit_mutex);
 
-static void do_dvfsunlock_timer(struct work_struct *work);
-static DECLARE_DELAYED_WORK(dvfslock_ctrl_unlock_work, do_dvfsunlock_timer);
-
-static ssize_t dvfslock_ctrl(const char *buf, size_t count)
+static ssize_t cpufreq_table_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
 {
-	unsigned int ret = -EINVAL;
-	int dlevel;
-	int dtime_msec;
+	ssize_t count = 0;
+	struct cpufreq_frequency_table *table;
+	struct cpufreq_policy *policy;
+	unsigned int min_freq = ~0;
+	unsigned int max_freq = 0;
+	unsigned int i = 0;
 
-	ret = sscanf(buf, "%u", &gdDvfsctrl);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (gdDvfsctrl ==0) {
-		if (dvfsctrl_locked) {
-			s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_APP);
-			dvfsctrl_locked = 0;
-		}
-		return -EINVAL;
-	}
-	if (dvfsctrl_locked) {
-		printk(KERN_ERR "%s - already locked\n", __func__);
-		return 0;
+	table = cpufreq_frequency_get_table(0);
+	if (!table) {
+		printk(KERN_ERR "%s: Failed to get the cpufreq table\n",
+			__func__);
+		return sprintf(buf, "Failed to get the cpufreq table\n");
 	}
 
-	dlevel = gdDvfsctrl / 10000;
-	dtime_msec = gdDvfsctrl % 10000;
+	policy = cpufreq_cpu_get(0);
+	if (policy) {
+	#if 0 /* /sys/devices/system/cpu/cpu0/cpufreq/scaling_min&max_freq */
+		min_freq = policy->min_freq;
+		max_freq = policy->max_freq;
+	#else /* /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min&max_freq */
+		min_freq = policy->cpuinfo.min_freq;
+		max_freq = policy->cpuinfo.max_freq;
+	#endif
+	}
 
-	if (dtime_msec < 16)
-		dtime_msec = 16;
+	for (i = 0; (table[i].frequency != CPUFREQ_TABLE_END); i++) {
+		if ((table[i].frequency == CPUFREQ_ENTRY_INVALID) ||
+		    (table[i].frequency > max_freq) ||
+		    (table[i].frequency < min_freq))
+			continue;
+		count += sprintf(&buf[count], "%d ", table[i].frequency);
+	}
+	count += sprintf(&buf[count], "\n");
 
-	if (dtime_msec == 0)
-		return -EINVAL;
+	return count;
+}
 
-	if (dlevel)
-		dlevel = CPU_L1;
-	else
-		dlevel = CPU_L0;
-
-	printk(KERN_DEBUG "%s: level = %d, time =%d\n", __func__, dlevel, dtime_msec);
-
-	s5pv310_cpufreq_lock(DVFS_LOCK_ID_APP, dlevel);
-	dvfsctrl_locked = 1;
-
-	schedule_delayed_work(&dvfslock_ctrl_unlock_work, msecs_to_jiffies(dtime_msec));
-
+static ssize_t cpufreq_table_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t n)
+{
+	printk(KERN_ERR "%s: cpufreq_table is read-only\n", __func__);
 	return -EINVAL;
 }
 
-static void do_dvfsunlock_timer(struct work_struct *work)
+#define VALID_LEVEL 1
+static int get_cpufreq_level(unsigned int freq, unsigned int *level)
 {
-	dvfsctrl_locked = 0;
-	s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_APP);
+	struct cpufreq_frequency_table *table;
+	unsigned int i = 0;
+
+	table = cpufreq_frequency_get_table(0);
+	if (!table) {
+		printk(KERN_ERR "%s: Failed to get the cpufreq table\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; (table[i].frequency != CPUFREQ_TABLE_END); i++)
+		if (table[i].frequency == freq) {
+			*level = i;
+			return VALID_LEVEL;
+		}
+
+	printk(KERN_ERR "%s: %u KHz is an unsupported cpufreq\n",
+		__func__, freq);
+	return -EINVAL;
 }
 
-static ssize_t dvfslock_ctrl_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+static ssize_t cpufreq_max_limit_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
 {
-	return sprintf(buf, "0x%08x\n", gdDvfsctrl);
+	return sprintf(buf, "%d\n", cpufreq_max_limit_val);
 }
 
-static ssize_t dvfslock_ctrl_store(struct kobject *kobj, struct kobj_attribute *attr,
+static ssize_t cpufreq_max_limit_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
 					const char *buf, size_t n)
 {
-	dvfslock_ctrl(buf, 0);
-	return n;
+	int val;
+	unsigned int cpufreq_level;
+	int lock_ret;
+	ssize_t ret = -EINVAL;
+
+	mutex_lock(&cpufreq_limit_mutex);
+
+	if (sscanf(buf, "%d", &val) != 1) {
+		printk(KERN_ERR "%s: Invalid cpufreq format\n", __func__);
+		goto out;
+	}
+
+	if (val == -1) { /* Unlock request */
+		if (cpufreq_max_limit_val != -1) {
+			exynos_cpufreq_upper_limit_free(DVFS_LOCK_ID_USER);
+			cpufreq_max_limit_val = -1;
+		} else /* Already unlocked */
+			printk(KERN_ERR "%s: Unlock request is ignored\n",
+				__func__);
+	} else { /* Lock request */
+		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
+		    == VALID_LEVEL) {
+			if (cpufreq_max_limit_val != -1)
+				/* Unlock the previous lock */
+				exynos_cpufreq_upper_limit_free(
+					DVFS_LOCK_ID_USER);
+			lock_ret = exynos_cpufreq_upper_limit(
+					DVFS_LOCK_ID_USER, cpufreq_level);
+			/* ret of exynos_cpufreq_upper_limit is meaningless.
+			   0 is fail? success? */
+			cpufreq_max_limit_val = val;
+		} else /* Invalid lock request --> No action */
+			printk(KERN_ERR "%s: Lock request is invalid\n",
+				__func__);
+	}
+
+	ret = n;
+out:
+	mutex_unlock(&cpufreq_limit_mutex);
+	return ret;
 }
 
-static int dvfslimit_locked;
-static int gdDvfslimit;
-static void do_dvfslimit_unlock_timer(struct work_struct *work);
-static DECLARE_DELAYED_WORK(dvfslimit_ctrl_unlock_work, do_dvfslimit_unlock_timer);
-
-static ssize_t dvfslimit_ctrl(const char *buf, size_t count)
+static ssize_t cpufreq_min_limit_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
 {
-	unsigned int ret = -EINVAL;
-	int limit_level;
-	int dtime_msec;
+	return sprintf(buf, "%d\n", cpufreq_min_limit_val);
+}
 
-	ret = sscanf(buf, "%u", &gdDvfslimit);
-	if (ret != 1)
-		return -EINVAL;
+static ssize_t cpufreq_min_limit_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	int val;
+	unsigned int cpufreq_level;
+	int lock_ret;
+	ssize_t ret = -EINVAL;
 
-	if (gdDvfslimit == 0) {
-		if (dvfslimit_locked) {
-			s5pv310_cpufreq_upper_limit_free(DVFS_LOCK_ID_APP);
-			dvfslimit_locked = 0;
+	mutex_lock(&cpufreq_limit_mutex);
+
+	if (sscanf(buf, "%d", &val) != 1) {
+		printk(KERN_ERR "%s: Invalid cpufreq format\n", __func__);
+		goto out;
+	}
+
+	if (val == -1) { /* Unlock request */
+		if (cpufreq_min_limit_val != -1) {
+			exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
+			cpufreq_min_limit_val = -1;
+		} else /* Already unlocked */
+			printk(KERN_ERR "%s: Unlock request is ignored\n",
+				__func__);
+	} else { /* Lock request */
+		if (get_cpufreq_level((unsigned int)val, &cpufreq_level)
+			== VALID_LEVEL) {
+			if (cpufreq_min_limit_val != -1)
+				/* Unlock the previous lock */
+				exynos_cpufreq_lock_free(DVFS_LOCK_ID_USER);
+			lock_ret = exynos_cpufreq_lock(
+					DVFS_LOCK_ID_USER, cpufreq_level);
+			/* ret of exynos_cpufreq_lock is meaningless.
+			   0 is fail? success? */
+			cpufreq_min_limit_val = val;
+		if ((cpufreq_max_limit_val != -1) &&
+			    (cpufreq_min_limit_val > cpufreq_max_limit_val))
+				printk(KERN_ERR "%s: Min lock may not work well"
+					" because of Max lock\n", __func__);
+		} else /* Invalid lock request --> No action */
+			printk(KERN_ERR "%s: Lock request is invalid\n",
+				__func__);
+	}
+
+	ret = n;
+out:
+	mutex_unlock(&cpufreq_limit_mutex);
+	return ret;
+}
+
+power_attr(cpufreq_table);
+power_attr(cpufreq_max_limit);
+power_attr(cpufreq_min_limit);
+#endif /* CONFIG_DVFS_LIMIT */
+
+#ifdef CONFIG_GPU_LOCK
+static int gpu_lock_val;
+DEFINE_MUTEX(gpu_lock_mutex);
+
+static ssize_t gpu_lock_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	return sprintf(buf, "%d\n", gpu_lock_val);
+}
+
+static ssize_t gpu_lock_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t n)
+{
+	int val;
+	ssize_t ret = -EINVAL;
+
+	mutex_lock(&gpu_lock_mutex);
+
+	if (sscanf(buf, "%d", &val) != 1) {
+		pr_info("%s: Invalid mali lock format\n", __func__);
+		goto out;
+	}
+
+	if (val == 0) {
+		if (gpu_lock_val != 0) {
+			exynos_gpufreq_unlock();
+			gpu_lock_val = 0;
+		} else {
+			pr_info("%s: Unlock request is ignored\n", __func__);
 		}
-		return -EINVAL;
-	}
-	if (dvfslimit_locked) {
-		printk(KERN_ERR "%s - already locked dvfsctrl\n", __func__);
-		return 0;
-	}
-
-	limit_level = gdDvfslimit / 10000;
-	dtime_msec = gdDvfslimit % 10000;
-
-	if (dtime_msec < 16)
-		dtime_msec = 16;
-
-	if (dtime_msec == 0)
-		return -EINVAL;
-
-	if ((limit_level > 0) && (limit_level < CPU_LEVEL_END)) {
-		s5pv310_cpufreq_upper_limit(DVFS_LOCK_ID_APP, limit_level);
-		dvfslimit_locked = 1;
-		printk(KERN_DEBUG "%s: limit level = %d\n", __func__, limit_level);
-		schedule_delayed_work(&dvfslimit_ctrl_unlock_work, msecs_to_jiffies(dtime_msec));
+	} else if (val == 1) {
+		if (gpu_lock_val == 0) {
+			exynos_gpufreq_lock();
+			gpu_lock_val = val;
+		} else {
+			pr_info("%s: Lock request is ignored\n", __func__);
+		}
 	} else {
-		limit_level = CPU_L0;
-		printk(KERN_ERR "%s - %d is wrong CPUFreq level\n", __func__, limit_level);
+		pr_info("%s: Lock request is invalid\n", __func__);
 	}
 
-	return -EINVAL;
+	ret = n;
+out:
+	mutex_unlock(&gpu_lock_mutex);
+	return ret;
 }
-
-static void do_dvfslimit_unlock_timer(struct work_struct *work)
-{
-	s5pv310_cpufreq_upper_limit_free(DVFS_LOCK_ID_APP);
-	dvfslimit_locked = 0;
-}
-
-static ssize_t dvfslimit_ctrl_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "0x%08x\n", gdDvfslimit);
-}
-
-static ssize_t dvfslimit_ctrl_store(struct kobject *kobj, struct kobj_attribute *attr,
-					const char *buf, size_t n)
-{
-	dvfslimit_ctrl(buf, 0);
-	return n;
-}
-
-power_attr(dvfslimit_ctrl);
-power_attr(dvfslock_ctrl);
+power_attr(gpu_lock);
 #endif
 
 static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
+	&pm_trace_dev_match_attr.attr,
 #endif
 #ifdef CONFIG_PM_SLEEP
 	&pm_async_attr.attr,
+	&wakeup_count_attr.attr,
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
-#endif
 #endif
 #ifdef CONFIG_USER_WAKELOCK
 	&wake_lock_attr.attr,
 	&wake_unlock_attr.attr,
 #endif
+#endif
 #ifdef CONFIG_DVFS_LIMIT
-	&dvfslock_ctrl_attr.attr,
-	&dvfslimit_ctrl_attr.attr,
+	&cpufreq_table_attr.attr,
+	&cpufreq_max_limit_attr.attr,
+	&cpufreq_min_limit_attr.attr,
+#endif
+#ifdef CONFIG_GPU_LOCK
+	&gpu_lock_attr.attr,
 #endif
 	NULL,
 };
@@ -427,7 +611,7 @@ EXPORT_SYMBOL_GPL(pm_wq);
 
 static int __init pm_start_workqueue(void)
 {
-	pm_wq = create_freezeable_workqueue("pm");
+	pm_wq = alloc_workqueue("pm", WQ_FREEZABLE, 0);
 
 	return pm_wq ? 0 : -ENOMEM;
 }
@@ -440,6 +624,8 @@ static int __init pm_init(void)
 	int error = pm_start_workqueue();
 	if (error)
 		return error;
+	hibernate_image_size_init();
+	hibernate_reserved_size_init();
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)
 		return -ENOMEM;

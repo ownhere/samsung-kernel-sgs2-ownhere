@@ -13,6 +13,7 @@
 #define _PLAT_S5P_OTGHOST_H __FILE__
 
 #include <linux/wakelock.h>
+#include <linux/platform_device.h>
 
 /*#define CONFIG_USB_S3C_OTG_HOST_HANDLING_CLOCK*/
 #define CONFIG_USB_S3C_OTG_HOST_DTGDRVVBUS
@@ -34,9 +35,19 @@ union port_flags_t {
 
 struct sec_otghost_data {
 	bool clk_usage;
+
 	void (*set_pwr_cb)(int on);
-	int host_notify;
+	void (*host_notify_cb)(int a);
+	int (*start)(u32 reg);
+	int (*stop)(void);
+
+	int (*phy_init)(int mode);
+	int (*phy_exit)(int mode);
+
+	struct platform_device *pdev;
+
 	int sec_whlist_table_num;
+	void __iomem *regs;
 };
 
 struct sec_otghost {

@@ -97,7 +97,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	}
 
 	hrtimer_try_to_cancel(&base->timer);
-	base->timer._expires = ktime_add(base->delta, alarm->expires);
+	base->timer.node.expires = ktime_add(base->delta, alarm->expires);
 	base->timer._softexpires = ktime_add(base->delta, alarm->softexpires);
 	hrtimer_start_expires(&base->timer, HRTIMER_MODE_ABS);
 }
@@ -329,6 +329,54 @@ int alarm_set_alarm(char* alarm_data)
 	return ret;
 }
 
+#if defined(CONFIG_RTC_ALARM_BOOT)
+#define BOOTALM_BIT_EN		0
+#define BOOTALM_BIT_YEAR	1
+#define BOOTALM_BIT_MONTH	5
+#define BOOTALM_BIT_DAY		7
+#define BOOTALM_BIT_HOUR	9
+#define BOOTALM_BIT_MIN		11
+#define BOOTALM_BIT_TOTAL	13
+
+int alarm_set_alarm_boot(char *alarm_data)
+{
+	struct rtc_wkalrm alm;
+	int ret;
+	char buf_ptr[BOOTALM_BIT_TOTAL + 1];
+
+	if (!alarm_rtc_dev) {
+		pr_alarm(ERROR,
+			 "alarm_set_alarm_boot: no RTC, time will be lost on reboot\n");
+		return -1;
+	}
+
+	strlcpy(buf_ptr, alarm_data, BOOTALM_BIT_TOTAL + 1);
+
+	alm.time.tm_sec = 0;
+
+	alm.time.tm_min = (buf_ptr[BOOTALM_BIT_MIN] - '0') * 10
+	    + (buf_ptr[BOOTALM_BIT_MIN + 1] - '0');
+	alm.time.tm_hour = (buf_ptr[BOOTALM_BIT_HOUR] - '0') * 10
+	    + (buf_ptr[BOOTALM_BIT_HOUR + 1] - '0');
+	alm.time.tm_mday = (buf_ptr[BOOTALM_BIT_DAY] - '0') * 10
+	    + (buf_ptr[BOOTALM_BIT_DAY + 1] - '0');
+	alm.time.tm_mon = (buf_ptr[BOOTALM_BIT_MONTH] - '0') * 10
+	    + (buf_ptr[BOOTALM_BIT_MONTH + 1] - '0');
+	alm.time.tm_year = (buf_ptr[BOOTALM_BIT_YEAR] - '0') * 1000
+	    + (buf_ptr[BOOTALM_BIT_YEAR + 1] - '0') * 100
+	    + (buf_ptr[BOOTALM_BIT_YEAR + 2] - '0') * 10
+	    + (buf_ptr[BOOTALM_BIT_YEAR + 3] - '0');
+	alm.enabled = (*buf_ptr == '1');
+
+	alm.time.tm_mon -= 1;
+	alm.time.tm_year -= 1900;
+
+	ret = rtc_set_alarm_boot(alarm_rtc_dev, &alm);
+
+	return ret;
+}
+#endif
+
 /**
  * alarm_get_elapsed_realtime - get the elapsed real time in ktime_t format
  *
@@ -419,7 +467,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
-			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK].timer);
+			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)

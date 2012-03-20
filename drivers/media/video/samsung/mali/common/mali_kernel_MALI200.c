@@ -8,6 +8,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+//added for SPI
+#include <linux/kernel.h>
+
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
 #include "mali_kernel_pp.h"
@@ -94,7 +97,7 @@ static _mali_osk_errcode_t mali200_renderunit_create(_mali_osk_resource_t * reso
 static void mali200_subsystem_broadcast_notification(mali_core_notification_message message, u32 data);
 #endif
 #if MALI_STATE_TRACKING
-void mali200_subsystem_dump_state(void);
+u32 mali200_subsystem_dump_state(char *buf, u32 size);
 #endif
 
 /* Internal support functions  */
@@ -126,7 +129,7 @@ static int subsystem_mali200_irq_handler_bottom_half(struct mali_core_renderunit
 struct mali_kernel_subsystem mali_subsystem_mali200=
 {
 	mali200_subsystem_startup,                  /* startup */
-	mali200_subsystem_terminate,                /* shutdown */
+	NULL, /*mali200_subsystem_terminate,*/                /* shutdown */
 #if USING_MMU
 	mali200_subsystem_mmu_connect,              /* load_complete */
 #else
@@ -551,38 +554,81 @@ static _mali_osk_errcode_t subsystem_mali200_start_job(mali_core_job * job, mali
 			&(job200->user_input.frame_registers[0]),
 			MALI200_NUM_REGS_FRAME);
 
-	/* Write Back unit 0. Copy from mem to physical registers*/
-	mali_core_renderunit_register_write_array(
+	/* Write Back unit 0. Copy from mem to physical registers only if the WB unit will be used. */
+	if (job200->user_input.wb0_registers[0])
+	{
+		mali_core_renderunit_register_write_array(
 				core,
 				MALI200_REG_ADDR_WB0,
 				&(job200->user_input.wb0_registers[0]),
 				MALI200_NUM_REGS_WBx);
+	}
 
-	/* Write Back unit 1. Copy from mem to physical registers */
-	mali_core_renderunit_register_write_array(
+	/* Write Back unit 1. Copy from mem to physical registers only if the WB unit will be used. */
+	if (job200->user_input.wb1_registers[0])
+	{
+		mali_core_renderunit_register_write_array(
 				core,
 				MALI200_REG_ADDR_WB1,
 				&(job200->user_input.wb1_registers[0]),
 				MALI200_NUM_REGS_WBx);
+	}
 
-	/* Write Back unit 2. Copy from mem to physical registers */
-	mali_core_renderunit_register_write_array(
-			core,
-			MALI200_REG_ADDR_WB2,
-			&(job200->user_input.wb2_registers[0]),
-			MALI200_NUM_REGS_WBx);
+	/* Write Back unit 2. Copy from mem to physical registers only if the WB unit will be used. */
+	if (job200->user_input.wb2_registers[0])
+	{
+		mali_core_renderunit_register_write_array(
+				core,
+				MALI200_REG_ADDR_WB2,
+				&(job200->user_input.wb2_registers[0]),
+				MALI200_NUM_REGS_WBx);
+	}
 
+#if MALI_TRACEPOINTS_ENABLED
+	{
+		int counter = ((core->core_number)*2)+9; /* magic numbers for FP0 are 9 & 10 */
+
+		//printk("FP core->number = %d\n", core->core_number);
+		//TODO we are using magic numbers again... these are from gator_events_mali.c
+		job200->user_input.perf_counter_flag = 0;
+
+		if( counter>=9 && counter<=16) {
+
+			if( counter_table[counter] != 0xFFFFFFFF ) {
+				job200->user_input.perf_counter_flag |= _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE;
+				job200->user_input.perf_counter_src0 = counter_table[counter];
+			}
+			if( counter_table[counter+1] != 0xFFFFFFFF ) {
+				job200->user_input.perf_counter_flag |= _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE;
+				job200->user_input.perf_counter_src1 = counter_table[counter+1];
+			}
+
+		} else {
+			MALI_DEBUG_PRINT(2, ("core->core_number out of the range (0-3) (%d)\n", core->core_number));
+		}
+	}
+#if defined(USING_MALI400_L2_CACHE)
+	if( counter_table[5] != 0xFFFFFFFF ) {
+		job200->user_input.perf_counter_flag |= _MALI_PERFORMANCE_COUNTER_FLAG_L2_SRC0_ENABLE | _MALI_PERFORMANCE_COUNTER_FLAG_L2_RESET;
+		job200->user_input.perf_counter_l2_src0 = counter_table[5];
+	}
+	if( counter_table[6] != 0xFFFFFFFF ) {
+		job200->user_input.perf_counter_flag |= _MALI_PERFORMANCE_COUNTER_FLAG_L2_SRC1_ENABLE | _MALI_PERFORMANCE_COUNTER_FLAG_L2_RESET;
+		job200->user_input.perf_counter_l2_src1 = counter_table[6];
+	}
+#endif
+#endif
 
 	/* This selects which performance counters we are reading */
 	if ( 0 != job200->user_input.perf_counter_flag )
 	{
 		if ( job200->user_input.perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE)
 		{
-			mali_core_renderunit_register_write(
+			mali_core_renderunit_register_write_relaxed(
 					core,
 					MALI200_REG_ADDR_MGMT_PERF_CNT_0_ENABLE,
 					MALI200_REG_VAL_PERF_CNT_ENABLE);
-			mali_core_renderunit_register_write(
+			mali_core_renderunit_register_write_relaxed(
 					core,
 					MALI200_REG_ADDR_MGMT_PERF_CNT_0_SRC,
 					job200->user_input.perf_counter_src0);
@@ -591,11 +637,11 @@ static _mali_osk_errcode_t subsystem_mali200_start_job(mali_core_job * job, mali
 
 		if ( job200->user_input.perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE)
 		{
-			mali_core_renderunit_register_write(
+			mali_core_renderunit_register_write_relaxed(
 					core,
 					MALI200_REG_ADDR_MGMT_PERF_CNT_1_ENABLE,
 					MALI200_REG_VAL_PERF_CNT_ENABLE);
-			mali_core_renderunit_register_write(
+			mali_core_renderunit_register_write_relaxed(
 					core,
 					MALI200_REG_ADDR_MGMT_PERF_CNT_1_SRC,
 					job200->user_input.perf_counter_src1);
@@ -630,7 +676,6 @@ static _mali_osk_errcode_t subsystem_mali200_start_job(mali_core_job * job, mali
 	}
 
 	subsystem_flush_mapped_mem_cache();
-	_mali_osk_mem_barrier();
 
 #if MALI_STATE_TRACKING
 	_mali_osk_atomic_inc(&job->session->jobs_started);
@@ -641,9 +686,20 @@ static _mali_osk_errcode_t subsystem_mali200_start_job(mali_core_job * job, mali
 			core,
 			MALI200_REG_ADDR_MGMT_CTRL_MGMT,
 			MALI200_REG_VAL_CTRL_MGMT_START_RENDERING);
+	_mali_osk_write_mem_barrier();
 
+
+	pr_debug("SPI_GPU_PP%u Start\n", core->core_number);
 #if MALI_TIMELINE_PROFILING_ENABLED
-	_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START|MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number), job200->pid, job200->tid, 0, 0, 0);
+	_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE | MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number) | MALI_PROFILING_EVENT_REASON_SINGLE_HW_FLUSH, job200->user_input.frame_builder_id, job200->user_input.flush_id, 0, 0, 0); 
+	_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START|MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number), job200->pid, job200->tid,
+#if defined(USING_MALI400_L2_CACHE)
+				(job200->user_input.perf_counter_l2_src0 << 16) | (job200->user_input.perf_counter_l2_src1 << 24),
+				job200->perf_counter_l2_val0, job200->perf_counter_l2_val1
+#else
+				0, 0, 0
+#endif
+				);
 #endif
 
     MALI_SUCCESS;
@@ -664,6 +720,11 @@ static u32 subsystem_mali200_irq_handler_upper_half(mali_core_renderunit * core)
 	{
 		/* Mask out all IRQs from this core until IRQ is handled */
 		mali_core_renderunit_register_write(core, MALI200_REG_ADDR_MGMT_INT_MASK, MALI200_REG_VAL_IRQ_MASK_NONE);
+
+#if MALI_TIMELINE_PROFILING_ENABLED
+		_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE|MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number)|MALI_PROFILING_EVENT_REASON_SINGLE_HW_INTERRUPT, irq_readout, 0, 0, 0, 0);
+#endif
+
 		return 1;
 	}
 	return 0;
@@ -714,16 +775,23 @@ static int subsystem_mali200_irq_handler_bottom_half(struct mali_core_renderunit
 		mali_core_renderunit_register_write(core, MALI200_REG_ADDR_MGMT_CTRL_MGMT, MALI200_REG_VAL_CTRL_MGMT_FLUSH_CACHES);
 #endif
 
-#if MALI_TIMELINE_PROFILING_ENABLED
-		_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP|MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number), 0, 0, 0, 0, 0); /* add GP and L2 counters and return status */
-#endif
-
 		if (0 != job200->user_input.perf_counter_flag )
 		{
 			if (job200->user_input.perf_counter_flag & (_MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE|_MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE) )
 			{
+#if MALI_TRACEPOINTS_ENABLED
+				//TODO magic numbers should come from mali_linux_trace.h instead
+				unsigned int counter = (core->core_number * 2) + 9;
+#endif
+
 				job200->perf_counter0 = mali_core_renderunit_register_read(core, MALI200_REG_ADDR_MGMT_PERF_CNT_0_VALUE);
 				job200->perf_counter1 = mali_core_renderunit_register_read(core, MALI200_REG_ADDR_MGMT_PERF_CNT_1_VALUE);
+
+#if MALI_TRACEPOINTS_ENABLED
+				_mali_profiling_add_counter(counter, job200->perf_counter0);
+				_mali_profiling_add_counter(counter + 1, job200->perf_counter1);
+#endif
+
 			}
 
 #if defined(USING_MALI400_L2_CACHE)
@@ -756,14 +824,37 @@ static int subsystem_mali200_irq_handler_bottom_half(struct mali_core_renderunit
 					job200->perf_counter_l2_val1_raw = 0;
 					job200->perf_counter_l2_val1 = 0;
 				}
+
+#if MALI_TRACEPOINTS_ENABLED
+				//TODO magic numbers should come from mali_linux_trace.h instead
+				_mali_profiling_add_counter(5, val0);
+				_mali_profiling_add_counter(6, val1);
+#endif
 			}
 #endif
 
 		}
 
+#if MALI_TIMELINE_PROFILING_ENABLED
+		_mali_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP|MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(core->core_number),
+				job200->perf_counter0, job200->perf_counter1,
+				job200->user_input.perf_counter_src0 | (job200->user_input.perf_counter_src1 << 8)
+#if defined(USING_MALI400_L2_CACHE)
+				| (job200->user_input.perf_counter_l2_src0 << 16) | (job200->user_input.perf_counter_l2_src1 << 24),
+				job200->perf_counter_l2_val0, job200->perf_counter_l2_val1
+#else
+				, 0, 0
+#endif
+				);
+#endif
+
+
 #if MALI_STATE_TRACKING
 		_mali_osk_atomic_inc(&job->session->jobs_ended);
 #endif
+		
+		pr_debug("SPI_GPU_PP%u Idle\n", core->core_number);
+             
 		return JOB_STATUS_END_SUCCESS; /* reschedule */
 	}
 	/* Overall SW watchdog timeout or (time to do hang checking and progress detected)? */
@@ -784,6 +875,7 @@ static int subsystem_mali200_irq_handler_bottom_half(struct mali_core_renderunit
 #if MALI_STATE_TRACKING
 		_mali_osk_atomic_inc(&job->session->jobs_ended);
 #endif
+
 		return JOB_STATUS_END_HANG;
    	}
 	/* HW watchdog triggered or an existing hang check passed? */
@@ -826,6 +918,7 @@ static int subsystem_mali200_irq_handler_bottom_half(struct mali_core_renderunit
 			MALI_DEBUG_PRINT_IF(1, (0 == (bus_error & 0x03)), ("Bus error but neither read or write was set as the error reason\n"));
 			(void)bus_error;
 		}
+
 #if MALI_STATE_TRACKING
 		_mali_osk_atomic_inc(&job->session->jobs_ended);
 #endif
@@ -839,7 +932,7 @@ to a created mali_core_job object with the data given from userspace */
 static _mali_osk_errcode_t subsystem_mali200_get_new_job_from_user(struct mali_core_session * session, void * argument)
 {
 	mali200_job *job200;
-	mali_core_job *job=NULL;
+	mali_core_job *job = NULL;
 	mali_core_job *previous_replaced_job;
 	_mali_osk_errcode_t err = _MALI_OSK_ERR_OK;
 	_mali_uk_pp_start_job_s * user_ptr_job_input;
@@ -884,6 +977,7 @@ static _mali_osk_errcode_t subsystem_mali200_get_new_job_from_user(struct mali_c
 	job = GET_JOB_EMBEDDED_PTR(job200);
 
 	job->session = session;
+	job->flags = user_ptr_job_input->flags;
 	job_priority_set(job, job200->user_input.priority);
 	job_watchdog_set(job, job200->user_input.watchdog_msecs );
 
@@ -893,15 +987,10 @@ static _mali_osk_errcode_t subsystem_mali200_get_new_job_from_user(struct mali_c
 #endif
 
 	job->abort_id = job200->user_input.abort_id;
-	if (NULL != session->job_waiting_to_run)
+	if (mali_job_queue_full(session))
 	{
-		/* IF NOT( newjow HAS HIGHER PRIORITY THAN waitingjob) EXIT_NOT_START newjob */
-		if(!job_has_higher_priority(job, session->job_waiting_to_run))
-		{
-			/* The job we try to add does NOT have higher pri than current */
-			user_ptr_job_input->status = _MALI_UK_START_JOB_NOT_STARTED_DO_REQUEUE;
-			goto function_exit;
-		}
+		user_ptr_job_input->status = _MALI_UK_START_JOB_NOT_STARTED_DO_REQUEUE;
+		goto function_exit;
 	}
 
 	/* We now know that we has a job, and a empty session slot to put it in */
@@ -971,9 +1060,12 @@ function_exit:
 	}
 #if MALI_STATE_TRACKING
 	if (_MALI_UK_START_JOB_STARTED==user_ptr_job_input->status)
-        {
-                if(job)job->job_nr=_mali_osk_atomic_inc_return(&session->jobs_received);
-        }
+	{
+		if(job)
+		{
+			job->job_nr=_mali_osk_atomic_inc_return(&session->jobs_received);
+		}
+	}
 #endif
 
 	MALI_ERROR(err);
@@ -1007,9 +1099,9 @@ static void subsystem_mali200_return_job_to_user( mali_core_job * job, mali_subs
 	job_input= &(job200->user_input);
 	session = job->session;
 
-	MALI_DEBUG_PRINT(4, ("Mali PP: Job: 0x%08x OUTPUT to user. Runtime: %dms\n",
+	MALI_DEBUG_PRINT(4, ("Mali PP: Job: 0x%08x OUTPUT to user. Runtime: %dus\n",
 			(u32)job200->user_input.user_job_ptr,
-			job->render_time_msecs)) ;
+			job->render_time_usecs)) ;
 
 	_mali_osk_memset(job_out, 0 , sizeof(_mali_uk_pp_job_finished_s));
 
@@ -1037,7 +1129,7 @@ static void subsystem_mali200_return_job_to_user( mali_core_job * job, mali_subs
 	job_out->irq_status = job200->irq_status;
 	job_out->perf_counter0 = job200->perf_counter0;
 	job_out->perf_counter1 = job200->perf_counter1;
-	job_out->render_time = job->render_time_msecs;
+	job_out->render_time = job->render_time_usecs;
 
 #if defined(USING_MALI400_L2_CACHE)
 	job_out->perf_counter_l2_src0 = job200->perf_counter_l2_src0;
@@ -1117,13 +1209,6 @@ static void subsystem_mali200_renderunit_reset_core(struct mali_core_renderunit 
 		case MALI_CORE_RESET_STYLE_HARD:
 			mali200_reset_hard(core);
 			break;
-#if MALI_STATE_TRACKING
-		/* Temporary debug code. Use reset framework to print registers in log.. */
-		case 0xcafebabe:
-			MALI_PRINT(("      Core rawstat: 0x%08X \n",mali_core_renderunit_register_read(core, MALI200_REG_ADDR_MGMT_INT_RAWSTAT) ));
-			MALI_PRINT(("      Core status: 0x%08X \n", mali_core_renderunit_register_read(core, MALI200_REG_ADDR_MGMT_STATUS) ));
-			break;
-#endif
 		default:
 			MALI_DEBUG_PRINT(1, ("Unknown reset type %d\n", style));
 	}
@@ -1212,8 +1297,8 @@ _mali_osk_errcode_t malipp_signal_power_down( u32 core_num, mali_bool immediate_
 #endif
 
 #if MALI_STATE_TRACKING
-void mali200_subsystem_dump_state(void)
+u32 mali200_subsystem_dump_state(char *buf, u32 size)
 {
-	mali_core_renderunit_dump_state(&subsystem_mali200);
+	return mali_core_renderunit_dump_state(&subsystem_mali200, buf, size);
 }
 #endif

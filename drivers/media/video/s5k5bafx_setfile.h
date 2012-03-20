@@ -542,7 +542,7 @@ static const u32 s5k5bafx_common[] = {
 
 	0x002AF414,
 	0x0F120030,
-                                                                       
+
 	0x002AC204,
 	0x0F120100,
 	0x002AF402,
@@ -574,15 +574,15 @@ static const u32 s5k5bafx_common[] = {
 	0x0F120048,
 	0x002AF10A,
 	0x0F12008B,
-                                                                                                             
+
 	0x002AF900,
 	0x0F120067,
-                                                                                                             
+
 	0x002AF406,
 	0x0F120092,
 	0x0F12007F,
 	0x0F120003,
-                                                                                                             
+
 	0x0F120003,
 	0x0F120003,
 	0x002AF442,
@@ -594,7 +594,7 @@ static const u32 s5k5bafx_common[] = {
 	0x0F120001,
 	0x0F120010,
 	0x0F120000,
-                                                                                                             
+
 	0x002AF41A,
 	0x0F1200FF,
 	0x0F120003,
@@ -611,7 +611,7 @@ static const u32 s5k5bafx_common[] = {
 	0x0F120000,
 	0x002AF422,
 	0x0F120000,
-                                                                                
+
 	0x002AF41E,
 	0x0F120000,
 	0x002AF428,
@@ -621,7 +621,7 @@ static const u32 s5k5bafx_common[] = {
 	0x002AF430,
 	0x0F120000,
 	0x0F120000,
-                                                                                
+
 	0x0F120008,
 	0x0F120005,
 	0x0F12000F,
@@ -629,7 +629,7 @@ static const u32 s5k5bafx_common[] = {
 	0x0F120040,
 	0x0F120040,
 	0x0F120010,
-                                                                                
+
 	0x002AF4D6,
 	0x0F120090,
 
@@ -684,7 +684,7 @@ static const u32 s5k5bafx_common[] = {
 	0x00287000,
 	0x002A0132,
 	0x0F12AAAA,
-	
+
 	/* Set FPN Gain Input */
 	0x002A1176,
 	0x0F120020,
@@ -705,7 +705,7 @@ static const u32 s5k5bafx_common[] = {
 	0x0F120002,
 	0x002A0AE8,
 	0x0F120000,
-                                                                        
+
 	0x002A10EE,
 	0x0F120000,
 
@@ -2566,9 +2566,9 @@ static const u32 s5k5bafx_common[] = {
 static const u32 s5k5bafx_vt_common[] =
 {
 	/* VT-Call */
-	
+
 	0xFCFCD000,
-	
+
 	/* ARM Go */
 	0x0028D000,
 	0x002A1030,
@@ -2576,8 +2576,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A0014,
 	0x0F120001,
 	0xffff0064, /* Delay */
-	
-	
+
+
 	/* Trap and Patch  2008-11-18 10:15:41 */
 	0x00287000,
 	0x002A1668,
@@ -3032,32 +3032,32 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000,
 	/* End of Trap and Patch (Last : 70002342h) */
 	/* Total Size 896 (0x0380)                  */
-	
+
 	0x0028D000,
 	0x002A1000,
 	0x0F120001,
-	
-	
+
+
 	0x00287000,
 	0x002A1662,
 	0x0F1203B0,
 	0x0F1203B0,
-	
-	
+
+
 	0x00287000,
 	0x002A1658,
 	0x0F129C40,
 	0x0F120000,
 	0x0F129C40,
 	0x0F120000,
-	
-	
+
+
 	0x00287000,
 	0x002A0ADC,
 	0x0F120AF0,	/* setot_uOnlineClocksDiv40             */
 	0x002A0AE2,
 	0x0F12222E,	/* setot_usSetRomWaitStateThreshold4KHz */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R       */
 	0x0F120400, /* awbb_GainsInit_1_:G       */
@@ -3066,33 +3066,33 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F128000, /* lt_uLeiInit:AE start      */
 	0x002A049A,
 	0x0F1200FA, /* lt_uMinExp   0.5ms로 변경 */
-	
+
 	/* Set CIS/APS/Analog */
 	0x0028D000,
 	0x002AF106,
 	0x0F120001,
 	0x002AF206,
 	0x0F120001,
-	
-	
+
+
 	0x002AC202,
 	0x0F120700,
-	
+
 	0x002AF260,
 	0x0F120001,
-	
+
 	0x002AF414,
 	0x0F120030,
-	
+
 	0x002AC204,
 	0x0F120100,
 	0x002AF402,
 	0x0F120092,
 	0x0F12007F,
-	
+
 	0x002AF700,
 	0x0F120040,
-	
+
 	0x002AF708,
 	0x0F120000,
 	0x0F120000,
@@ -3105,28 +3105,28 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120040,
 	0x0F120040,
 	0x0F120001,
-	
+
 	0x0F120015,
-	
-	
+
+
 	0x0F120001,
 	0x0F120040,
-	
+
 	0x002AF48A,
 	0x0F120048,
 	0x002AF10A,
 	0x0F12008B,
-	
-	
+
+
 	0x002AF900,
 	0x0F120067,
-	
-	
+
+
 	0x002AF406,
 	0x0F120092,
 	0x0F12007F,
 	0x0F120003,
-	
+
 	0x0F120003,
 	0x0F120003,
 	0x002AF442,
@@ -3138,16 +3138,16 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120001,
 	0x0F120010,
 	0x0F120000,
-	
+
 	0x002AF41A,
 	0x0F1200FF,
 	0x0F120003,
-	
+
 	0x002AF420,
 	0x0F120030,
 	0x002AF410,
 	0x0F120001,
-	
+
 	0x0F120000,
 	0x002AF416,
 	0x0F120001,
@@ -3155,7 +3155,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000,
 	0x002AF422,
 	0x0F120000,
-	
+
 	0x002AF41E,
 	0x0F120000,
 	0x002AF428,
@@ -3165,7 +3165,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002AF430,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x0F120008,
 	0x0F120005,
 	0x0F12000F,
@@ -3173,12 +3173,12 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120040,
 	0x0F120040,
 	0x0F120010,
-	
+
 	0x002AF4D6,
 	0x0F120090,
-	
+
 	0x0F120000,
-	
+
 	0x002AF47C,
 	0x0F12000C,
 	0x0F120000,
@@ -3203,7 +3203,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12005F,
 	0x0F120017,
 	0x0F12008F,
-	
+
 	0x002AF48C,
 	0x0F120017,
 	0x0F12009B,
@@ -3212,18 +3212,18 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120193,
 	0x002AF490,
 	0x0F120191,
-	
+
 	0x002AF418,
 	0x0F120083,
-	
+
 	0x002AF454,
 	0x0F120001,
-	
+
 	0x002AF702,
 	0x0F120081,
 	0x002AF4D2,
 	0x0F120000,
-	
+
 	/* For ESD Check */
 	0x00287000,
 	0x002A0132,
@@ -3239,7 +3239,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12000A,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* CFPN Canceller */
 	0x002A116C,
 	0x0F120000,
@@ -3249,7 +3249,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120002,
 	0x002A0AE8,
 	0x0F120000,
-	
+
 	/* sensor aig table setting   sunkyu start */
 	0x002A10EE,
 	0x0F120000,
@@ -3268,16 +3268,16 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A1084,
 	0x0F120000,
 	0x0F120000,
-	
+
 	/* Set AE Target */
 	0x002A0F4C,
 	0x0F12003C, /* 3A TVAR_ae_BrAve */
-	
+
 	0x002A0478,
 	0x0F120114,
 	0x0F1200EB, /* ae boundary */
-	
-	
+
+
 	/* Set Frame Rate */
 	0x002A0484,
 	0x0F12410A, /*uMaxExp1         */
@@ -3299,62 +3299,62 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0f120100,
 	0x002A0F52,
 	0x0F12000F, /*ae_StatMode      */
-	
+
 	0x002A0E98, /* bp_uMaxBrightnessFactor */
 	0x0F1202B0,
 	0x002A0E9E, /* bp_uMinBrightnessFactor */
 	0x0F120290,
-	
+
 	/* 1. Auto Flicker 60Hz Start */
 	0x002A0B2E,
 	0x0F120001, /* AFC_Default60Hz	 Auto Flicker 60Hz start 0: Auto Flicker 50Hz start */
 	0x002A03F8,
 	0x0F12007F, /* REG_TC_DBG_AutoAlgEnBits             default : 007F */
-	
-	
+
+
 	0xffff000a, /* Wait10mSec */
-	
-	
+
+
 	/* Set PLL */
 	/* External CLOCK (MCLK) */
 	0x002A01B8,
 	0x0F125DC0, /* REG_TC_IPRM_InClockLSBs */
 	0x0F120000, /* REG_TC_IPRM_InClockMSBs */
-	
+
 	/* Parallel or MIP Selection */
 	0x002A01C6,
 	0x0F120001, /* REG_TC_IPRM_UseNPviClocks         */
 	0x0F120001, /* REG_TC_IPRM_UseNMipiClocks        */
 	0x0F120000, /* REG_TC_IPRM_bBlockInternalPllCalc */
-	
+
 	/* System Clock 0 (System : 24Mhz, PCLK : 48Mhz) */
 	0x002A01CC,
 	0x0F121770, /* REG_TC_IPRM_OpClk4KHz_0      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_0 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_0 */
-	
+
 	/* System Clock 1 (System : 28Mhz, PCLK : 48Mhz) */
 	0x002A01D2,
 	0x0F121B58, /* REG_TC_IPRM_OpClk4KHz_1      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_1 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_1 */
-	
-	
+
+
 	0x002A01DE,
 	0x0F120001, /* REG_TC_IPRM_UseRegsAPI        */
 	0x0F120001, /* REG_TC_IPRM_InitParamsUpdated */
 	0xffff0064, /* Delay 100ms                   */
-	
-	
-	
+
+
+
 	/* Crop */
 	0x002A01FA,
 	0x0F120640, /* REG_TC_GP_PrevReqInputWidth  */
 	0x0F1204B0, /* REG_TC_GP_PrevReqInputHeight */
 	0x0F120000, /* REG_TC_GP_PrevInputWidthOfs  */
 	0x0F120000, /* REG_TC_GP_PrevInputHeightOfs */
-	
-	
+
+
 	/* Set Preview Config */
 	/* Preview Config 0 (1600x1200 fixed 15fps) */
 	0x002A0242,
@@ -3377,7 +3377,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120001, /* REG_0TC_PCFG_uPrevMirror           */
 	0x0F120001, /* REG_0TC_PCFG_uCaptureMirror        */
 	0x0F120000, /* REG_0TC_PCFG_uRotation             */
-	
+
 	/* Preview Config 1 (640x480, Not Fixed 15 ~ 30fps) */
 	0x002A0268,
 	0x0F120280, /* REG_1TC_PCFG_usWidth               */
@@ -3399,9 +3399,9 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120001, /* REG_1TC_PCFG_uPrevMirror           */
 	0x0F120001, /* REG_1TC_PCFG_uCaptureMirror        */
 	0x0F120000, /* REG_1TC_PCFG_uRotation             */
-	
-	
-	
+
+
+
 	/* Set MIPI */
 	0x002A03AC,
 	0x0F120000, /* REG_TC_FLS_Mode        */
@@ -3409,7 +3409,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120001, /* REG_TC_OIF_EnMipiLanes */
 	0x0F1200C3, /* REG_TC_OIF_EnPackets   */
 	0x0F120001, /* REG_TC_OIF_CfgChanged  */
-	
+
 	/* Apply preview config */
 	0x002A021C,
 	0x0F120000, /* REG_TC_GP_ActivePrevConfig     */
@@ -3422,9 +3422,9 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A01F0,
 	0x0F120001, /* REG_TC_GP_EnablePreview        */
 	0x0F120001, /* REG_TC_GP_EnablePreviewChanged */
-	
-	
-	
+
+
+
 	/* Set Capture Config */
 	/* Capture Config 0 (1600x1200 fixed 8fps) */
 	0x002A0302,
@@ -3445,10 +3445,10 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000, /* REG_0TC_CCFG_sGlamour              */
 	0x0F120000, /* REG_0TC_CCFG_sColorTemp            */
 	0x0F120000, /* REG_0TC_CCFG_uDeviceGammaIndex     */
-	
-	
-	
-	
+
+
+
+
 	/* Periodic mismatch */
 	0x002A0780,
 	0x0F120000, /* msm_uOffsetNoBin[0][0]    */
@@ -3459,25 +3459,25 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000, /* msm_uOffsetNoBin[2][1]    */
 	0x0F120000, /* msm_uOffsetNoBin[3][0]    */
 	0x0F120000, /* msm_uOffsetNoBin[3][1]    */
-	
+
 	0x002A0798,
 	0x0F120000, /* msm_uOffsetBin[0][0]      */
 	0x0F120000, /* msm_uOffsetBin[0][1]      */
 	0x0F120000, /* msm_uOffsetBin[1][0]      */
 	0x0F120000, /* msm_uOffsetBin[1][1]      */
-	
+
 	0x002A07C0,
 	0x0F120004, /* msm_NonLinearOfsOutput[2] */
 	0x0F120004, /* msm_NonLinearOfsOutput[3] */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R       */
 	0x0F120400, /* awbb_GainsInit_1_:G       */
 	0x0F1205F0, /* awbb_GainsInit_2_:B       */
 	0x002A04A0,
 	0x0F128000, /* lt_uLeiInit:AE start      */
-	
-	
+
+
 	/* Set AE Weights */
 	0x002A0F5A,
 	0x0F120000, /* ae_WeightTbl_16_0_ */
@@ -3512,8 +3512,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000, /* ae_WeightTbl_16_29 */
 	0x0F120000, /* ae_WeightTbl_16_30 */
 	0x0F120000, /* ae_WeightTbl_16_31 */
-	
-	
+
+
 	/* Set GAS & CCM White Point */
 	/* param_start	TVAR_ash_AwbAshCord */
 	0x002A0704,
@@ -3524,7 +3524,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120180, /* TVAR_ash_AwbAshCord_4_ */
 	0x0F1201B0, /* TVAR_ash_AwbAshCord_5_ */
 	0x0F120200, /* TVAR_ash_AwbAshCord_6_ */
-	
+
 	/* param_start	wbt_AwbCcmCord */
 	0x002A06F2,
 	0x0F1200B3, /* SARR_AwbCcmCord_0_	Hor   */
@@ -3533,7 +3533,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120136, /* SARR_AwbCcmCord_3_	CW    */
 	0x0F120180, /* SARR_AwbCcmCord_4_	D50   */
 	0x0F120190, /* SARR_AwbCcmCord_5_	D65   */
-	
+
 	/* Target Brightness Control */
 	0x002A103E,
 	0x0F120000, /* SARR_IllumType_0_      */
@@ -3550,55 +3550,55 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120102, /* SARe_6_R_IllumTypeF_4_ */
 	0x0F1200FB, /* SARR_IllumTypeF_5_     */
 	0x0F1200F8, /* SARR_IllumTypeF_6_     */
-	
+
 	/* TVAR_ash_GASAlpha(Indoor) */
 	0x002A0712,
 	0x0F120100, /* TVAR_ash_GASAlpha[0]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[1]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[2]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[3]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[4]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[5]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[6]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[7]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[8]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[9]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[10] */
 	0x0F120100, /* TVAR_ash_GASAlpha[11] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[12] */
 	0x0F120100, /* TVAR_ash_GASAlpha[13] */
 	0x0F120100, /* TVAR_ash_GASAlpha[14] */
 	0x0F120100, /* TVAR_ash_GASAlpha[15] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[16] */
 	0x0F120100, /* TVAR_ash_GASAlpha[17] */
 	0x0F120100, /* TVAR_ash_GASAlpha[18] */
 	0x0F120100, /* TVAR_ash_GASAlpha[19] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[20] */
 	0x0F120100, /* TVAR_ash_GASAlpha[21] */
 	0x0F120100, /* TVAR_ash_GASAlpha[22] */
 	0x0F120100, /* TVAR_ash_GASAlpha[23] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[24] */
 	0x0F120100, /* TVAR_ash_GASAlpha[25] */
 	0x0F120100, /* TVAR_ash_GASAlpha[26] */
 	0x0F120100, /* TVAR_ash_GASAlpha[27] */
-	
+
 	/* TVAR_ash_GASAlpha(Outdoor) */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_0_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_1_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_2_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_3_ */
-	
+
 	/* GAS LUT Start Address */
 	0x002A0754,
 	0x0F122388, /* TVAR_ash_pGAS */
 	0x0F127000, /* TVAR_ash_pGAS */
-	
+
 	/* param_start	TVAR_ash_pGAS */
 	0x002A2388,
 	0x0F120160, /* TVAR_ash_pGAS[0]   */
@@ -4173,7 +4173,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1200B1, /* TVAR_ash_pGAS[569] */
 	0x0F1200D5, /* TVAR_ash_pGAS[570] */
 	0x0F1200FD, /* TVAR_ash_pGAS[571] */
-	
+
 	/* Gamma */
 	0x002A04CC,
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[0][0]  */
@@ -4192,7 +4192,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1203C2, /* SARR_usGammaLutRGBIndoor[0][13] */
 	0x0F1203EA, /* SARR_usGammaLutRGBIndoor[0][14] */
 	0x0F1203FF, /* SARR_usGammaLutRGBIndoor[0][15] */
-	
+
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[1][0]  */
 	0x0F120002, /* SARR_usGammaLutRGBIndoor[1][1]  */
 	0x0F120008, /* SARR_usGammaLutRGBIndoor[1][2]  */
@@ -4209,7 +4209,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1203C2, /* SARR_usGammaLutRGBIndoor[1][13] */
 	0x0F1203EA, /* SARR_usGammaLutRGBIndoor[1][14] */
 	0x0F1203FF, /* SARR_usGammaLutRGBIndoor[1][15] */
-	
+
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[2][0]  */
 	0x0F120002, /* SARR_usGammaLutRGBIndoor[2][1]  */
 	0x0F120008, /* SARR_usGammaLutRGBIndoor[2][2]  */
@@ -4226,9 +4226,9 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1203C2, /* SARR_usGammaLutRGBIndoor[2][13] */
 	0x0F1203EA, /* SARR_usGammaLutRGBIndoor[2][14] */
 	0x0F1203FF, /* SARR_usGammaLutRGBIndoor[2][15] */
-	
-	
-	
+
+
+
 	/* Set AWB */
 	0x002A0DA6,
 	0x0F120000, /* awbb_LowBr_NBzone	       */
@@ -4237,7 +4237,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000, /* awbb_LowBr0_PatchNumZone */
 	0x002A0D6C,
 	0x0F120040, /* awbb_YMedMoveToYAv       */
-	
+
 	/* Indoor Gray Zone */
 	0x002A0B9C,
 	0x0F12035E, /* awbb_IndoorGrZones_m_BGrid_0__m_left   */
@@ -4308,8 +4308,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_32__m_right */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_left  */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_right */
-	
-	
+
+
 	/* param_end	awbb_IndoorGrZones_m_BGrid */
 	0x002A0C3C,
 	0x0F120004,
@@ -4323,7 +4323,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A0C50,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Outdoor Gray Zone */
 	0x0F120264,
 	0x0F120279,
@@ -4359,8 +4359,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
-	
+
+
 	/* param_WRITE 70000CC6  B2end	awbb_OutdoorGrZones_m_BGrid */
 	0x002A0CB8,
 	0x0F120004,
@@ -4374,7 +4374,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A0CCC,
 	0x0F1200C0,
 	0x0F120000,
-	
+
 	/* Low Brightness Gray Zone */
 	0x0F12031F, /* awbb_LowBrGrZones_m_BGrid_0__m_left   */
 	0x0F120495, /* awbb_LowBrGrZones_m_BGrid_0__m_right  */
@@ -4426,8 +4426,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1201CD, /* awbb_LowBrGrZones_m_BGrid_23__m_right */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_left  */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_right */
-	
-	
+
+
 	/* 42param_end	awbb_LowBrGrZones_m_BGrid */
 	0x0F120005,
 	0x0F120000,
@@ -4440,7 +4440,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A0D48,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Lowtemp circle */
 	0x0F12032F,
 	0x0F120000,
@@ -4455,12 +4455,12 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120000,
 	0x002A0D82,
 	0x0F120001,
-	
-	
-	
+
+
+
 	0x002A0D8E,
 	0x0F120002, /* awbb_GridEnable */
-	
+
 	/* Grid coefficients and Contrants */
 	0x002A0DCE,
 	0x0F120000, /* awbb_GridCorr_R_0__0_ */
@@ -4469,42 +4469,42 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12FFF8, /* awbb_GridCorr_R_0__3_ */
 	0x0F12FFE0, /* awbb_GridCorr_R_0__4_ */
 	0x0F12FFD0, /* awbb_GridCorr_R_0__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_R_1__0_ */
 	0x0F120000, /* awbb_GridCorr_R_1__1_ */
 	0x0F120040, /* awbb_GridCorr_R_1__2_ */
 	0x0F12FFF8, /* awbb_GridCorr_R_1__3_ */
 	0x0F12FFE0, /* awbb_GridCorr_R_1__4_ */
 	0x0F12FFD0, /* awbb_GridCorr_R_1__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_R_2__0_ */
 	0x0F120000, /* awbb_GridCorr_R_2__1_ */
 	0x0F120040, /* awbb_GridCorr_R_2__2_ */
 	0x0F12FFF8, /* awbb_GridCorr_R_2__3_ */
 	0x0F12FFE0, /* awbb_GridCorr_R_2__4_ */
 	0x0F12FFD0, /* awbb_GridCorr_R_2__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_0__0_ */
 	0x0F120000, /* awbb_GridCorr_B_0__1_ */
 	0x0F120030, /* awbb_GridCorr_B_0__2_ */
 	0x0F120000, /* awbb_GridCorr_B_0__3_ */
 	0x0F120018, /* awbb_GridCorr_B_0__4_ */
 	0x0F120040, /* awbb_GridCorr_B_0__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_1__0_ */
 	0x0F120000, /* awbb_GridCorr_B_1__1_ */
 	0x0F120030, /* awbb_GridCorr_B_1__2_ */
 	0x0F120000, /* awbb_GridCorr_B_1__3_ */
 	0x0F120018, /* awbb_GridCorr_B_1__4_ */
 	0x0F120040, /* awbb_GridCorr_B_1__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_2__0_ */
 	0x0F120000, /* awbb_GridCorr_B_2__1_ */
 	0x0F120030, /* awbb_GridCorr_B_2__2_ */
 	0x0F120000, /* awbb_GridCorr_B_2__3_ */
 	0x0F120018, /* awbb_GridCorr_B_2__4_ */
 	0x0F120040, /* awbb_GridCorr_B_2__5_ */
-	
+
 	0x0F1202C6, /* awbb_GridConst_1_0_ */
 	0x0F120335, /* awbb_GridConst_1_1_ */
 	0x0F1203B3, /* awbb_GridConst_1_2_ */
@@ -4514,19 +4514,19 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12117C, /* awbb_GridConst_2_3  */
 	0x0F1211C2, /* awbb_GridConst_2_4  */
 	0x0F12120B, /* awbb_GridConst_2_5  */
-	
+
 	0x0F1200B3, /* awbb_GridCoeff_R_1 */
 	0x0F1200B7, /* awbb_GridCoeff_B_1 */
 	0x0F1200D3, /* awbb_GridCoeff_R_2 */
 	0x0F120091, /* awbb_GridCoeff_B_2 */
-	
+
 	/* White Locus */
 	0x002A0D66,
 	0x0F120133,
 	0x0F12010F,
 	0x002A0D74,
 	0x0F120365, /* 52A awbb_MvEq_RBthresh */
-	
+
 	/* Gamut Thresholds */
 	0x002A0DAE,
 	0x0F120036,
@@ -4534,7 +4534,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A0DAA,
 	0x0F12071A,
 	0x0F1203A4,
-	
+
 	/* SceneDetection Thresholds */
 	0x002A0D92,
 	0x0F120BB8,
@@ -4562,17 +4562,17 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12000E,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* AWB Debug.(Outdoor Pink) */
 	0x002A0E30,
 	0x0F120000,
 	0x002A0E84,
 	0x0F120000,
-	
+
 	/* UseInvalidOutdoor option */
 	0x002A0D88,
 	0x0F120001,
-	
+
 	/* AWB input Y-Filter setting */
 	0x002A0C48,
 	0x0F120020,
@@ -4582,7 +4582,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120020,
 	0x002A0CCC,
 	0x0F1200C0,
-	
+
 	/* awbb_ChromaClassifyEn, default : enable */
 	0x002A0DC2,
 	0x0F120030,
@@ -4590,8 +4590,8 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12012C,
 	0x0F120210, /* 258 awbb_GainsMaxMove */
 	0x0F120003,
-	
-	
+
+
 	/* Set CCM */
 	/* CCM Start Address */
 	0x002A06D0,
@@ -4610,7 +4610,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x002A06EC,
 	0x0F1228D8,
 	0x0F127000,
-	
+
 	/* param_start	TVAR_wbt_pBaseCcms */
 	0x002A2800,
 	0x0F1201E5, /* 01D6 01E1 01FB */
@@ -4631,7 +4631,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120136, /* 011E 0163 017C */
 	0x0F12FFA5, /* FFAD FF9E FFC3 */
 	0x0F1201CF, /* 01E3 01B3 0197 */
-	
+
 	0x0F1201E5, /* 01D6 01E1 01FB */
 	0x0F12FFBF, /* FFC9 FFC4 FF9C */
 	0x0F12FFF4, /* FFFB FFF8 FFFF */
@@ -4650,7 +4650,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120136, /* 011E 0163 017C */
 	0x0F12FFA5, /* FFAD FF9E FFC3 */
 	0x0F1201CF, /* 01E3 01B3 0197 */
-	
+
 	0x0F1201E1, /* 01FB */
 	0x0F12FFC4, /* FF9C */
 	0x0F12FFF8, /* FFFF */
@@ -4669,7 +4669,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120163, /* 017C */
 	0x0F12FF9E, /* FFC3 */
 	0x0F1201B3, /* 0197 */
-	
+
 	0x0F1201FB, /* 01FB 01FB */
 	0x0F12FFA9, /* FFA9 FF9C */
 	0x0F12FFEA, /* FFEA FFFF */
@@ -4688,7 +4688,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120182, /* 0176 017C */
 	0x0F12FF91, /* FFBD FFC3 */
 	0x0F1201AA, /* 0191 0197 */
-	
+
 	0x0F1201D2, /* 01C5 01F9 020A */
 	0x0F12FFC2, /* FF9F FFBC FFB2 */
 	0x0F12FFFC, /* FFE5 FFF2 FFEB */
@@ -4707,7 +4707,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120178, /* 00CB 0108 0176 */
 	0x0F12FFBF, /* FF94 FFB3 FFBD */
 	0x0F120193, /* 019E 01DD 0191 */
-	
+
 	0x0F1201D2, /* 01F9 020A 01D0   R */
 	0x0F12FFC2, /* FFBC FFB2 FFB4     */
 	0x0F12FFFC, /* FFF2 FFEB 000C     */
@@ -4726,7 +4726,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120178, /* 0108 0178 0178   M */
 	0x0F12FFBF, /* FFB3 FFBF FFBF     */
 	0x0F120193, /* 01DD 0193 0193     */
-	
+
 	0x0F1201F1, /* outdoor CCM */
 	0x0F12FFB0,
 	0x0F12FFEF,
@@ -4745,32 +4745,32 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F120178,
 	0x0F12FFBF,
 	0x0F120193,
-	
+
 	/* Set NB */
 	0x002A07EA,
 	0x0F120000, /* afit_bUseNoiseInd 0 : NB 1: Noise Index */
-	
+
 	/* param_start	SARR_uNormBrInDoor */
 	0x0F12000A, /* SARR_uNormBrInDoor[0] */
 	0x0F120019, /* SARR_uNormBrInDoor[1] */
 	0x0F12007D, /* SARR_uNormBrInDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrInDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrInDoor[4] */
-	
+
 	/* param_start	SARR_uNormBrOutDoor */
 	0x0F12000A, /* SARR_uNormBrOutDoor[0] */
 	0x0F120019, /* SARR_uNormBrOutDoor[1] */
 	0x0F12007D, /* SARR_uNormBrOutDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrOutDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrOutDoor[4] */
-	
-	
+
+
 	/* Set AFIT */
 	/* AFIT Start Address */
 	0x002A0814,
 	0x0F12082C, /* TVAR_afit_pBaseVals */
 	0x0F127000, /* TVAR_afit_pBaseVals */
-	
+
 	/* param_start	TVAR_afit_pBaseVals */
 	0x002A082C,
 	0x0F120003, /* BRIGHTNESS                                                               */
@@ -4836,7 +4836,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F126E14, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                                 */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                                 */
 	0x0F120035, /* RGB2YUV_iYOffset                                                         */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                               */
 	0x0F120000, /* CONTRAST                                                                 */
 	0x0F120000, /* SATURATION                                                               */
@@ -4900,7 +4900,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F128030, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                                 */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                                 */
 	0x0F120008, /* RGB2YUV_iYOffset                                                         */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                               */
 	0x0F120000, /* CONTRAST                                                                 */
 	0x0F120000, /* SATURATION                                                               */
@@ -4964,7 +4964,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                                 */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                                 */
 	0x0F120000, /* RGB2YUV_iYOffset                                                         */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                               */
 	0x0F120000, /* CONTRAST                                                                 */
 	0x0F120000, /* SATURATION                                                               */
@@ -5028,7 +5028,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                                 */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                                 */
 	0x0F120000, /* RGB2YUV_iYOffset                                                         */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                               */
 	0x0F12000A, /* CONTRAST                                                                 */
 	0x0F120000, /* SATURATION                                                               */
@@ -5092,7 +5092,7 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F128050, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                                 */
 	0x0F120140, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                                 */
 	0x0F120000, /* RGB2YUV_iYOffset                                                         */
-	
+
 	0x0F1200FF, /* Denoise1_iUVDenThreshLow                          */
 	0x0F1200FF, /* Denoise1_iUVDenThreshHigh                         */
 	0x0F120800, /* Denoise1_sensor_width                             */
@@ -5112,11 +5112,11 @@ static const u32 s5k5bafx_vt_common[] =
 	0x0F1253C1,
 	0x0F12E1FE,
 	0x0F120001,
-	
+
 	/* Update Changed Registers */
 	0x002A03FC,
 	0x0F120001, /* REG_TC_DBG_ReInitCmd */
-	
+
 	0x0028D000,
 	0x002AB0CC,
 	0x0F12000B, /* Non contious mode */
@@ -5124,16 +5124,16 @@ static const u32 s5k5bafx_vt_common[] =
 };
 
 
-/* Set-data based on Samsung Reliabilty Group standard 
+/* Set-data based on Samsung Reliabilty Group standard
 * ,when using WIFI. 15fps
 */
 static const u32 s5k5bafx_vt_wifi_common[] =
 {
 	/* Wifi_VT */
-	
+
 	0xFCFCD000,
-	
-	
+
+
 	/* ARM Go */
 	0x0028D000,
 	0x002A1030,
@@ -5141,8 +5141,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A0014,
 	0x0F120001,
 	0xffff0064, /* Delay */
-	
-	
+
+
 	/* Trap and Patch  2008-11-18 10:15:41 */
 	0x00287000,
 	0x002A1668,
@@ -5597,32 +5597,32 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000,
 	/* End of Trap and Patch (Last : 70002342h) */
 	/* Total Size 896 (0x0380)                  */
-	
+
 	0x0028D000,
 	0x002A1000,
 	0x0F120001,
-	
-	
+
+
 	0x00287000,
 	0x002A1662,
 	0x0F1203B0,
 	0x0F1203B0,
-	
-	
+
+
 	0x00287000,
 	0x002A1658,
 	0x0F129C40,
 	0x0F120000,
 	0x0F129C40,
 	0x0F120000,
-	
-	
+
+
 	0x00287000,
 	0x002A0ADC,
 	0x0F120AF0, /* setot_uOnlineClocksDiv40             */
 	0x002A0AE2,
 	0x0F12222E, /* setot_usSetRomWaitStateThreshold4KHz */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R       */
 	0x0F120400, /* awbb_GainsInit_1_:G       */
@@ -5631,34 +5631,34 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F128000, /* lt_uLeiInit:AE start      */
 	0x002A049A,
 	0x0F1200FA, /* lt_uMinExp   0.5ms로 변경 */
-	
-	
+
+
 	/* Set CIS/APS/Analog */
 	0x0028D000,
 	0x002AF106,
 	0x0F120001,
 	0x002AF206,
 	0x0F120001,
-	
-	
+
+
 	0x002AC202,
 	0x0F120700,
-	
+
 	0x002AF260,
 	0x0F120001,
-	
+
 	0x002AF414,
 	0x0F120030,
-	
+
 	0x002AC204,
 	0x0F120100,
 	0x002AF402,
 	0x0F120092,
 	0x0F12007F,
-	
+
 	0x002AF700,
 	0x0F120040,
-	
+
 	0x002AF708,
 	0x0F120000,
 	0x0F120000,
@@ -5671,26 +5671,26 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120040,
 	0x0F120040,
 	0x0F120001,
-	
+
 	0x0F120015,
-	
-	
+
+
 	0x0F120001,
 	0x0F120040,
-	
+
 	0x002AF48A,
 	0x0F120048,
 	0x002AF10A,
 	0x0F12008B,
-	
-	
+
+
 	0x002AF900,
 	0x0F120067,
 	0x002AF406,
 	0x0F120092,
 	0x0F12007F,
 	0x0F120003,
-	
+
 	0x0F120003,
 	0x0F120003,
 	0x002AF442,
@@ -5702,16 +5702,16 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120001,
 	0x0F120010,
 	0x0F120000,
-	
+
 	0x002AF41A,
 	0x0F1200FF,
 	0x0F120003,
-	
+
 	0x002AF420,
 	0x0F120030,
 	0x002AF410,
 	0x0F120001,
-	
+
 	0x0F120000,
 	0x002AF416,
 	0x0F120001,
@@ -5719,7 +5719,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000,
 	0x002AF422,
 	0x0F120000,
-	
+
 	0x002AF41E,
 	0x0F120000,
 	0x002AF428,
@@ -5729,7 +5729,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002AF430,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x0F120008,
 	0x0F120005,
 	0x0F12000F,
@@ -5737,13 +5737,13 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120040,
 	0x0F120040,
 	0x0F120010,
-	
+
 	0x002AF4D6,
 	0x0F120090,
-	
-	
+
+
 	0x0F120000,
-	
+
 	0x002AF47C,
 	0x0F12000C,
 	0x0F120000,
@@ -5768,7 +5768,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12005F,
 	0x0F120017,
 	0x0F12008F,
-	
+
 	0x002AF48C,
 	0x0F120017,
 	0x0F12009B,
@@ -5777,23 +5777,23 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120193,
 	0x002AF490,
 	0x0F120191,
-	
+
 	0x002AF418,
 	0x0F120083,
-	
+
 	0x002AF454,
 	0x0F120001,
-	
+
 	0x002AF702,
 	0x0F120081,
 	0x002AF4D2,
 	0x0F120000,
-	
+
 	/* For ESD Check */
 	0x00287000,
 	0x002A0132,
 	0x0F12AAAA,
-	
+
 	/* Set FPN Gain Input */
 	0x002A1176,
 	0x0F120020,
@@ -5804,7 +5804,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12000A,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* CFPN Canceller */
 	0x002A116C,
 	0x0F120000,
@@ -5814,7 +5814,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120002,
 	0x002A0AE8,
 	0x0F120000,
-	
+
 	/* sensor aig table setting */
 	0x002A10EE,
 	0x0F120000,
@@ -5830,22 +5830,22 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1200FB,
 	0x002A1150,
 	0x0F1201F4,
-	
-	
+
+
 	0x002A1084,
 	0x0F120000, /* senHal_bUseAnalogBinning */
 	0x0F120000, /* senHal_bUseAnalogVerAvg  */
-	
+
 	/* Set AE Target */
 	0x002A0F4C,
 	0x0F120038, /* 3A TVAR_ae_BrAve */
-	
+
 	0x002A0478,
 	0x0F120114,
 	0x0F1200EB, /* ae boundary */
-	
-	
-	
+
+
+
 	/* Set Frame Rate */
 	0x002A0484,
 	0x0F12410A,/* uMaxExp1         */
@@ -5867,57 +5867,57 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0f120100,/* lt_uMaxDigGain   */
 	0x002A0F52,
 	0x0F12000F,/* ae_StatMode */
-	
+
 	/* 1. Auto Flicker 60Hz Start */
 	0x002A0B2E,
 	0x0F120001, /* AFC_Default60Hz	 Auto Flicker 60Hz start 0: Auto Flicker 50Hz start */
 	0x002A03F8,
 	0x0F12007F, /* REG_TC_DBG_AutoAlgEnBits          default : 007F  */
-	
-	
-	
+
+
+
 	0xffff000a, /* Wait10mSec */
-	
+
 	/* Set PLL */
 	/* External CLOCK (MCLK) */
 	0x002A01B8,
 	0x0F125DC0, /* REG_TC_IPRM_InClockLSBs */
 	0x0F120000, /* REG_TC_IPRM_InClockMSBs */
-	
+
 	/* Parallel or MIP Selection */
 	0x002A01C6,
 	0x0F120001, /* REG_TC_IPRM_UseNPviClocks         */
 	0x0F120001, /* REG_TC_IPRM_UseNMipiClocks        */
 	0x0F120000, /* REG_TC_IPRM_bBlockInternalPllCalc */
-	
+
 	/* System Clock 0 (System : 24Mhz, PCLK : 48Mhz) */
 	0x002A01CC,
 	0x0F121770, /* REG_TC_IPRM_OpClk4KHz_0      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_0 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_0 */
-	
+
 	/* System Clock 1 (System : 28Mhz, PCLK : 48Mhz) */
-	0x002A01D2,                
+	0x002A01D2,
 	0x0F121B58, /* REG_TC_IPRM_OpClk4KHz_1      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_1 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_1 */
-	
-	
+
+
 	0x002A01DE,
 	0x0F120001, /* REG_TC_IPRM_UseRegsAPI        */
 	0x0F120001, /* REG_TC_IPRM_InitParamsUpdated */
 	0xffff0064, /* Delay 100msec                 */
-	
-	
-	
+
+
+
 	/* Crop */
 	0x002A01FA,
 	0x0F120640, /* REG_TC_GP_PrevReqInputWidth  */
 	0x0F1204B0, /* REG_TC_GP_PrevReqInputHeight */
 	0x0F120000, /* REG_TC_GP_PrevInputWidthOfs  */
 	0x0F120000, /* REG_TC_GP_PrevInputHeightOfs */
-	
-	
+
+
 	/* Set Preview Config */
 	/* Preview Config 0 (1600x1200 fixed 15fps) */
 	0x002A0242,
@@ -5940,7 +5940,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120003, /* REG_0TC_PCFG_uPrevMirror           */
 	0x0F120003, /* REG_0TC_PCFG_uCaptureMirror        */
 	0x0F120000, /* REG_0TC_PCFG_uRotation             */
-	
+
 	/* Preview Config 1 (640x480, Not Fixed 15 ~ 30fps) */
 	0x002A0268,
 	0x0F120280, /* REG_1TC_PCFG_usWidth               */
@@ -5962,9 +5962,9 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120003, /* REG_1TC_PCFG_uPrevMirror           */
 	0x0F120003, /* REG_1TC_PCFG_uCaptureMirror        */
 	0x0F120000, /* REG_1TC_PCFG_uRotation             */
-	
-	
-	
+
+
+
 	/* Set MIPI */
 	0x002A03AC,
 	0x0F120000, /* REG_TC_FLS_Mode        */
@@ -5972,7 +5972,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120001, /* REG_TC_OIF_EnMipiLanes */
 	0x0F1200C3, /* REG_TC_OIF_EnPackets   */
 	0x0F120001, /* REG_TC_OIF_CfgChanged  */
-	
+
 	/* Apply preview config */
 	0x002A021C,
 	0x0F120000, /* REG_TC_GP_ActivePrevConfig     */
@@ -5985,9 +5985,9 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A01F0,
 	0x0F120001, /* REG_TC_GP_EnablePreview        */
 	0x0F120001, /* REG_TC_GP_EnablePreviewChanged */
-	
-	
-	
+
+
+
 	/* Set Capture Config */
 	/* Capture Config 0 (1600x1200 fixed 15fps) */
 	0x002A0302,
@@ -6008,9 +6008,9 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* REG_0TC_CCFG_sGlamour              */
 	0x0F120000, /* REG_0TC_CCFG_sColorTemp            */
 	0x0F120000, /* REG_0TC_CCFG_uDeviceGammaIndex     */
-	
-	
-	
+
+
+
 	/* Periodic mismatch */
 	0x002A0780,
 	0x0F120000, /* msm_uOffsetNoBin[0][0] */
@@ -6021,25 +6021,25 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* msm_uOffsetNoBin[2][1] */
 	0x0F120000, /* msm_uOffsetNoBin[3][0] */
 	0x0F120000, /* msm_uOffsetNoBin[3][1] */
-	
+
 	0x002A0798,
 	0x0F120000, /* msm_uOffsetBin[0][0] */
 	0x0F120000, /* msm_uOffsetBin[0][1] */
 	0x0F120000, /* msm_uOffsetBin[1][0] */
 	0x0F120000, /* msm_uOffsetBin[1][1] */
-	
+
 	0x002A07C0,
 	0x0F120004, /* msm_NonLinearOfsOutput[2] */
 	0x0F120004, /* msm_NonLinearOfsOutput[3] */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R */
 	0x0F120400, /* awbb_GainsInit_1_:G */
 	0x0F1205F0, /* awbb_GainsInit_2_:B */
 	0x002A04A0,
 	0x0F128000, /* lt_uLeiInit:AE start */
-	
-	
+
+
 	/* Set AE Weights */
 	0x002A0F5A,
 	0x0F120000, /* ae_WeightTbl_16_0_ */
@@ -6074,8 +6074,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* ae_WeightTbl_16_29 */
 	0x0F120000, /* ae_WeightTbl_16_30 */
 	0x0F120000, /* ae_WeightTbl_16_31 */
-	
-	
+
+
 	/* Set GAS & CCM White Point */
 	/* param_start	TVAR_ash_AwbAshCord */
 	0x002A0704,
@@ -6086,7 +6086,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120180, /* TVAR_ash_AwbAshCord_4_ */
 	0x0F1201B0, /* TVAR_ash_AwbAshCord_5_ */
 	0x0F120200, /* TVAR_ash_AwbAshCord_6_ */
-	
+
 	/* param_start	wbt_AwbCcmCord */
 	0x002A06F2,
 	0x0F1200B3, /* SARR_AwbCcmCord_0_	Hor   */
@@ -6095,7 +6095,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120116, /* SARR_AwbCcmCord_3_	CW    */
 	0x0F120150, /* SARR_AwbCcmCord_4_	D50   */
 	0x0F120198, /* SARR_AwbCcmCord_5_	D65   */
-	
+
 	/* Target Brightness Control */
 	0x002A103E,
 	0x0F120000, /* SARR_IllumType_0_      */
@@ -6112,55 +6112,55 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120102, /* SARe_6_R_IllumTypeF_4_ */
 	0x0F1200FB, /* SARR_IllumTypeF_5_     */
 	0x0F1200F8, /* SARR_IllumTypeF_6_     */
-	
+
 	/* TVAR_ash_GASAlpha(Indoor) */
 	0x002A0712,
 	0x0F120100, /* TVAR_ash_GASAlpha[0]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[1]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[2]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[3]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[4]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[5]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[6]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[7]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[8]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[9]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[10] */
 	0x0F120100, /* TVAR_ash_GASAlpha[11] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[12] */
 	0x0F120100, /* TVAR_ash_GASAlpha[13] */
 	0x0F120100, /* TVAR_ash_GASAlpha[14] */
 	0x0F120100, /* TVAR_ash_GASAlpha[15] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[16] */
 	0x0F120100, /* TVAR_ash_GASAlpha[17] */
 	0x0F120100, /* TVAR_ash_GASAlpha[18] */
 	0x0F120100, /* TVAR_ash_GASAlpha[19] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[20] */
 	0x0F120100, /* TVAR_ash_GASAlpha[21] */
 	0x0F120100, /* TVAR_ash_GASAlpha[22] */
 	0x0F120100, /* TVAR_ash_GASAlpha[23] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[24] */
 	0x0F120100, /* TVAR_ash_GASAlpha[25] */
 	0x0F120100, /* TVAR_ash_GASAlpha[26] */
 	0x0F120100, /* TVAR_ash_GASAlpha[27] */
-	
+
 	/* TVAR_ash_GASAlpha(Outdoor) */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_0_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_1_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_2_ */
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_3_ */
-	
+
 	/* GAS LUT Start Address */
 	0x002A0754,
 	0x0F122388, /* TVAR_ash_pGAS */
 	0x0F127000, /* TVAR_ash_pGAS */
-	
+
 	/* param_start	TVAR_ash_pGAS */
 	0x002A2388,
 	0x0F1201CC, /* TVAR_ash_pGAS[0]   */
@@ -6735,7 +6735,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1200B8, /* TVAR_ash_pGAS[569] */
 	0x0F1200E7, /* TVAR_ash_pGAS[570] */
 	0x0F120127, /* TVAR_ash_pGAS[571] */
-	
+
 	/* Gamma */
 	0x002A04CC,
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[0][0]  */
@@ -6754,7 +6754,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1203BA, /* SARR_usGammaLutRGBIndoor[0][13] */
 	0x0F1203E8, /* SARR_usGammaLutRGBIndoor[0][14] */
 	0x0F120400, /* SARR_usGammaLutRGBIndoor[0][15] */
-	
+
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[1][0]  */
 	0x0F12000D, /* SARR_usGammaLutRGBIndoor[1][1]  */
 	0x0F12001B, /* SARR_usGammaLutRGBIndoor[1][2]  */
@@ -6771,7 +6771,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1203BA, /* SARR_usGammaLutRGBIndoor[1][13] */
 	0x0F1203E8, /* SARR_usGammaLutRGBIndoor[1][14] */
 	0x0F120400, /* SARR_usGammaLutRGBIndoor[1][15] */
-	
+
 	0x0F120000, /* SARR_usGammaLutRGBIndoor[2][0]  */
 	0x0F12000D, /* SARR_usGammaLutRGBIndoor[2][1]  */
 	0x0F12001B, /* SARR_usGammaLutRGBIndoor[2][2]  */
@@ -6788,9 +6788,9 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1203BA, /* SARR_usGammaLutRGBIndoor[2][13] */
 	0x0F1203E8, /* SARR_usGammaLutRGBIndoor[2][14] */
 	0x0F120400, /* SARR_usGammaLutRGBIndoor[2][15] */
-	
-	
-	
+
+
+
 	/* Set AWB */
 	0x002A0DA6,
 	0x0F120000, /* awbb_LowBr_NBzone  */
@@ -6799,7 +6799,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* awbb_LowBr0_PatchNumZone */
 	0x002A0D6C,
 	0x0F120040, /* awbb_YMedMoveToYAv */
-	
+
 	/* Indoor Gray Zone */
 	0x002A0B9C,
 	0x0F12038F, /* awbb_IndoorGrZones_m_BGrid_0__m_left   */
@@ -6870,8 +6870,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_32__m_right */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_left  */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_right */
-	
-	
+
+
 	/* param_end	awbb_IndoorGrZones_m_BGrid */
 	0x002A0C3C,
 	0x0F120004,
@@ -6885,7 +6885,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A0C50,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Outdoor Gray Zone */
 	0x0F120264,
 	0x0F120279,
@@ -6921,8 +6921,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
-	
+
+
 	/* param_WRITE 70000CC6  B2end	awbb_OutdoorGrZones_m_BGrid */
 	0x002A0CB8,
 	0x0F120004,
@@ -6936,7 +6936,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A0CCC,
 	0x0F1200C0,
 	0x0F120000,
-	
+
 	/* Low Brightness Gray Zone */
 	0x0F12031F, /* awbb_LowBrGrZones_m_BGrid_0__m_left   */
 	0x0F120495, /* awbb_LowBrGrZones_m_BGrid_0__m_right  */
@@ -6988,8 +6988,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1201CD, /* awbb_LowBrGrZones_m_BGrid_23__m_right */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_left  */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_right */
-	
-	
+
+
 	/* 42param_end	awbb_LowBrGrZones_m_BGrid */
 	0x0F120005,
 	0x0F120000,
@@ -7002,7 +7002,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A0D48,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Lowtemp circle */
 	0x0F12032F,
 	0x0F120000,
@@ -7017,12 +7017,12 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000,
 	0x002A0D82,
 	0x0F120001,
-	
-	
-	
+
+
+
 	0x002A0D8E,
 	0x0F120002, /* awbb_GridEnable */
-	
+
 	/* Grid coefficients and Contrants */
 	0x002A0DCE,
 	0x0F12FFE0, /* awbb_GridCorr_R_0__0_ */
@@ -7031,42 +7031,42 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120000, /* awbb_GridCorr_R_0__3_ */
 	0x0F120000, /* awbb_GridCorr_R_0__4_ */
 	0x0F120058, /* awbb_GridCorr_R_0__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_1__0_ */
 	0x0F12FFE0, /* awbb_GridCorr_R_1__1_ */
 	0x0F120000, /* awbb_GridCorr_R_1__2_ */
 	0x0F120000, /* awbb_GridCorr_R_1__3_ */
 	0x0F120000, /* awbb_GridCorr_R_1__4_ */
 	0x0F120058, /* awbb_GridCorr_R_1__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_2__0_ */
 	0x0F12FFE0, /* awbb_GridCorr_R_2__1_ */
 	0x0F120000, /* awbb_GridCorr_R_2__2_ */
 	0x0F120000, /* awbb_GridCorr_R_2__3_ */
 	0x0F120000, /* awbb_GridCorr_R_2__4_ */
 	0x0F120058, /* awbb_GridCorr_R_2__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_0__0_ */
 	0x0F120000, /* awbb_GridCorr_B_0__1_ */
 	0x0F120000, /* awbb_GridCorr_B_0__2_ */
 	0x0F120000, /* awbb_GridCorr_B_0__3_ */
 	0x0F12FFF0, /* awbb_GridCorr_B_0__4_ */
 	0x0F12FED4, /* awbb_GridCorr_B_0__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_1__0_ */
 	0x0F120000, /* awbb_GridCorr_B_1__1_ */
 	0x0F120000, /* awbb_GridCorr_B_1__2_ */
 	0x0F120000, /* awbb_GridCorr_B_1__3_ */
 	0x0F12FFF0, /* awbb_GridCorr_B_1__4_ */
 	0x0F12FED4, /* awbb_GridCorr_B_1__5_ */
-	
+
 	0x0F120000, /* awbb_GridCorr_B_2__0_ */
 	0x0F120000, /* awbb_GridCorr_B_2__1_ */
 	0x0F120000, /* awbb_GridCorr_B_2__2_ */
 	0x0F120000, /* awbb_GridCorr_B_2__3_ */
 	0x0F12FFF0, /* awbb_GridCorr_B_2__4_ */
 	0x0F12FED4, /* awbb_GridCorr_B_2__5_ */
-	
+
 	0x0F1202C6, /* awbb_GridConst_1_0_ */
 	0x0F120335, /* awbb_GridConst_1_1_ */
 	0x0F1203B3, /* awbb_GridConst_1_2_ */
@@ -7076,19 +7076,19 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12117C, /* awbb_GridConst_2_3  */
 	0x0F1211C2, /* awbb_GridConst_2_4  */
 	0x0F12120B, /* awbb_GridConst_2_5  */
-	
+
 	0x0F1200B3, /* awbb_GridCoeff_R_1 */
 	0x0F1200B7, /* awbb_GridCoeff_B_1 */
 	0x0F1200D3, /* awbb_GridCoeff_R_2 */
 	0x0F120091, /* awbb_GridCoeff_B_2 */
-	
+
 	/* White Locus */
 	0x002A0D66,
 	0x0F120133,
 	0x0F12010F,
 	0x002A0D74,
 	0x0F12052A,
-	
+
 	/* Gamut Thresholds */
 	0x002A0DAE,
 	0x0F120036,
@@ -7096,7 +7096,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A0DAA,
 	0x0F12071A,
 	0x0F1203A4,
-	
+
 	/* SceneDetection Thresholds */
 	0x002A0D92,
 	0x0F120BB8,
@@ -7124,15 +7124,15 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12000E,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* AWB Debug.(Outdoor Pink) */
 	0x002A0E30,
 	0x0F120000, /* awbb_OutdoorFltrSz (outdoor WB moving average filtering) */
-	
+
 	/* UseInvalidOutdoor option */
 	0x002A0D88,
 	0x0F120001,
-	
+
 	/* AWB input Y-Filter setting */
 	0x002A0C48,
 	0x0F120020,
@@ -7142,7 +7142,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120020,
 	0x002A0CCC,
 	0x0F1200C0,
-	
+
 	/* awbb_ChromaClassifyEn, default : enable */
 	0x002A0DC2,
 	0x0F120030,
@@ -7150,8 +7150,8 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12012C,
 	0x0F120210, /* 258 awbb_GainsMaxMove */
 	0x0F120003,
-	
-	
+
+
 	/* Set CCM */
 	/* CCM Start Address */
 	0x002A06D0,
@@ -7170,7 +7170,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x002A06EC,
 	0x0F1228D8,
 	0x0F127000,
-	
+
 	/* param_start	TVAR_wbt_pBaseCcms */
 	0x002A2800,
 	0x0F1201E1, /* 01FB */
@@ -7191,7 +7191,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120163, /* 017C */
 	0x0F12FF9E, /* FFC3 */
 	0x0F1201B3, /* 0197 */
-	
+
 	0x0F1201E1, /* 01FB */
 	0x0F12FFC4, /* FF9C */
 	0x0F12FFF8, /* FFFF */
@@ -7210,7 +7210,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120163, /* 017C */
 	0x0F12FF9E, /* FFC3 */
 	0x0F1201B3, /* 0197 */
-	
+
 	0x0F1201E1, /* 01FB */
 	0x0F12FFC4, /* FF9C */
 	0x0F12FFF8, /* FFFF */
@@ -7229,7 +7229,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120163, /* 017C */
 	0x0F12FF9E, /* FFC3 */
 	0x0F1201B3, /* 0197 */
-	
+
 	0x0F1201FB, /* 01FB */
 	0x0F12FFA9, /* FF9C */
 	0x0F12FFEA, /* FFFF */
@@ -7248,7 +7248,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120176, /* 017C */
 	0x0F12FFBD, /* FFC3 */
 	0x0F120191, /* 0197 */
-	
+
 	0x0F1201FB, /* 01FB */
 	0x0F12FFA9, /* FF9C */
 	0x0F12FFEA, /* FFFF */
@@ -7267,7 +7267,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120176, /* 017C */
 	0x0F12FFBD, /* FFC3 */
 	0x0F120191, /* 0197 */
-	
+
 	0x0F1201D2, /* 01D0 */
 	0x0F12FFC2, /* FFB4 */
 	0x0F12FFFC, /* 000C */
@@ -7286,7 +7286,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120178, /* 0178 */
 	0x0F12FFBF, /* FFBF */
 	0x0F120193, /* 0193 */
-	
+
 	0x0F1201E0, /* outdoor CCM */
 	0x0F12FFBF,
 	0x0F12FFFD,
@@ -7305,32 +7305,32 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	/* Set NB */
 	0x002A07EA,
 	0x0F120000, /* afit_bUseNoiseInd 0 : NB 1: Noise Index */
-	
+
 	/* param_start	SARR_uNormBrInDoor */
 	0x0F12000A, /* SARR_uNormBrInDoor[0] */
 	0x0F120019, /* SARR_uNormBrInDoor[1] */
 	0x0F12007D, /* SARR_uNormBrInDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrInDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrInDoor[4] */
-	
+
 	/* param_start	SARR_uNormBrOutDoor */
 	0x0F12000A, /* SARR_uNormBrOutDoor[0] */
 	0x0F120019, /* SARR_uNormBrOutDoor[1] */
 	0x0F12007D, /* SARR_uNormBrOutDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrOutDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrOutDoor[4] */
-	
-	
+
+
 	/* Set AFIT */
 	/* AFIT Start Address */
 	0x002A0814,
 	0x0F12082C, /* TVAR_afit_pBaseVals */
 	0x0F127000, /* TVAR_afit_pBaseVals */
-	
+
 	/* param_start	TVAR_afit_pBaseVals */
 	0x002A082C,
 	0x0F120000, /* BRIGHTNESS                                                             */
@@ -7396,7 +7396,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F128028, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                               */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                               */
 	0x0F120032, /*  RGB2YUV_iYOffset                                                      */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                             */
 	0x0F120000, /* CONTRAST                                                               */
 	0x0F120000, /* SATURATION                                                             */
@@ -7460,7 +7460,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F128028, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                               */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                               */
 	0x0F120015, /*  RGB2YUV_iYOffset                                                      */
-	         
+
 	0x0F120000, /* BRIGHTNESS                                                             */
 	0x0F120014, /* CONTRAST                                                               */
 	0x0F120000, /* SATURATION                                                             */
@@ -7524,7 +7524,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F128028, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                               */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                               */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                      */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                             */
 	0x0F120014, /* CONTRAST                                                               */
 	0x0F120002, /* SATURATION                                                             */
@@ -7588,7 +7588,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                               */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                               */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                      */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                             */
 	0x0F120014, /* CONTRAST                                                               */
 	0x0F12000A, /* SATURATION                                                             */
@@ -7652,7 +7652,7 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F12805A, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                               */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                               */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                      */
-	
+
 	0x0F1200FF, /* Denoise1_iUVDenThreshLow                         */
 	0x0F1200FF, /* Denoise1_iUVDenThreshHigh                        */
 	0x0F120800, /* Denoise1_sensor_width                            */
@@ -7672,11 +7672,11 @@ static const u32 s5k5bafx_vt_wifi_common[] =
 	0x0F1253C1,
 	0x0F12E1FE,
 	0x0F120001,
-	
+
 	/* Update Changed Registers */
 	0x002A03FC,
 	0x0F120001, /* REG_TC_DBG_ReInitCmd */
-	
+
 	0x0028D000,
 	0x002AB0CC,
 	0x0F12000B, /* Non contious mode */
@@ -7738,13 +7738,12 @@ static const u32 s5k5bafx_capture[] =
 	0x0F12000B,
 };
 
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_NAATT)
 static const u32 s5k5bafx_recording_60Hz_common[] = {
-	
+
 	/* recording 25fps Anti-Flicker 60Hz*/
-	
+
 	0xFCFCD000,
-	
+
 	/* ARM Go */
 	0x0028D000,
 	0x002A1030,
@@ -7752,8 +7751,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A0014,
 	0x0F120001,
 	0xffff0064, /* p100	Delay */
-	
-	
+
+
 	/* Trap and Patch  2008-11-18 10:15:41 */
 	0x00287000,
 	0x002A1668,
@@ -8208,33 +8207,33 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000,
 	/* End of Trap and Patch (Last : 70002342h) */
 	/* Total Size 896 (0x0380)                  */
-	
-	
+
+
 	0x0028D000,
 	0x002A1000,
 	0x0F120001,
-	
-	
+
+
 	0x00287000,
 	0x002A1662,
 	0x0F1203B0,
 	0x0F1203B0,
-	
-	
+
+
 	0x00287000,
 	0x002A1658,
 	0x0F129C40,
 	0x0F120000,
 	0x0F129C40,
 	0x0F120000,
-	
-	
+
+
 	0x00287000,
 	0x002A0ADC,
 	0x0F120AF0, /* setot_uOnlineClocksDiv40             */
 	0x002A0AE2,
 	0x0F12222E, /* setot_usSetRomWaitStateThreshold4KHz */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R       */
 	0x0F120400, /* awbb_GainsInit_1_:G       */
@@ -8243,31 +8242,31 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F128000, /* lt_uLeiInit:AE start      */
 	0x002A049A,
 	0x0F1200FA, /* lt_uMinExp   0.5ms로 변경 */
-	
-	
+
+
 	/* Set CIS/APS/Analog */
 	0x0028D000,
 	0x002AF106,
 	0x0F120001,
 	0x002AF206,
 	0x0F120001,
-	
-	
+
+
 	0x002AC202,
 	0x0F120700,
-	
+
 	0x002AF260,
 	0x0F120001,
-	
+
 	0x002AF414,
 	0x0F120030,
-	
+
 	0x002AC204,
 	0x0F120100,
 	0x002AF402,
 	0x0F120092,
 	0x0F12007F,
-	
+
 	0x002AF700,
 	0x0F120040,
 	0x002AF708,
@@ -8285,22 +8284,22 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120015,
 	0x0F120001,
 	0x0F120040,
-	
+
 	0x002AF48A,
 	0x0F120048,
 	0x002AF10A,
 	0x0F12008B,
-	
-	
+
+
 	0x002AF900,
 	0x0F120067,
-	
-	
+
+
 	0x002AF406,
 	0x0F120092,
 	0x0F12007F,
 	0x0F120003,
-	
+
 	0x0F120003,
 	0x0F120003,
 	0x002AF442,
@@ -8312,16 +8311,16 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120001,
 	0x0F120010,
 	0x0F120000,
-	
+
 	0x002AF41A,
 	0x0F1200FF,
 	0x0F120003,
-	
+
 	0x002AF420,
 	0x0F120030,
 	0x002AF410,
 	0x0F120001,
-	
+
 	0x0F120000,
 	0x002AF416,
 	0x0F120001,
@@ -8329,7 +8328,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000,
 	0x002AF422,
 	0x0F120000,
-	
+
 	0x002AF41E,
 	0x0F120000,
 	0x002AF428,
@@ -8339,7 +8338,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002AF430,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x0F120008,
 	0x0F120005,
 	0x0F12000F,
@@ -8347,13 +8346,13 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120040,
 	0x0F120040,
 	0x0F120010,
-	
+
 	0x002AF4D6,
 	0x0F120090,
-	
-	
+
+
 	0x0F120000,
-	
+
 	0x002AF47C,
 	0x0F12000C,
 	0x0F120000,
@@ -8378,7 +8377,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12005F,
 	0x0F120017,
 	0x0F12008F,
-	
+
 	0x002AF48C,
 	0x0F120017,
 	0x0F12009B,
@@ -8387,18 +8386,18 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120193,
 	0x002AF490,
 	0x0F120191,
-	
+
 	0x002AF418,
 	0x0F120083,
-	
+
 	0x002AF454,
 	0x0F120001,
-	
+
 	0x002AF702,
 	0x0F120081,
 	0x002AF4D2,
 	0x0F120000,
-	
+
 	/* For ESD Check */
 	0x00287000,
 	0x002A0132,
@@ -8415,7 +8414,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12000A,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* CFPN Canceller */
 	0x002A116C,
 	0x0F120000,
@@ -8425,7 +8424,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120002,
 	0x002A0AE8,
 	0x0F120000,
-	
+
 	/* sensor aig table setting */
 	0x002A10EE,
 	0x0F120000,
@@ -8441,22 +8440,22 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1200FB,
 	0x002A1150,
 	0x0F1201F4,
-	
-	
+
+
 	0x002A1084,
 	0x0F120000,
 	0x0F120000,
-	
+
 	/* Set AE Target */
 	0x002A0F4C,
 	0x0F12003A, /* TVAR_ae_BrAve */
-	
+
 	0x002A0478,
 	0x0F120114,
 	0x0F1200EB, /* ae boundary */
-	
-	
-	
+
+
+
 	/* Set Frame Rate */
 	0x002A0484,
 	0x0F12410A, /* uMaxExp1 */
@@ -8478,62 +8477,62 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0f120100,
 	0x002A0F52,
 	0x0F12000F, /* ae_StatMode */
-	
+
 	0x002A0E98, /* bp_uMaxBrightnessFactor */
 	0x0F1202A8,
 	0x002A0E9E, /* bp_uMinBrightnessFactor */
 	0x0F120298,
-	
+
 	/* 1. Auto Flicker 60Hz Start */
 	0x002A0B2E,
 	0x0F120001, /* AFC_Default60Hz	 Auto Flicker 60Hz start 0: Auto Flicker 50Hz start */
 	0x002A03F8,
 	0x0F12005F, /* REG_TC_DBG_AutoAlgEnBits   default : 007F */
-	
-	
+
+
 	0xffff000a, /* p10	Wait10mSec */
-	
+
 	/* Set PLL */
 	/* External CLOCK (MCLK) */
 	0x002A01B8,
 	0x0F125DC0, /* REG_TC_IPRM_InClockLSBs */
 	0x0F120000, /* REG_TC_IPRM_InClockMSBs */
-	
+
 	/* Parallel or MIPI Selection */
 	0x002A01C6,
 	0x0F120001, /* REG_TC_IPRM_UseNPviClocks         */
 	0x0F120001, /* REG_TC_IPRM_UseNMipiClocks        */
 	0x0F120000, /* REG_TC_IPRM_bBlockInternalPllCalc */
-	
+
 	/* System Clock 0 (System : 24Mhz, PCLK : 48Mhz) */
 	0x002A01CC,
 	0x0F121770, /* REG_TC_IPRM_OpClk4KHz_0      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_0 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_0 */
-	
+
 	/* System Clock 1 (System : 48Mhz, PCLK : 48Mhz) */
-	0x002A01D2,                
+	0x002A01D2,
 	0x0F122EE0, /* REG_TC_IPRM_OpClk4KHz_1      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_1 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_1 */
-	
-	
-	
+
+
+
 	0x002A01DE,
 	0x0F120001, /* REG_TC_IPRM_UseRegsAPI        */
 	0x0F120001, /* REG_TC_IPRM_InitParamsUpdated */
 	0xffff0064, /* p100                          */
-	
-	
-	
+
+
+
 	/* Crop */
 	0x002A01FA,
 	0x0F120640, /* REG_TC_GP_PrevReqInputWidth  */
 	0x0F1204B0, /* REG_TC_GP_PrevReqInputHeight */
 	0x0F120000, /* REG_TC_GP_PrevInputWidthOfs  */
 	0x0F120000, /* REG_TC_GP_PrevInputHeightOfs */
-	
-	
+
+
 	/* Set Preview Config */
 	/* Preview Config 0 (VGA fixed 30fps) */
 	0x002A0242,
@@ -8556,7 +8555,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* REG_0TC_PCFG_uPrevMirror            */
 	0x0F120000, /* REG_0TC_PCFG_uCaptureMirror         */
 	0x0F120000, /* REG_0TC_PCFG_uRotation              */
-	
+
 	/* Preview Config 1 (640x480, Not Fixed 15 ~ 30fps) */
 	0x002A0268,
 	0x0F120280, /* REG_1TC_PCFG_usWidth                */
@@ -8578,8 +8577,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* REG_1TC_PCFG_uPrevMirror            */
 	0x0F120000, /* REG_1TC_PCFG_uCaptureMirror         */
 	0x0F120000, /* REG_1TC_PCFG_uRotation              */
-	
-	
+
+
 	/* Set MIPI */
 	0x002A03AC,
 	0x0F120000, /* REG_TC_FLS_Mode        */
@@ -8587,7 +8586,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120001, /* REG_TC_OIF_EnMipiLanes */
 	0x0F1200C3, /* REG_TC_OIF_EnPackets   */
 	0x0F120001, /* REG_TC_OIF_CfgChanged  */
-	
+
 	/* Apply preview config */
 	0x002A021C,
 	0x0F120000, /* REG_TC_GP_ActivePrevConfig */
@@ -8600,9 +8599,9 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A01F0,
 	0x0F120001, /* REG_TC_GP_EnablePreview */
 	0x0F120001, /* REG_TC_GP_EnablePreviewChanged */
-	
-	
-	
+
+
+
 	/* Set Capture Config */
 	/* Capture Config 0 (1600x1200 fixed 8fps) */
 	0x002A0302,
@@ -8623,9 +8622,9 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* REG_0TC_CCFG_sGlamour              */
 	0x0F120000, /* REG_0TC_CCFG_sColorTemp            */
 	0x0F120000, /* REG_0TC_CCFG_uDeviceGammaIndex     */
-	
-	
-	
+
+
+
 	/* Periodic mismatch */
 	0x002A0780,
 	0x0F120000,
@@ -8636,25 +8635,25 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x002A0798,
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x002A07C0,
 	0x0F120004,
 	0x0F120004,
-	
+
 	0x002A0B94,
 	0x0F120580,
 	0x0F120400,
 	0x0F1205F0,
 	0x002A04A0,
 	0x0F128000,
-	
-	
+
+
 	/* Set AE Weights */
 	0x002A0F5A,
 	0x0F120000, /* ae_WeightTbl_16_0_ */
@@ -8689,8 +8688,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* ae_WeightTbl_16_29 */
 	0x0F120000, /* ae_WeightTbl_16_30 */
 	0x0F120000, /* ae_WeightTbl_16_31 */
-	
-	
+
+
 	/* Set GAS & CCM White Point */
 	/* param_start	TVAR_ash_AwbAshCord */
 	0x002A0704,
@@ -8701,7 +8700,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120180,
 	0x0F1201B0,
 	0x0F120200,
-	
+
 	/* param_start	wbt_AwbCcmCord */
 	0x002A06F2,
 	0x0F1200B3,
@@ -8710,7 +8709,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120136,
 	0x0F120180,
 	0x0F120190,
-	
+
 	/* Target Brightness Control */
 	0x002A103E,
 	0x0F120000,
@@ -8727,55 +8726,55 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120102,
 	0x0F1200FB,
 	0x0F1200F8,
-	
+
 	/* TVAR_ash_GASAlpha(Indoor) */
 	0x002A0712,
 	0x0F120100, /* TVAR_ash_GASAlpha[0]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[1]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[2]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[3]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[4]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[5]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[6]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[7]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[8]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[9]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[10] */
 	0x0F120100, /* TVAR_ash_GASAlpha[11] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[12] */
 	0x0F120100, /* TVAR_ash_GASAlpha[13] */
 	0x0F120100, /* TVAR_ash_GASAlpha[14] */
 	0x0F120100, /* TVAR_ash_GASAlpha[15] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[16] */
 	0x0F120100, /* TVAR_ash_GASAlpha[17] */
 	0x0F120100, /* TVAR_ash_GASAlpha[18] */
 	0x0F120100, /* TVAR_ash_GASAlpha[19] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[20] */
 	0x0F120100, /* TVAR_ash_GASAlpha[21] */
 	0x0F120100, /* TVAR_ash_GASAlpha[22] */
 	0x0F120100, /* TVAR_ash_GASAlpha[23] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[24] */
 	0x0F120100, /* TVAR_ash_GASAlpha[25] */
 	0x0F120100, /* TVAR_ash_GASAlpha[26] */
 	0x0F120100, /* TVAR_ash_GASAlpha[27] */
-	
+
 	/* TVAR_ash_GASAlpha(Outdoor) */
 	0x0F120108, /* 100 TVAR_ash_GASOutdoorAlpha_0_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_1_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_2_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_3_*/
-	
+
 	/* GAS LUT Start Address */
 	0x002A0754,
 	0x0F122388,
 	0x0F127000,
-	
+
 	/* param_start	TVAR_ash_pGAS */
 	0x002A2388,
 	0x0F120160, /* TVAR_ash_pGAS[0]   */
@@ -9350,7 +9349,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1200B1, /* TVAR_ash_pGAS[569] */
 	0x0F1200D5, /* TVAR_ash_pGAS[570] */
 	0x0F1200FD, /* TVAR_ash_pGAS[571] */
-	
+
 	/* Gamma */
 	0x002A04CC,
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[0][0]  */
@@ -9369,7 +9368,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[0][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[0][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[0][15] */
-	
+
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[1][0]  */
 	0x0F120002, /* 0002 SARR_usGammaLutRGBIndoor[1][1]  */
 	0x0F120008, /* 0008 SARR_usGammaLutRGBIndoor[1][2]  */
@@ -9386,7 +9385,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[1][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[1][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[1][15] */
-	
+
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[2][0]  */
 	0x0F120002, /* 0002 SARR_usGammaLutRGBIndoor[2][1]  */
 	0x0F120008, /* 0008 SARR_usGammaLutRGBIndoor[2][2]  */
@@ -9403,8 +9402,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[2][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[2][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[2][15] */
-	
-	
+
+
 	/* Set AWB */
 	0x002A0DA6,
 	0x0F120000,
@@ -9413,7 +9412,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000,
 	0x002A0D6C,
 	0x0F120040,
-	
+
 	/* Indoor Gray Zone */
 	0x002A0B9C,
 	0x0F12038F, /* awbb_IndoorGrZones_m_BGrid_0__m_left   */
@@ -9484,8 +9483,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_32__m_right */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_left  */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_right */
-	
-	
+
+
 	/* param_end	awbb_IndoorGrZones_m_BGrid */
 	0x002A0C3C,
 	0x0F120004,
@@ -9499,7 +9498,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A0C50,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Outdoor Gray Zone */
 	0x0F12025E, /* 0264 awbb_OutdoorGrZones_m_BGrid_0__m_left    */
 	0x0F120282, /* 0279 awbb_OutdoorGrZones_m_BGrid_0__m_right   */
@@ -9535,8 +9534,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(31)          */
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(32)          */
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(33)          */
-	
-	
+
+
 	/* param_WRITE 70000CC6  B2end	awbb_OutdoorGrZones_m_BGrid */
 	0x002A0CB8,
 	0x0F120004,
@@ -9550,10 +9549,10 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A0CCC,
 	0x0F1200C0,
 	0x0F120000,
-	
+
 	/*  7-3. Low Br grey zone                     */
 	/* param_  C4start	awbb_LowBrGrZones_m_BGrid */
-	
+
 	0x0F12031F, /* awbb_LowBrGrZones_m_BGrid_0__m_left   */
 	0x0F120495, /* awbb_LowBrGrZones_m_BGrid_0__m_right  */
 	0x0F1202FC, /* awbb_LowBrGrZones_m_BGrid_1__m_left   */
@@ -9604,8 +9603,8 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1201CD, /* awbb_LowBrGrZones_m_BGrid_23__m_right */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_left  */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_right */
-	
-	
+
+
 	/* 42param_end awbb_LowBrGrZones_m_BGrid */
 	0x0F120005,
 	0x0F120000,
@@ -9618,7 +9617,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A0D48,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Lowtemp circle */
 	0x0F12032F,
 	0x0F120000,
@@ -9633,12 +9632,12 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000,
 	0x002A0D82,
 	0x0F120001,
-	
-	
-	
+
+
+
 	0x002A0D8E,
 	0x0F120002, /* awbb_GridEnable */
-	
+
 	/* Grid coefficients and Contrants */
 	0x002A0DCE,
 	0x0F12FFE0, /* awbb_GridCorr_R_0__0_ */
@@ -9647,42 +9646,42 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120000, /* awbb_GridCorr_R_0__3_ */
 	0x0F120000, /* awbb_GridCorr_R_0__4_ */
 	0x0F120030, /* awbb_GridCorr_R_0__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_1__0_ */
 	0x0F12FFE0, /* D8 awbb_GridCorr_R_1__1_ */
 	0x0F120000, /* awbb_GridCorr_R_1__2_ */
 	0x0F120000, /* awbb_GridCorr_R_1__3_ */
 	0x0F120000, /* awbb_GridCorr_R_1__4_ */
 	0x0F120030, /* awbb_GridCorr_R_1__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_2__0_ */
 	0x0F12FFE0, /* D8 awbb_GridCorr_R_2__1_ */
 	0x0F120000, /* awbb_GridCorr_R_2__2_ */
 	0x0F120000, /* awbb_GridCorr_R_2__3_ */
 	0x0F120000, /* awbb_GridCorr_R_2__4_ */
 	0x0F120030, /* awbb_GridCorr_R_2__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_0__0_ */
 	0x0F120000, /* awbb_GridCorr_B_0__1_ */
 	0x0F120000, /* awbb_GridCorr_B_0__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_0__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_0__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_0__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_1__0_ */
 	0x0F120000, /* awbb_GridCorr_B_1__1_ */
 	0x0F120000, /* awbb_GridCorr_B_1__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_1__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_1__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_1__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_2__0_ */
 	0x0F120000, /* awbb_GridCorr_B_2__1_ */
 	0x0F120000, /* awbb_GridCorr_B_2__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_2__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_2__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_2__5_ */
-	
+
 	0x0F1202C6,
 	0x0F120335,
 	0x0F1203B3,
@@ -9692,19 +9691,19 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12117C,
 	0x0F1211C2,
 	0x0F12120B,
-	
+
 	0x0F1200B3,
 	0x0F1200B7,
 	0x0F1200D3,
 	0x0F120091,
-	
+
 	/* White Locus */
 	0x002A0D66,
 	0x0F120133,
 	0x0F12010F,
 	0x002A0D74,
 	0x0F12052A,
-	
+
 	/* Gamut Thresholds */
 	0x002A0DAE,
 	0x0F120036,
@@ -9712,7 +9711,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A0DAA,
 	0x0F12071A,
 	0x0F1203A4,
-	
+
 	/* SceneDetection Thresholds */
 	0x002A0D92,
 	0x0F120BB8,
@@ -9740,17 +9739,17 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12000E,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* AWB Debug.(Outdoor Pink) */
 	0x002A0E30,
 	0x0F120000,
 	0x002A0E84,
 	0x0F120000,
-	
+
 	/* UseInvalidOutdoor option */
 	0x002A0D88,
 	0x0F120001,
-	
+
 	/* AWB input Y-Filter setting */
 	0x002A0C48,
 	0x0F120020,
@@ -9760,16 +9759,16 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120020,
 	0x002A0CCC,
 	0x0F1200C0,
-	
-	
+
+
 	0x002A0DC2,
 	0x0F120030,
 	0x0F1200C8,
 	0x0F12012C,
 	0x0F120210, /* 258 awbb_GainsMaxMove */
 	0x0F120003,
-	
-	
+
+
 	/* Set CCM */
 	/* CCM Start Address */
 	0x002A06D0,
@@ -9788,7 +9787,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x002A06EC,
 	0x0F1228D8,
 	0x0F127000,
-	
+
 	/* CCM */
 	0x002A2800,
 	0x0F1201E1,
@@ -9809,7 +9808,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201E1,
 	0x0F12FFC4,
 	0x0F12FFF8,
@@ -9828,7 +9827,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201E1,
 	0x0F12FFC4,
 	0x0F12FFF8,
@@ -9847,7 +9846,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201FB,
 	0x0F12FFA9,
 	0x0F12FFEA,
@@ -9866,7 +9865,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120182,
 	0x0F12FF91,
 	0x0F1201AA,
-	
+
 	0x0F1201C5,
 	0x0F12FF9F,
 	0x0F12FFE5,
@@ -9885,7 +9884,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1200CB,
 	0x0F12FF94,
 	0x0F12019E,
-	
+
 	0x0F1201D2,
 	0x0F12FFC2,
 	0x0F12FFFC,
@@ -9904,7 +9903,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120108,
 	0x0F12FFB3,
 	0x0F1201DD,
-	
+
 	0x0F1201D2,
 	0x0F12FFC2,
 	0x0F12FFFC,
@@ -9923,30 +9922,30 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	/* Set NB */
 	0x002A07EA,
 	0x0F120000, /*afit_bUseNoiseInd 0 : NB 1: Noise Index */
-	
+
 	/* param_start	SARR_uNormBrInDoor */
 	0x0F12000A, /* SARR_uNormBrInDoor[0] */
 	0x0F120019, /* SARR_uNormBrInDoor[1] */
 	0x0F12007D, /* SARR_uNormBrInDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrInDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrInDoor[4] */
-	
+
 	/* param_start	SARR_uNormBrOutDoor */
 	0x0F12000A, /* SARR_uNormBrOutDoor[0] */
 	0x0F120019, /* SARR_uNormBrOutDoor[1] */
 	0x0F12007D, /* SARR_uNormBrOutDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrOutDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrOutDoor[4] */
-	
+
 	/* Set AFIT */
 	0x002A0814,
 	0x0F12082C,
 	0x0F127000,
-	
+
 	0x002A082C,
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
@@ -10011,7 +10010,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F126E14, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120008, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -10075,7 +10074,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F128030, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -10139,7 +10138,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -10203,7 +10202,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F12000A, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -10267,7 +10266,7 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F128050, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F1200FF,
 	0x0F1200FF,
 	0x0F120800,
@@ -10287,24 +10286,23 @@ static const u32 s5k5bafx_recording_60Hz_common[] = {
 	0x0F1253C1,
 	0x0F12E1FE,
 	0x0F120001,
-	
+
 	/* Update Changed Registers */
 	0x002A03FC,
 	0x0F120001, /* REG_TC_DBG_ReInitCmd */
-	
+
 	0x0028D000,
 	0x002AB0CC,
 	0x0F12000B, /* Non contious mode */
 	/* Recording 25fps Anti-Flicker 60Hz END of Initial */
 };
-#else
-/* Recording with 25fps */
+
 static const u32 s5k5bafx_recording_50Hz_common[] = {
 
 	/* recording 25fps Anti-Flicker 50Hz*/
-	
+
 	0xFCFCD000,
-	
+
 	/* ARM Go */
 	0x0028D000,
 	0x002A1030,
@@ -10312,8 +10310,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A0014,
 	0x0F120001,
 	0xffff0064, /* p100	Delay */
-	
-	
+
+
 	/* Trap and Patch  2008-11-18 10:15:41 */
 	0x00287000,
 	0x002A1668,
@@ -10768,33 +10766,33 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000,
 	/* End of Trap and Patch (Last : 70002342h) */
 	/* Total Size 896 (0x0380)                  */
-	
-	
+
+
 	0x0028D000,
 	0x002A1000,
 	0x0F120001,
-	
-	
+
+
 	0x00287000,
 	0x002A1662,
 	0x0F1203B0,
 	0x0F1203B0,
-	
-	
+
+
 	0x00287000,
 	0x002A1658,
 	0x0F129C40,
 	0x0F120000,
 	0x0F129C40,
 	0x0F120000,
-	
-	
+
+
 	0x00287000,
 	0x002A0ADC,
 	0x0F120AF0, /* setot_uOnlineClocksDiv40             */
 	0x002A0AE2,
 	0x0F12222E, /* setot_usSetRomWaitStateThreshold4KHz */
-	
+
 	0x002A0B94,
 	0x0F120580, /* awbb_GainsInit_0_:R       */
 	0x0F120400, /* awbb_GainsInit_1_:G       */
@@ -10803,31 +10801,31 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F128000, /* lt_uLeiInit:AE start      */
 	0x002A049A,
 	0x0F1200FA, /* lt_uMinExp   0.5ms로 변경 */
-	
-	
+
+
 	/* Set CIS/APS/Analog */
 	0x0028D000,
 	0x002AF106,
 	0x0F120001,
 	0x002AF206,
 	0x0F120001,
-	
-	
+
+
 	0x002AC202,
 	0x0F120700,
-	
+
 	0x002AF260,
 	0x0F120001,
-	
+
 	0x002AF414,
 	0x0F120030,
-	
+
 	0x002AC204,
 	0x0F120100,
 	0x002AF402,
 	0x0F120092,
 	0x0F12007F,
-	
+
 	0x002AF700,
 	0x0F120040,
 	0x002AF708,
@@ -10845,22 +10843,22 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120015,
 	0x0F120001,
 	0x0F120040,
-	
+
 	0x002AF48A,
 	0x0F120048,
 	0x002AF10A,
 	0x0F12008B,
-	
-	
+
+
 	0x002AF900,
 	0x0F120067,
-	
-	
+
+
 	0x002AF406,
 	0x0F120092,
 	0x0F12007F,
 	0x0F120003,
-	
+
 	0x0F120003,
 	0x0F120003,
 	0x002AF442,
@@ -10872,16 +10870,16 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120001,
 	0x0F120010,
 	0x0F120000,
-	
+
 	0x002AF41A,
 	0x0F1200FF,
 	0x0F120003,
-	
+
 	0x002AF420,
 	0x0F120030,
 	0x002AF410,
 	0x0F120001,
-	
+
 	0x0F120000,
 	0x002AF416,
 	0x0F120001,
@@ -10889,7 +10887,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000,
 	0x002AF422,
 	0x0F120000,
-	
+
 	0x002AF41E,
 	0x0F120000,
 	0x002AF428,
@@ -10899,7 +10897,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002AF430,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x0F120008,
 	0x0F120005,
 	0x0F12000F,
@@ -10907,13 +10905,13 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120040,
 	0x0F120040,
 	0x0F120010,
-	
+
 	0x002AF4D6,
 	0x0F120090,
-	
-	
+
+
 	0x0F120000,
-	
+
 	0x002AF47C,
 	0x0F12000C,
 	0x0F120000,
@@ -10938,7 +10936,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12005F,
 	0x0F120017,
 	0x0F12008F,
-	
+
 	0x002AF48C,
 	0x0F120017,
 	0x0F12009B,
@@ -10947,23 +10945,23 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120193,
 	0x002AF490,
 	0x0F120191,
-	
+
 	0x002AF418,
 	0x0F120083,
-	
+
 	0x002AF454,
 	0x0F120001,
-	
+
 	0x002AF702,
 	0x0F120081,
 	0x002AF4D2,
 	0x0F120000,
-	
+
 	/* For ESD Check */
 	0x00287000,
 	0x002A0132,
 	0x0F12AAAA,
-	
+
 	/* Set FPN Gain Input */
 	0x002A1176,
 	0x0F120020,
@@ -10974,7 +10972,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12000A,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* CFPN Canceller */
 	0x002A116C,
 	0x0F120000,
@@ -10984,7 +10982,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120002,
 	0x002A0AE8,
 	0x0F120000,
-	
+
 	/* sensor aig table setting */
 	0x002A10EE,
 	0x0F120000,
@@ -11000,22 +10998,22 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1200FB,
 	0x002A1150,
 	0x0F1201F4,
-	
-	
+
+
 	0x002A1084,
 	0x0F120000,
 	0x0F120000,
-	
+
 	/* Set AE Target */
 	0x002A0F4C,
 	0x0F12003A, /* TVAR_ae_BrAve */
-	
+
 	0x002A0478,
 	0x0F120114,
 	0x0F1200EB, /* ae boundary */
-	
-	
-	
+
+
+
 	/* Set Frame Rate */
 	0x002A0484,
 	0x0F12410A, /* uMaxExp1 */
@@ -11037,62 +11035,62 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0f120100,
 	0x002A0F52,
 	0x0F12000F, /* ae_StatMode */
-	
+
 	0x002A0E98, /* bp_uMaxBrightnessFactor */
 	0x0F1202A8,
 	0x002A0E9E, /* bp_uMinBrightnessFactor */
 	0x0F120298,
-	
+
 	/* 1. Auto Flicker 50Hz Start */
 	0x002A0B2E,
 	0x0F120000, /* AFC_Default60Hz	 Auto Flicker 60Hz start 0: Auto Flicker 50Hz start */
 	0x002A03F8,
 	0x0F12005F, /* REG_TC_DBG_AutoAlgEnBits   default : 007F */
-	
-	
+
+
 	0xffff000a, /* p10	Wait10mSec */
-	
+
 	/* Set PLL */
 	/* External CLOCK (MCLK) */
 	0x002A01B8,
 	0x0F125DC0, /* REG_TC_IPRM_InClockLSBs */
 	0x0F120000, /* REG_TC_IPRM_InClockMSBs */
-	
+
 	/* Parallel or MIPI Selection */
 	0x002A01C6,
 	0x0F120001, /* REG_TC_IPRM_UseNPviClocks         */
 	0x0F120001, /* REG_TC_IPRM_UseNMipiClocks        */
 	0x0F120000, /* REG_TC_IPRM_bBlockInternalPllCalc */
-	
+
 	/* System Clock 0 (System : 24Mhz, PCLK : 48Mhz) */
 	0x002A01CC,
 	0x0F121770, /* REG_TC_IPRM_OpClk4KHz_0      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_0 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_0 */
-	
+
 	/* System Clock 1 (System : 48Mhz, PCLK : 48Mhz) */
-	0x002A01D2,                
+	0x002A01D2,
 	0x0F122EE0, /* REG_TC_IPRM_OpClk4KHz_1      */
 	0x0F122EE0, /* REG_TC_IPRM_MinOutRate4KHz_1 */
 	0x0F122EE0, /* REG_TC_IPRM_MaxOutRate4KHz_1 */
-	
-	
-	
+
+
+
 	0x002A01DE,
 	0x0F120001, /* REG_TC_IPRM_UseRegsAPI        */
 	0x0F120001, /* REG_TC_IPRM_InitParamsUpdated */
 	0xffff0064, /* p100                          */
-	
-	
-	
+
+
+
 	/* Crop */
 	0x002A01FA,
 	0x0F120640, /* REG_TC_GP_PrevReqInputWidth  */
 	0x0F1204B0, /* REG_TC_GP_PrevReqInputHeight */
 	0x0F120000, /* REG_TC_GP_PrevInputWidthOfs  */
 	0x0F120000, /* REG_TC_GP_PrevInputHeightOfs */
-	
-	
+
+
 	/* Set Preview Config */
 	/* Preview Config 0 (VGA fixed 30fps) */
 	0x002A0242,
@@ -11115,7 +11113,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* REG_0TC_PCFG_uPrevMirror            */
 	0x0F120000, /* REG_0TC_PCFG_uCaptureMirror         */
 	0x0F120000, /* REG_0TC_PCFG_uRotation              */
-	
+
 	/* Preview Config 1 (640x480, Not Fixed 15 ~ 30fps) */
 	0x002A0268,
 	0x0F120280, /* REG_1TC_PCFG_usWidth                */
@@ -11137,8 +11135,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* REG_1TC_PCFG_uPrevMirror            */
 	0x0F120000, /* REG_1TC_PCFG_uCaptureMirror         */
 	0x0F120000, /* REG_1TC_PCFG_uRotation              */
-	
-	
+
+
 	/* Set MIPI */
 	0x002A03AC,
 	0x0F120000, /* REG_TC_FLS_Mode        */
@@ -11146,7 +11144,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120001, /* REG_TC_OIF_EnMipiLanes */
 	0x0F1200C3, /* REG_TC_OIF_EnPackets   */
 	0x0F120001, /* REG_TC_OIF_CfgChanged  */
-	
+
 	/* Apply preview config */
 	0x002A021C,
 	0x0F120000, /* REG_TC_GP_ActivePrevConfig */
@@ -11159,9 +11157,9 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A01F0,
 	0x0F120001, /* REG_TC_GP_EnablePreview */
 	0x0F120001, /* REG_TC_GP_EnablePreviewChanged */
-	
-	
-	
+
+
+
 	/* Set Capture Config */
 	/* Capture Config 0 (1600x1200 fixed 8fps) */
 	0x002A0302,
@@ -11182,9 +11180,9 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* REG_0TC_CCFG_sGlamour              */
 	0x0F120000, /* REG_0TC_CCFG_sColorTemp            */
 	0x0F120000, /* REG_0TC_CCFG_uDeviceGammaIndex     */
-	
-	
-	
+
+
+
 	/* Periodic mismatch */
 	0x002A0780,
 	0x0F120000,
@@ -11195,25 +11193,25 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x002A0798,
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
 	0x0F120000,
-	
+
 	0x002A07C0,
 	0x0F120004,
 	0x0F120004,
-	
+
 	0x002A0B94,
 	0x0F120580,
 	0x0F120400,
 	0x0F1205F0,
 	0x002A04A0,
 	0x0F128000,
-	
-	
+
+
 	/* Set AE Weights */
 	0x002A0F5A,
 	0x0F120000, /* ae_WeightTbl_16_0_ */
@@ -11248,8 +11246,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* ae_WeightTbl_16_29 */
 	0x0F120000, /* ae_WeightTbl_16_30 */
 	0x0F120000, /* ae_WeightTbl_16_31 */
-	
-	
+
+
 	/* Set GAS & CCM White Point */
 	/* param_start	TVAR_ash_AwbAshCord */
 	0x002A0704,
@@ -11260,7 +11258,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120180,
 	0x0F1201B0,
 	0x0F120200,
-	
+
 	/* param_start	wbt_AwbCcmCord */
 	0x002A06F2,
 	0x0F1200B3,
@@ -11269,7 +11267,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120136,
 	0x0F120180,
 	0x0F120190,
-	
+
 	/* Target Brightness Control */
 	0x002A103E,
 	0x0F120000,
@@ -11286,55 +11284,55 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120102,
 	0x0F1200FB,
 	0x0F1200F8,
-	
+
 	/* TVAR_ash_GASAlpha(Indoor) */
 	0x002A0712,
 	0x0F120100, /* TVAR_ash_GASAlpha[0]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[1]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[2]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[3]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[4]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[5]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[6]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[7]  */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[8]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[9]  */
 	0x0F120100, /* TVAR_ash_GASAlpha[10] */
 	0x0F120100, /* TVAR_ash_GASAlpha[11] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[12] */
 	0x0F120100, /* TVAR_ash_GASAlpha[13] */
 	0x0F120100, /* TVAR_ash_GASAlpha[14] */
 	0x0F120100, /* TVAR_ash_GASAlpha[15] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[16] */
 	0x0F120100, /* TVAR_ash_GASAlpha[17] */
 	0x0F120100, /* TVAR_ash_GASAlpha[18] */
 	0x0F120100, /* TVAR_ash_GASAlpha[19] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[20] */
 	0x0F120100, /* TVAR_ash_GASAlpha[21] */
 	0x0F120100, /* TVAR_ash_GASAlpha[22] */
 	0x0F120100, /* TVAR_ash_GASAlpha[23] */
-	
+
 	0x0F120100, /* TVAR_ash_GASAlpha[24] */
 	0x0F120100, /* TVAR_ash_GASAlpha[25] */
 	0x0F120100, /* TVAR_ash_GASAlpha[26] */
 	0x0F120100, /* TVAR_ash_GASAlpha[27] */
-	
+
 	/* TVAR_ash_GASAlpha(Outdoor) */
 	0x0F120108, /* 100 TVAR_ash_GASOutdoorAlpha_0_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_1_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_2_*/
 	0x0F120100, /* TVAR_ash_GASOutdoorAlpha_3_*/
-	
+
 	/* GAS LUT Start Address */
 	0x002A0754,
 	0x0F122388,
 	0x0F127000,
-	
+
 	/* param_start	TVAR_ash_pGAS */
 	0x002A2388,
 	0x0F120160, /* TVAR_ash_pGAS[0]   */
@@ -11909,7 +11907,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1200B1, /* TVAR_ash_pGAS[569] */
 	0x0F1200D5, /* TVAR_ash_pGAS[570] */
 	0x0F1200FD, /* TVAR_ash_pGAS[571] */
-	
+
 	/* Gamma */
 	0x002A04CC,
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[0][0]  */
@@ -11928,7 +11926,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[0][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[0][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[0][15] */
-	
+
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[1][0]  */
 	0x0F120002, /* 0002 SARR_usGammaLutRGBIndoor[1][1]  */
 	0x0F120008, /* 0008 SARR_usGammaLutRGBIndoor[1][2]  */
@@ -11945,7 +11943,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[1][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[1][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[1][15] */
-	
+
 	0x0F120000, /* 0000 SARR_usGammaLutRGBIndoor[2][0]  */
 	0x0F120002, /* 0002 SARR_usGammaLutRGBIndoor[2][1]  */
 	0x0F120008, /* 0008 SARR_usGammaLutRGBIndoor[2][2]  */
@@ -11962,8 +11960,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1203C2, /* 03C2 SARR_usGammaLutRGBIndoor[2][13] */
 	0x0F1203EA, /* 03EA SARR_usGammaLutRGBIndoor[2][14] */
 	0x0F1203FF, /* 03FF SARR_usGammaLutRGBIndoor[2][15] */
-	
-	
+
+
 	/* Set AWB */
 	0x002A0DA6,
 	0x0F120000,
@@ -11972,7 +11970,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000,
 	0x002A0D6C,
 	0x0F120040,
-	
+
 	/* Indoor Gray Zone */
 	0x002A0B9C,
 	0x0F12038F, /* awbb_IndoorGrZones_m_BGrid_0__m_left   */
@@ -12043,8 +12041,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_32__m_right */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_left  */
 	0x0F120000, /* awbb_IndoorGrZones_m_BGrid_33__m_right */
-	
-	
+
+
 	/* param_end	awbb_IndoorGrZones_m_BGrid */
 	0x002A0C3C,
 	0x0F120004,
@@ -12058,7 +12056,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A0C50,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Outdoor Gray Zone */
 	0x0F12025E, /* 0264 awbb_OutdoorGrZones_m_BGrid_0__m_left    */
 	0x0F120282, /* 0279 awbb_OutdoorGrZones_m_BGrid_0__m_right   */
@@ -12094,8 +12092,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(31)          */
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(32)          */
 	0x0F120000, /* 0000 awbb_OutdoorGrZones_m_BGrid(33)          */
-	
-	
+
+
 	/* param_WRITE 70000CC6  B2end	awbb_OutdoorGrZones_m_BGrid */
 	0x002A0CB8,
 	0x0F120004,
@@ -12109,10 +12107,10 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A0CCC,
 	0x0F1200C0,
 	0x0F120000,
-	
+
 	/*  7-3. Low Br grey zone                     */
 	/* param_  C4start	awbb_LowBrGrZones_m_BGrid */
-	
+
 	0x0F12031F, /* awbb_LowBrGrZones_m_BGrid_0__m_left   */
 	0x0F120495, /* awbb_LowBrGrZones_m_BGrid_0__m_right  */
 	0x0F1202FC, /* awbb_LowBrGrZones_m_BGrid_1__m_left   */
@@ -12163,8 +12161,8 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1201CD, /* awbb_LowBrGrZones_m_BGrid_23__m_right */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_left  */
 	0x0F120000, /* awbb_LowBrGrZones_m_BGrid_24__m_right */
-	
-	
+
+
 	/* 42param_end awbb_LowBrGrZones_m_BGrid */
 	0x0F120005,
 	0x0F120000,
@@ -12177,7 +12175,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A0D48,
 	0x0F1200E0,
 	0x0F120000,
-	
+
 	/* Lowtemp circle */
 	0x0F12032F,
 	0x0F120000,
@@ -12192,12 +12190,12 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000,
 	0x002A0D82,
 	0x0F120001,
-	
-	
-	
+
+
+
 	0x002A0D8E,
 	0x0F120002, /* awbb_GridEnable */
-	
+
 	/* Grid coefficients and Contrants */
 	0x002A0DCE,
 	0x0F12FFE0, /* awbb_GridCorr_R_0__0_ */
@@ -12206,42 +12204,42 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120000, /* awbb_GridCorr_R_0__3_ */
 	0x0F120000, /* awbb_GridCorr_R_0__4_ */
 	0x0F120030, /* awbb_GridCorr_R_0__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_1__0_ */
 	0x0F12FFE0, /* D8 awbb_GridCorr_R_1__1_ */
 	0x0F120000, /* awbb_GridCorr_R_1__2_ */
 	0x0F120000, /* awbb_GridCorr_R_1__3_ */
 	0x0F120000, /* awbb_GridCorr_R_1__4_ */
 	0x0F120030, /* awbb_GridCorr_R_1__5_ */
-	
+
 	0x0F12FFE0, /* awbb_GridCorr_R_2__0_ */
 	0x0F12FFE0, /* D8 awbb_GridCorr_R_2__1_ */
 	0x0F120000, /* awbb_GridCorr_R_2__2_ */
 	0x0F120000, /* awbb_GridCorr_R_2__3_ */
 	0x0F120000, /* awbb_GridCorr_R_2__4_ */
 	0x0F120030, /* awbb_GridCorr_R_2__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_0__0_ */
 	0x0F120000, /* awbb_GridCorr_B_0__1_ */
 	0x0F120000, /* awbb_GridCorr_B_0__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_0__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_0__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_0__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_1__0_ */
 	0x0F120000, /* awbb_GridCorr_B_1__1_ */
 	0x0F120000, /* awbb_GridCorr_B_1__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_1__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_1__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_1__5_ */
-	
+
 	0x0F120004, /* 08 awbb_GridCorr_B_2__0_ */
 	0x0F120000, /* awbb_GridCorr_B_2__1_ */
 	0x0F120000, /* awbb_GridCorr_B_2__2_ */
 	0x0F12FFC0, /* awbb_GridCorr_B_2__3_ */
 	0x0F12FFB0, /* awbb_GridCorr_B_2__4_ */
 	0x0F12FF30, /* awbb_GridCorr_B_2__5_ */
-	
+
 	0x0F1202C6,
 	0x0F120335,
 	0x0F1203B3,
@@ -12251,19 +12249,19 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12117C,
 	0x0F1211C2,
 	0x0F12120B,
-	
+
 	0x0F1200B3,
 	0x0F1200B7,
 	0x0F1200D3,
 	0x0F120091,
-	
+
 	/* White Locus */
 	0x002A0D66,
 	0x0F120133,
 	0x0F12010F,
 	0x002A0D74,
 	0x0F12052A,
-	
+
 	/* Gamut Thresholds */
 	0x002A0DAE,
 	0x0F120036,
@@ -12271,7 +12269,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A0DAA,
 	0x0F12071A,
 	0x0F1203A4,
-	
+
 	/* SceneDetection Thresholds */
 	0x002A0D92,
 	0x0F120BB8,
@@ -12299,17 +12297,17 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12000E,
 	0x0F120008,
 	0x0F120004,
-	
+
 	/* AWB Debug.(Outdoor Pink) */
 	0x002A0E30,
 	0x0F120000,
 	0x002A0E84,
 	0x0F120000,
-	
+
 	/* UseInvalidOutdoor option */
 	0x002A0D88,
 	0x0F120001,
-	
+
 	/* AWB input Y-Filter setting */
 	0x002A0C48,
 	0x0F120020,
@@ -12319,16 +12317,16 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120020,
 	0x002A0CCC,
 	0x0F1200C0,
-	
-	
+
+
 	0x002A0DC2,
 	0x0F120030,
 	0x0F1200C8,
 	0x0F12012C,
 	0x0F120210, /* 258 awbb_GainsMaxMove */
 	0x0F120003,
-	
-	
+
+
 	/* Set CCM */
 	/* CCM Start Address */
 	0x002A06D0,
@@ -12347,7 +12345,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x002A06EC,
 	0x0F1228D8,
 	0x0F127000,
-	
+
 	/* CCM */
 	0x002A2800,
 	0x0F1201E1,
@@ -12368,7 +12366,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201E1,
 	0x0F12FFC4,
 	0x0F12FFF8,
@@ -12387,7 +12385,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201E1,
 	0x0F12FFC4,
 	0x0F12FFF8,
@@ -12406,7 +12404,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	0x0F1201FB,
 	0x0F12FFA9,
 	0x0F12FFEA,
@@ -12425,7 +12423,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120182,
 	0x0F12FF91,
 	0x0F1201AA,
-	
+
 	0x0F1201C5,
 	0x0F12FF9F,
 	0x0F12FFE5,
@@ -12444,7 +12442,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1200CB,
 	0x0F12FF94,
 	0x0F12019E,
-	
+
 	0x0F1201D2,
 	0x0F12FFC2,
 	0x0F12FFFC,
@@ -12463,7 +12461,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120108,
 	0x0F12FFB3,
 	0x0F1201DD,
-	
+
 	0x0F1201D2,
 	0x0F12FFC2,
 	0x0F12FFFC,
@@ -12482,30 +12480,30 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F120163,
 	0x0F12FF9E,
 	0x0F1201B3,
-	
+
 	/* Set NB */
 	0x002A07EA,
 	0x0F120000, /*afit_bUseNoiseInd 0 : NB 1: Noise Index */
-	
+
 	/* param_start	SARR_uNormBrInDoor */
 	0x0F12000A, /* SARR_uNormBrInDoor[0] */
 	0x0F120019, /* SARR_uNormBrInDoor[1] */
 	0x0F12007D, /* SARR_uNormBrInDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrInDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrInDoor[4] */
-	
+
 	/* param_start	SARR_uNormBrOutDoor */
 	0x0F12000A, /* SARR_uNormBrOutDoor[0] */
 	0x0F120019, /* SARR_uNormBrOutDoor[1] */
 	0x0F12007D, /* SARR_uNormBrOutDoor[2] */
 	0x0F1202BC, /* SARR_uNormBrOutDoor[3] */
 	0x0F1207D0, /* SARR_uNormBrOutDoor[4] */
-	
+
 	/* Set AFIT */
 	0x002A0814,
 	0x0F12082C,
 	0x0F127000,
-	
+
 	0x002A082C,
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
@@ -12570,7 +12568,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F126E14, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120008, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -12634,7 +12632,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F128030, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -12698,7 +12696,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F120000, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -12762,7 +12760,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F12803C, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F120000, /* BRIGHTNESS                                                         */
 	0x0F12000A, /* CONTRAST                                                           */
 	0x0F120000, /* SATURATION                                                         */
@@ -12826,7 +12824,7 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F128050, /* "byr_gas2_iShadingPowerRGB2YUV_iRGBGain"                           */
 	0x0F120180, /* "RGB2YUV_iSaturationRGB2YUV_bGainOffset"                           */
 	0x0F120000, /*  RGB2YUV_iYOffset                                                  */
-	
+
 	0x0F1200FF,
 	0x0F1200FF,
 	0x0F120800,
@@ -12846,17 +12844,16 @@ static const u32 s5k5bafx_recording_50Hz_common[] = {
 	0x0F1253C1,
 	0x0F12E1FE,
 	0x0F120001,
-	
+
 	/* Update Changed Registers */
 	0x002A03FC,
 	0x0F120001, /* REG_TC_DBG_ReInitCmd */
-	
+
 	0x0028D000,
 	0x002AB0CC,
 	0x0F12000B, /* Non contious mode */
 	/* Recording 25fps Anti-Flicker 50Hz END of Initial */
 };
-#endif
 
 static const u32 s5k5bafx_stream_stop[] =
 {
@@ -13387,7 +13384,7 @@ static const u32 s5k5bafx_pattern_on[] = {
 	0x0F12FFF2, /* SARR_uNormBrInDoor[2] */
 	0x0F12FFF3, /* SARR_uNormBrInDoor[3] */
 	0x0F12FFF4, /* SARR_uNormBrInDoor[4] */
-	
+
 	0x002A07F6,
 	0x0F12FFF0, /* SARR_uNormBrOutDoor[0] */
 	0x0F12FFF1, /* SARR_uNormBrOutDoor[1] */
@@ -13419,7 +13416,7 @@ static const u32 s5k5bafx_pattern_on[] = {
 	0x0F120000,
 	0x002A3100,
 	0x0F120002, /* Colorbar pattern */
-	
+
 	0xffff0032, /* Delay 50msec */
 };
 

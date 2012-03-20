@@ -16,6 +16,8 @@
 #include <media/v4l2-ioctl.h>
 
 #include <linux/videodev2_samsung.h>
+#include <linux/io.h>
+#include <asm/cacheflush.h>
 
 #include "s5p_tvout_common_lib.h"
 #include "s5p_tvout_ctrl.h"
@@ -44,10 +46,17 @@ extern void *s5p_getaddress(unsigned int cookie);
 #endif
 #endif
 
+extern struct s5p_tvout_vp_bufferinfo s5ptv_vp_buff;
+
 #define V4L2_STD_ALL_HD				((v4l2_std_id)0xffffffff)
 
+#ifdef CONFIG_CPU_EXYNOS4210
 #define S5P_TVOUT_TVIF_MINOR			14
 #define S5P_TVOUT_VO_MINOR			21
+#else
+#define S5P_TVOUT_TVIF_MINOR			16
+#define S5P_TVOUT_VO_MINOR			20
+#endif
 
 #define V4L2_OUTPUT_TYPE_COMPOSITE		5
 #define V4L2_OUTPUT_TYPE_HDMI			10
@@ -76,10 +85,17 @@ extern void *s5p_getaddress(unsigned int cookie);
 #define V4L2_STD_1080P_59	((v4l2_std_id)0x11000000)
 #define V4L2_STD_1080P_30	((v4l2_std_id)0x12000000)
 
+#ifdef	CONFIG_HDMI_14A_3D
+#define V4L2_STD_TVOUT_720P_60_SBS_HALF	((v4l2_std_id)0x13000000)
+#define V4L2_STD_TVOUT_720P_59_SBS_HALF	((v4l2_std_id)0x14000000)
+#define V4L2_STD_TVOUT_720P_50_TB	((v4l2_std_id)0x15000000)
+#define V4L2_STD_TVOUT_1080P_24_TB	((v4l2_std_id)0x16000000)
+#define V4L2_STD_TVOUT_1080P_23_TB	((v4l2_std_id)0x17000000)
+#endif
+
 #define CVBS_S_VIDEO (V4L2_STD_NTSC_M | V4L2_STD_NTSC_M_JP| \
 	V4L2_STD_PAL | V4L2_STD_PAL_M | V4L2_STD_PAL_N | V4L2_STD_PAL_Nc | \
 	V4L2_STD_PAL_60 | V4L2_STD_NTSC_443)
-
 
 struct v4l2_vid_overlay_src {
 	void			*base_y;
@@ -232,7 +248,34 @@ static const struct v4l2_standard s5p_tvout_tvif_standard[] = {
 		.index	= 21,
 		.id	= V4L2_STD_1080P_30,
 		.name	= "1080I_30",
-	}
+	},
+#ifdef CONFIG_HDMI_14A_3D
+	{
+		.index	= 22,
+		.id	= V4L2_STD_TVOUT_720P_60_SBS_HALF,
+		.name	= "720P_60_SBS_HALF",
+	},
+	{
+		.index	= 23,
+		.id	= V4L2_STD_TVOUT_720P_59_SBS_HALF,
+		.name	= "720P_59_SBS_HALF",
+	},
+	{
+		.index	= 24,
+		.id	= V4L2_STD_TVOUT_720P_50_TB,
+		.name	= "720P_50_TB",
+	},
+	{
+		.index	= 25,
+		.id	= V4L2_STD_TVOUT_1080P_24_TB,
+		.name	= "1080P_24_TB",
+	},
+	{
+		.index	= 26,
+		.id	= V4L2_STD_TVOUT_1080P_23_TB,
+		.name	= "1080P_23_TB",
+	},
+#endif
 };
 
 #define S5P_TVOUT_TVIF_NO_OF_STANDARD ARRAY_SIZE(s5p_tvout_tvif_standard)
@@ -250,7 +293,7 @@ static const struct v4l2_fmtdesc s5p_tvout_vo_fmt_desc[] = {
 		.pixelformat	= V4L2_PIX_FMT_NV12T,
 		.description	= "NV12T (Tiled YUV420 2 Planes)",
 	},
-/* This block will be used on S5PV310 */
+/* This block will be used on EXYNOS4210 */
 	{
 		.index		= 2,
 		.type		= V4L2_BUF_TYPE_PRIVATE,
@@ -512,6 +555,23 @@ static int s5p_tvout_tvif_s_output(
 		tv_std = TVOUT_1080P_50;
 		break;
 
+#ifdef CONFIG_HDMI_14A_3D
+	case V4L2_STD_TVOUT_720P_60_SBS_HALF:
+		tv_std = TVOUT_720P_60_SBS_HALF;
+		break;
+	case V4L2_STD_TVOUT_720P_59_SBS_HALF:
+		tv_std = TVOUT_720P_59_SBS_HALF;
+		break;
+	case V4L2_STD_TVOUT_720P_50_TB:
+		tv_std = TVOUT_720P_50_TB;
+		break;
+	case V4L2_STD_TVOUT_1080P_24_TB:
+		tv_std = TVOUT_1080P_24_TB;
+		break;
+	case V4L2_STD_TVOUT_1080P_23_TB:
+		tv_std = TVOUT_1080P_23_TB;
+		break;
+#endif
 	default:
 		tvout_err("Invalid standard id(0x%08Lx)\n",
 			s5p_tvout_v4l2_private.tvif_standard_id);
@@ -614,9 +674,45 @@ static int s5p_tvout_tvif_cropcap(
 		cropcap->defrect.height = 1080;
 		break;
 
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_720P_60_SBS_HALF:
+	case TVOUT_720P_59_SBS_HALF:
+	case TVOUT_720P_50_TB:
+		cropcap->bounds.top = 0;
+		cropcap->bounds.left = 0;
+		cropcap->bounds.width = 1280;
+		cropcap->bounds.height = 720;
+
+		cropcap->defrect.top = 0;
+		cropcap->defrect.left = 0;
+		cropcap->defrect.width = 1280;
+		cropcap->defrect.height = 720;
+		break;
+
+	case TVOUT_1080P_24_TB:
+	case TVOUT_1080P_23_TB:
+		cropcap->bounds.top = 0;
+		cropcap->bounds.left = 0;
+		cropcap->bounds.width = 1920;
+		cropcap->bounds.height = 1080;
+
+		cropcap->defrect.top = 0;
+		cropcap->defrect.left = 0;
+		cropcap->defrect.width = 1920;
+		cropcap->defrect.height = 1080;
+		break;
+#endif
+
 	default:
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int s5p_tvout_tvif_wait_for_vsync(void)
+{
+	sleep_on_timeout(&s5ptv_wq, HZ / 10);
 
 	return 0;
 }
@@ -631,20 +727,29 @@ const struct v4l2_ioctl_ops s5p_tvout_tvif_ioctl_ops = {
 	.vidioc_cropcap		= s5p_tvout_tvif_cropcap,
 };
 
-#define VIDIOC_HDCP_ENABLE	_IOWR('V', 100, unsigned int)
-#define VIDIOC_HDCP_STATUS	_IOR('V', 101, unsigned int)
-#define VIDIOC_HDCP_PROT_STATUS	_IOR('V', 102, unsigned int)
-#define VIDIOC_INIT_AUDIO	_IOR('V', 103, unsigned int)
-#define VIDIOC_AV_MUTE		_IOR('V', 104, unsigned int)
-#define VIDIOC_G_AVMUTE		_IOR('V', 105, unsigned int)
+#define VIDIOC_HDCP_ENABLE		_IOWR('V', 100, unsigned int)
+#define VIDIOC_HDCP_STATUS		_IOR('V', 101, unsigned int)
+#define VIDIOC_HDCP_PROT_STATUS		_IOR('V', 102, unsigned int)
+#define VIDIOC_INIT_AUDIO		_IOR('V', 103, unsigned int)
+#define VIDIOC_AV_MUTE			_IOR('V', 104, unsigned int)
+#define VIDIOC_G_AVMUTE			_IOR('V', 105, unsigned int)
+#define VIDIOC_SET_VSYNC_INT		_IOR('V', 106, unsigned int)
+#define VIDIOC_WAITFORVSYNC		_IOR('V', 107, unsigned int)
+#define VIDIOC_G_VP_BUFF_INFO		_IOR('V', 108, unsigned int)
+#define VIDIOC_S_VP_BUFF_INFO		_IOR('V', 109, unsigned int)
+#define VIDIOC_S_AUDIO_CHANNEL		_IOR('V', 110, unsigned int)
+
 
 long s5p_tvout_tvif_ioctl(
 		struct file *file, unsigned int cmd, unsigned long arg)
 {
+	long ret = 0;
+	void *argp = (void *) arg;
+	int i = 0;
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	s5p_tvout_mutex_lock();
 #endif
-	long ret = 0;
 
 	tvout_dbg("\n");
 
@@ -714,6 +819,85 @@ long s5p_tvout_tvif_ioctl(
 			sizeof(struct v4l2_standard));
 
 		goto end_tvif_ioctl;
+	}
+
+	case VIDIOC_SET_VSYNC_INT:
+		s5p_mixer_ctrl_set_vsync_interrupt((int)argp);
+		goto end_tvif_ioctl;
+
+	case VIDIOC_WAITFORVSYNC:
+		s5p_tvout_tvif_wait_for_vsync();
+		goto end_tvif_ioctl;
+
+	case VIDIOC_G_VP_BUFF_INFO: {
+		struct s5ptv_vp_buf_info __user *buff_info =
+			(struct s5ptv_vp_buf_info __user *)arg;
+		struct s5p_tvout_vp_buff __user *buffs;
+		unsigned int tmp = S5PTV_VP_BUFF_CNT;
+		ret = copy_to_user(&buff_info->buff_cnt, &tmp, sizeof(tmp));
+		if (WARN_ON(ret))
+			goto end_tvif_ioctl;
+		ret = copy_from_user(&buffs, &buff_info->buffs,
+				     sizeof(struct s5p_tvout_vp_buff *));
+		if (WARN_ON(ret))
+			goto end_tvif_ioctl;
+		for (i = 0; i < S5PTV_VP_BUFF_CNT; i++) {
+			ret = copy_to_user(&buffs[i].phy_base,
+					   &s5ptv_vp_buff.vp_buffs[i].phy_base,
+					   sizeof(unsigned int));
+			if (WARN_ON(ret))
+				goto end_tvif_ioctl;
+			ret = copy_to_user(&buffs[i].vir_base,
+					   &s5ptv_vp_buff.vp_buffs[i].vir_base,
+					   sizeof(unsigned int));
+			if (WARN_ON(ret))
+				goto end_tvif_ioctl;
+			tmp = S5PTV_VP_BUFF_SIZE;
+			ret = copy_to_user(&buffs[i].size, &tmp, sizeof(tmp));
+			if (WARN_ON(ret))
+				goto end_tvif_ioctl;
+		}
+		goto end_tvif_ioctl;
+	}
+	case VIDIOC_S_VP_BUFF_INFO: {
+		struct s5ptv_vp_buf_info buff_info;
+		struct s5p_tvout_vp_buff buffs[S5PTV_VP_BUFF_CNT];
+		ret = copy_from_user(&buff_info,
+				     (struct s5ptv_vp_buf_info __user *)arg,
+				     sizeof(buff_info));
+		if (WARN_ON(ret))
+			goto end_tvif_ioctl;
+		ret = copy_from_user(buffs, buff_info.buffs, sizeof(buffs));
+		if (WARN_ON(ret))
+			goto end_tvif_ioctl;
+
+		if (buff_info.buff_cnt != S5PTV_VP_BUFF_CNT) {
+			tvout_err("Insufficient buffer count (%d, %d)",
+				  buff_info.buff_cnt, S5PTV_VP_BUFF_CNT);
+			ret = -EINVAL;
+			goto end_tvif_ioctl;
+		}
+		for (i = 0; i < S5PTV_VP_BUFF_CNT; i++) {
+			s5ptv_vp_buff.vp_buffs[i].phy_base = buffs[i].phy_base;
+			s5ptv_vp_buff.vp_buffs[i].vir_base =
+				(unsigned int)phys_to_virt(buffs[i].phy_base);
+			s5ptv_vp_buff.vp_buffs[i].size = buffs[i].size;
+			tvout_dbg("s5ptv_vp_buff phy_base = 0x%x, vir_base = 0x%8x\n",
+				  s5ptv_vp_buff.vp_buffs[i].phy_base,
+				  s5ptv_vp_buff.vp_buffs[i].vir_base);
+		}
+		goto end_tvif_ioctl;
+	}
+	case VIDIOC_S_AUDIO_CHANNEL: {
+		if (!arg)
+			s5p_tvif_audio_channel(TVOUT_AUDIO_2CH_VAL);
+		else
+			s5p_tvif_audio_channel(TVOUT_AUDIO_5_1CH_VAL);
+		/* TODO Runtime change
+		s5p_tvif_ctrl_stop();
+		if (s5p_tvif_ctrl_start(TVOUT_720P_60, TVOUT_HDMI) < 0)
+			goto end_tvif_ioctl; */
+		break;
 	}
 
 	default:
@@ -819,6 +1003,11 @@ static int s5p_tvout_vo_s_fmt_type_private(
 	struct v4l2_pix_format		*pix_fmt;
 	enum s5p_vp_src_color		color;
 	enum s5p_vp_field		field;
+	unsigned int			src_vir_y_addr;
+	unsigned int			src_vir_cb_addr;
+	int				y_size;
+	int				cbcr_size;
+	unsigned int			copy_buff_idx;
 
 #if defined(CONFIG_S5P_SYSMMU_TV)
 	unsigned long base_y, base_c;
@@ -928,8 +1117,45 @@ static int s5p_tvout_vo_s_fmt_type_private(
 	s5p_vp_ctrl_set_src_plane(base_y, base_c, pix_fmt->width,
 		pix_fmt->height, color, field);
 #else
-	s5p_vp_ctrl_set_src_plane((u32) vparam.base_y, (u32) vparam.base_c,
-		pix_fmt->width, pix_fmt->height, color, field);
+	if (pix_fmt->priv) {
+		copy_buff_idx = s5ptv_vp_buff.copy_buff_idxs[s5ptv_vp_buff.curr_copy_idx];
+
+		if ((void *)s5ptv_vp_buff.vp_buffs[copy_buff_idx].vir_base == NULL) {
+			s5p_vp_ctrl_set_src_plane((u32) vparam.base_y, (u32) vparam.base_c,
+					pix_fmt->width, pix_fmt->height, color, field);
+		} else {
+			if (pix_fmt->pixelformat == V4L2_PIX_FMT_NV12T
+					|| pix_fmt->pixelformat == V4L2_PIX_FMT_NV21T) {
+				y_size = ALIGN(ALIGN(pix_fmt->width, 128) * ALIGN(pix_fmt->height, 32), SZ_8K);
+				cbcr_size = ALIGN(ALIGN(pix_fmt->width, 128) * ALIGN(pix_fmt->height >> 1, 32), SZ_8K);
+			} else {
+				y_size = pix_fmt->width * pix_fmt->height;
+				cbcr_size = pix_fmt->width * (pix_fmt->height >> 1);
+			}
+
+			src_vir_y_addr = (unsigned int)phys_to_virt((unsigned long)vparam.base_y);
+			src_vir_cb_addr = (unsigned int)phys_to_virt((unsigned long)vparam.base_c);
+
+			memcpy((void *)s5ptv_vp_buff.vp_buffs[copy_buff_idx].vir_base,
+					(void *)src_vir_y_addr, y_size);
+			memcpy((void *)s5ptv_vp_buff.vp_buffs[copy_buff_idx].vir_base + y_size,
+					(void *)src_vir_cb_addr, cbcr_size);
+
+			flush_all_cpu_caches();
+			outer_flush_all();
+
+			s5p_vp_ctrl_set_src_plane((u32) s5ptv_vp_buff.vp_buffs[copy_buff_idx].phy_base,
+					(u32) s5ptv_vp_buff.vp_buffs[copy_buff_idx].phy_base + y_size,
+					pix_fmt->width, pix_fmt->height, color, field);
+
+			s5ptv_vp_buff.curr_copy_idx++;
+			if (s5ptv_vp_buff.curr_copy_idx >= S5PTV_VP_BUFF_CNT - 1)
+				s5ptv_vp_buff.curr_copy_idx = 0;
+		}
+	} else {
+		s5p_vp_ctrl_set_src_plane((u32) vparam.base_y, (u32) vparam.base_c,
+				pix_fmt->width, pix_fmt->height, color, field);
+	}
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	s5p_tvout_mutex_unlock();
@@ -1067,12 +1293,10 @@ static int s5p_tvout_vo_overlay(
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	s5p_tvout_mutex_lock();
 #endif
-	if (i) {
+	if (i)
 		s5p_vp_ctrl_start();
-	}
-	else {
+	else
 		s5p_vp_ctrl_stop();
-	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	s5p_tvout_mutex_unlock();
@@ -1179,11 +1403,6 @@ int s5p_tvout_v4l2_constructor(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_HDMI_HPD
-	s5p_hpd_set_kobj(
-		&(s5p_tvout_video_dev[0].dev.kobj),
-		&(s5p_tvout_video_dev[1].dev.kobj));
-#endif
 	s5p_tvout_v4l2_init_private();
 
 	return 0;

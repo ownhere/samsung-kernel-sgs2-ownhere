@@ -2,7 +2,7 @@
  * Copyright (c) 2010 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com/
  *
- * Global header for Samsung MFC (Multi Function Codec - FIMV) driver
+ * user interface header for Samsung MFC (Multi Function Codec - FIMV) driver
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -71,7 +71,8 @@ typedef enum {
 
 typedef enum {
     NV12_LINEAR = 0,
-    NV12_TILE
+    NV12_TILE,
+    NV21_LINEAR,
 } SSBSIP_MFC_INSTRM_MODE_TYPE;
 
 typedef enum {
@@ -93,11 +94,14 @@ typedef enum {
     MFC_DEC_GETCONF_CROP_INFO,
     MFC_DEC_GETCONF_FRAME_TAG,
 
-	/* C210 specific feature */
+    /* C210 specific feature */
     MFC_DEC_SETCONF_IMMEDIATELY_DISPLAY,
     MFC_DEC_SETCONF_DPB_FLUSH,
     MFC_DEC_SETCONF_PIXEL_CACHE,
-    MFC_DEC_GETCONF_WIDTH_HEIGHT
+    MFC_DEC_GETCONF_WIDTH_HEIGHT,
+
+    MFC_DEC_SETCONF_SEI_PARSE,
+    MFC_DEC_GETCONF_FRAME_PACKING,
 } SSBSIP_MFC_DEC_CONF;
 
 typedef enum {
@@ -108,10 +112,13 @@ typedef enum {
     MFC_ENC_SETCONF_ALLOW_FRAME_SKIP,
     MFC_ENC_GETCONF_FRAME_TAG,
 
-	/* C210 specific feature */
+    /* C210 specific feature */
     MFC_ENC_SETCONF_VUI_INFO,
     MFC_ENC_SETCONF_I_PERIOD,
-    MFC_ENC_SETCONF_HIER_P
+    MFC_ENC_SETCONF_HIER_P,
+
+    MFC_ENC_SETCONF_SEI_GEN,
+    MFC_ENC_SETCONF_FRAME_PACKING,
 } SSBSIP_MFC_ENC_CONF;
 
 typedef enum {
@@ -178,6 +185,7 @@ typedef struct {
     int crop_bottom_offset;             /* [OUT] crop information, bottom_offset */
     int crop_left_offset;               /* [OUT] crop information, left_offset */
     int crop_right_offset;              /* [OUT] crop information, right_offset */
+    int disp_pic_frame_type;            /* [OUT] display picture frame type information */
 
     /* C210 UMP feature */
     unsigned int y_cookie;              /* [OUT] cookie for Y address */
@@ -325,6 +333,23 @@ typedef struct {
     int crop_left_offset;
     int crop_right_offset;
 } SSBSIP_MFC_CROP_INFORMATION;
+
+typedef struct {
+    int		  available;
+    unsigned int  arrangement_id;
+    int		  arrangement_cancel_flag;
+    unsigned char arrangement_type;
+    int		  quincunx_sampling_flag;
+    unsigned char content_interpretation_type;
+    int		  spatial_flipping_flag;
+    int		  frame0_flipped_flag;
+    int		  field_views_flag;
+    int		  current_frame_is_frame0_flag;
+    unsigned char frame0_grid_pos_x;
+    unsigned char frame0_grid_pos_y;
+    unsigned char frame1_grid_pos_x;
+    unsigned char frame1_grid_pos_y;
+} SSBSIP_MFC_FRAME_PACKING;
 
 #ifdef __cplusplus
 extern "C" {

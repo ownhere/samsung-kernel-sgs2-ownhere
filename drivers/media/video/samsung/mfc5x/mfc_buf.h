@@ -32,7 +32,7 @@
 #define ALIGN_H		32
 
 /* System */					/* Size, Port, Align */
-#define MFC_FW_SYSTEM_SIZE	(0x200000)	/* 2MB, A, N(4KB for VMEM) */
+#define MFC_FW_SYSTEM_SIZE	(0x80000)	/* 512KB, A, N(4KB for VMEM) */
 
 /* Instance */
 #define MFC_CTX_SIZE_L		(0x96000)	/* 600KB, N, 2KB, H.264 Decoding only */
@@ -47,13 +47,13 @@
 #define MFC_DEC_NBIP_SIZE	(0x8000)	/* 32KB, A, 2KB */
 #define MFC_DEC_NBDCAC_SIZE	(0x4000)	/* 16KB, A, 2KB */
 #define MFC_DEC_UPNBMV_SIZE	(0x11000)	/* 68KB, A, 2KB */
-#define MFC_DEC_SAMV_SIZE	(0x22000)	/* 136KB, A, 2KB */
+#define MFC_DEC_SAMV_SIZE	(0x40000)	/* 256KB, A, 2KB */
 #define MFC_DEC_OTLINE_SIZE	(0x8000)	/* 32KB, A, 2KB */
 #define MFC_DEC_SYNPAR_SIZE	(0x11000)	/* 68KB, A, 2KB */
 #define MFC_DEC_BITPLANE_SIZE	(0x800)		/* 2KB, A, 2KB */
 
 /* Encoding */
-#define MFC_STRM_SIZE		(0x400000)	/* 2MB, A, 2KB (multi. 4KB) */
+#define MFC_STRM_SIZE		(0x300000)	/* 2MB, A, 2KB (multi. 4KB) */
 
 /* FIXME: variable size */
 #define MFC_ENC_UPMV_SIZE	(0x10000)	/* Var, A, 2KB */
@@ -97,6 +97,11 @@
 #endif
 #define MBT_CPB		(MBT_KERNEL | MBT_USER | (0x10 << 16))	/* D: S, [K], U E: */
 #define MBT_DPB		(MBT_KERNEL | MBT_USER | (0x20 << 16))	/* D: S, [K], U E: */
+
+enum MFC_BUF_ALLOC_SCHEME {
+	MBS_BEST_FIT	= 0,
+	MBS_FIRST_FIT	= 1,
+};
 
 /* Remove before Release */
 #if 0
@@ -164,6 +169,7 @@ void mfc_print_buf(void);
 
 int mfc_init_buf(void);
 void mfc_final_buf(void);
+void mfc_set_buf_alloc_scheme(enum MFC_BUF_ALLOC_SCHEME scheme);
 void mfc_merge_buf(void);
 struct mfc_alloc_buffer *_mfc_alloc_buf(
 	struct mfc_inst_ctx *ctx, int size, int align, int flag);
@@ -171,7 +177,7 @@ int mfc_alloc_buf(
 	struct mfc_inst_ctx *ctx, struct mfc_buf_alloc_arg* args, int flag);
 int _mfc_free_buf(unsigned long real);
 int mfc_free_buf(struct mfc_inst_ctx *ctx, unsigned int key);
-void mfc_free_buf_dpb(int owner);
+void mfc_free_buf_type(int owner, int type);
 void mfc_free_buf_inst(int owner);
 unsigned long mfc_get_buf_real(int owner, unsigned int key);
 /*

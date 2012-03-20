@@ -28,12 +28,17 @@ void mali_utilization_term(void);
 /**
  * Should be called when a job is about to execute a job
  */
-void mali_utilization_core_start(void);
+void mali_utilization_core_start(u64 time_now);
+
+/**
+ * Should be called to stop the utilization timer during system suspend
+ */
+void mali_utilization_suspend(void);
 
 /**
  * Should be called when a job has completed executing a job
  */
-void mali_utilization_core_end(void);
+void mali_utilization_core_end(u64 time_now);
 
 
 #endif /* __MALI_KERNEL_UTILIZATION_H__ */

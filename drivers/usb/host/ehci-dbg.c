@@ -28,11 +28,9 @@
 	dev_warn (ehci_to_hcd(ehci)->self.controller , fmt , ## args )
 
 #ifdef VERBOSE_DEBUG
-#	define vdbg dbg
 #	define ehci_vdbg ehci_dbg
 #else
-#	define vdbg(fmt,args...) do { } while (0)
-#	define ehci_vdbg(ehci, fmt, args...) do { } while (0)
+	static inline void ehci_vdbg(struct ehci_hcd *ehci, ...) {}
 #endif
 
 #ifdef	DEBUG
@@ -91,8 +89,17 @@ static void dbg_hcc_params (struct ehci_hcd *ehci, char *label)
 
 	if (HCC_ISOC_CACHE (params)) {
 		ehci_dbg (ehci,
-			"%s hcc_params %04x thresh %d uframes %s%s%s%s%s%s%s\n",
+			"%s hcc_params %04x caching frame %s%s%s\n",
 			label, params,
+			HCC_PGM_FRAMELISTLEN(params) ? "256/512/1024" : "1024",
+			HCC_CANPARK(params) ? " park" : "",
+			HCC_64BIT_ADDR(params) ? " 64 bit addr" : "");
+	} else {
+		ehci_dbg (ehci,
+			"%s hcc_params %04x thresh %d uframes %s%s%s%s%s%s%s\n",
+			label,
+			params,
+			HCC_ISOC_THRES(params),
 			HCC_PGM_FRAMELISTLEN(params) ? "256/512/1024" : "1024",
 			HCC_CANPARK(params) ? " park" : "",
 			HCC_64BIT_ADDR(params) ? " 64 bit addr" : "",
@@ -101,16 +108,6 @@ static void dbg_hcc_params (struct ehci_hcd *ehci, char *label)
 			HCC_HW_PREFETCH(params) ? " hw prefetch" : "",
 			HCC_32FRAME_PERIODIC_LIST(params) ?
 				" 32 peridic list" : "");
-
-	} else {
-		ehci_dbg (ehci,
-			"%s hcc_params %04x thresh %d uframes %s%s%s\n",
-			label,
-			params,
-			HCC_ISOC_THRES(params),
-			HCC_PGM_FRAMELISTLEN(params) ? "256/512/1024" : "1024",
-			HCC_CANPARK(params) ? " park" : "",
-			HCC_64BIT_ADDR(params) ? " 64 bit addr" : "");
 	}
 }
 #else
@@ -370,18 +367,21 @@ static const struct file_operations debug_async_fops = {
 	.open		= debug_async_open,
 	.read		= debug_output,
 	.release	= debug_close,
+	.llseek		= default_llseek,
 };
 static const struct file_operations debug_periodic_fops = {
 	.owner		= THIS_MODULE,
 	.open		= debug_periodic_open,
 	.read		= debug_output,
 	.release	= debug_close,
+	.llseek		= default_llseek,
 };
 static const struct file_operations debug_registers_fops = {
 	.owner		= THIS_MODULE,
 	.open		= debug_registers_open,
 	.read		= debug_output,
 	.release	= debug_close,
+	.llseek		= default_llseek,
 };
 static const struct file_operations debug_lpm_fops = {
 	.owner		= THIS_MODULE,
@@ -389,6 +389,7 @@ static const struct file_operations debug_lpm_fops = {
 	.read		= debug_lpm_read,
 	.write		= debug_lpm_write,
 	.release	= debug_lpm_close,
+	.llseek		= noop_llseek,
 };
 
 static struct dentry *ehci_debug_root;
@@ -713,7 +714,7 @@ static ssize_t fill_registers_buffer(struct debug_buffer *buf)
 
 	spin_lock_irqsave (&ehci->lock, flags);
 
-	if (!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags)) {
+	if (!HCD_HW_ACCESSIBLE(hcd)) {
 		size = scnprintf (next, size,
 			"bus %s, device %s\n"
 			"%s\n"
@@ -725,7 +726,7 @@ static ssize_t fill_registers_buffer(struct debug_buffer *buf)
 	}
 
 	/* Capability Registers */
-	i = HC_VERSION(ehci_readl(ehci, &ehci->caps->hc_capbase));
+	i = HC_VERSION(ehci, ehci_readl(ehci, &ehci->caps->hc_capbase));
 	temp = scnprintf (next, size,
 		"bus %s, device %s\n"
 		"%s\n"
@@ -807,7 +808,7 @@ static ssize_t fill_registers_buffer(struct debug_buffer *buf)
 	next += temp;
 
 	temp = scnprintf (next, size, "uframe %04x\n",
-			ehci_readl(ehci, &ehci->regs->frame_index));
+			ehci_read_frame_index(ehci));
 	size -= temp;
 	next += temp;
 
@@ -876,7 +877,7 @@ static int fill_buffer(struct debug_buffer *buf)
 	int ret = 0;
 
 	if (!buf->output_buf)
-		buf->output_buf = (char *)vmalloc(buf->alloc_size);
+		buf->output_buf = vmalloc(buf->alloc_size);
 
 	if (!buf->output_buf) {
 		ret = -ENOMEM;
@@ -1050,50 +1051,33 @@ static inline void create_debug_files (struct ehci_hcd *ehci)
 
 	ehci->debug_dir = debugfs_create_dir(bus->bus_name, ehci_debug_root);
 	if (!ehci->debug_dir)
-		goto dir_error;
+		return;
 
-	ehci->debug_async = debugfs_create_file("async", S_IRUGO,
-						ehci->debug_dir, bus,
-						&debug_async_fops);
-	if (!ehci->debug_async)
-		goto async_error;
+	if (!debugfs_create_file("async", S_IRUGO, ehci->debug_dir, bus,
+						&debug_async_fops))
+		goto file_error;
 
-	ehci->debug_periodic = debugfs_create_file("periodic", S_IRUGO,
-						   ehci->debug_dir, bus,
-						   &debug_periodic_fops);
-	if (!ehci->debug_periodic)
-		goto periodic_error;
+	if (!debugfs_create_file("periodic", S_IRUGO, ehci->debug_dir, bus,
+						&debug_periodic_fops))
+		goto file_error;
 
-	ehci->debug_registers = debugfs_create_file("registers", S_IRUGO,
-						    ehci->debug_dir, bus,
-						    &debug_registers_fops);
+	if (!debugfs_create_file("registers", S_IRUGO, ehci->debug_dir, bus,
+						    &debug_registers_fops))
+		goto file_error;
 
-	ehci->debug_registers = debugfs_create_file("lpm", S_IRUGO|S_IWUGO,
-						    ehci->debug_dir, bus,
-						    &debug_lpm_fops);
+	if (!debugfs_create_file("lpm", S_IRUGO|S_IWUSR, ehci->debug_dir, bus,
+						    &debug_lpm_fops))
+		goto file_error;
 
-	if (!ehci->debug_registers)
-		goto registers_error;
 	return;
 
-registers_error:
-	debugfs_remove(ehci->debug_periodic);
-periodic_error:
-	debugfs_remove(ehci->debug_async);
-async_error:
-	debugfs_remove(ehci->debug_dir);
-dir_error:
-	ehci->debug_periodic = NULL;
-	ehci->debug_async = NULL;
-	ehci->debug_dir = NULL;
+file_error:
+	debugfs_remove_recursive(ehci->debug_dir);
 }
 
 static inline void remove_debug_files (struct ehci_hcd *ehci)
 {
-	debugfs_remove(ehci->debug_registers);
-	debugfs_remove(ehci->debug_periodic);
-	debugfs_remove(ehci->debug_async);
-	debugfs_remove(ehci->debug_dir);
+	debugfs_remove_recursive(ehci->debug_dir);
 }
 
 #endif /* STUB_DEBUG_FILES */

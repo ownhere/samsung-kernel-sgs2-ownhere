@@ -1,6 +1,6 @@
 /* linux/drivers/video/samsung/s5p_dsim_lowlevel.h
  *
- * Header file for Samsung MIPI-DSIM lowlevel driver. 
+ * Header file for Samsung MIPI-DSIM lowlevel driver.
  *
  * Copyright (c) 2009 Samsung Electronics
  * InKi Dae <inki.dae@samsung.com>
@@ -61,6 +61,7 @@ extern void s5p_dsim_set_lpdr_timeout(unsigned int dsim_base, unsigned short tim
 extern void s5p_dsim_set_data_mode(unsigned int dsim_base, unsigned char data,
 	unsigned char state);
 extern void s5p_dsim_enable_hs_clock(unsigned int dsim_base, unsigned char enable);
+extern void s5p_dsim_toggle_hs_clock(unsigned int dsim_base);
 extern void s5p_dsim_dp_dn_swap(unsigned int dsim_base, unsigned char swap_en);
 extern void s5p_dsim_hs_zero_ctrl(unsigned int dsim_base, unsigned char hs_zero);
 extern void s5p_dsim_prep_ctrl(unsigned int dsim_base, unsigned char prep);
@@ -72,9 +73,4 @@ extern void s5p_dsim_wr_tx_header(unsigned int dsim_base,
 	unsigned char di, unsigned char data0, unsigned char data1);
 extern void s5p_dsim_wr_tx_data(unsigned int dsim_base, unsigned int tx_data);
 extern int s5p_dsim_rd_rx_data(unsigned int dsim_base);
-extern int s5p_dsim_lcd_reset(void);
-extern int s5p_dsim_backlight_on(void);
-extern int s5p_dsim_backlight_off(void);
-extern int s5p_dsim_fb_start(void);
-
 #endif /* _S5P_DSIM_LOWLEVEL_H */

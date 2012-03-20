@@ -1,6 +1,6 @@
 /* ehci-lpm.c EHCI HCD LPM support code
  * Copyright (c) 2008 - 2010,  Intel Corporation.
- * Author: Jacob Pan <jacob.jun.pan@xxxxxxxxx>
+ * Author: Jacob Pan <jacob.jun.pan@intel.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,7 +17,8 @@
 */
 
 /* this file is part of ehci-hcd.c */
-static int ehci_lpm_set_da(struct ehci_hcd *ehci, int dev_addr, int port_num)
+static int __maybe_unused ehci_lpm_set_da(struct ehci_hcd *ehci,
+	int dev_addr, int port_num)
 {
 	u32 __iomem portsc;
 
@@ -37,7 +38,7 @@ static int ehci_lpm_set_da(struct ehci_hcd *ehci, int dev_addr, int port_num)
  * this function is used to check if the device support LPM
  * if yes, mark the PORTSC register with PORT_LPM bit
  */
-static int ehci_lpm_check(struct ehci_hcd *ehci, int port)
+static int __maybe_unused ehci_lpm_check(struct ehci_hcd *ehci, int port)
 {
 	u32 __iomem	*portsc ;
 	u32 val32;

@@ -419,7 +419,7 @@ struct mc1n2_dump_func mc1n2_dump_func_map[] = {
 	{"MCDRV_GET_SYSEQ", NULL},
 	{"MCDRV_SET_SYSEQ", mc1n2_dump_syseq_info},
 };
-       
+
 SINT32 McDrv_Ctrl_dbg(UINT32 dCmd, void *pvPrm, UINT32 dPrm)
 {
 	SINT32 err;
@@ -431,7 +431,7 @@ SINT32 McDrv_Ctrl_dbg(UINT32 dCmd, void *pvPrm, UINT32 dPrm)
 	}
 
 	err = McDrv_Ctrl(dCmd, pvPrm, dPrm);
-	dbg_info("err = %d\n", err);
+	dbg_info("err = %ld\n", err);
 
 	return err;
 }

@@ -17,7 +17,6 @@
 #include <linux/version.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
-#include <media/v4l2-i2c-drv.h>
 #include <media/s5k4ba_platform.h>
 
 #ifdef CONFIG_VIDEO_SAMSUNG_V4L2
@@ -246,7 +245,7 @@ static struct v4l2_queryctrl s5k4ba_controls[] = {
 	},
 };
 
-const char **s5k4ba_ctrl_get_menu(u32 id)
+const char * const *s5k4ba_ctrl_get_menu(u32 id)
 {
 	switch (id) {
 	case V4L2_CID_WHITE_BALANCE_PRESET:
@@ -313,19 +312,6 @@ static int s5k4ba_s_crystal_freq(struct v4l2_subdev *sd, u32 freq, u32 flags)
 	return err;
 }
 
-static int s5k4ba_g_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
-{
-	int err = 0;
-
-	return err;
-}
-
-static int s5k4ba_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
-{
-	int err = 0;
-
-	return err;
-}
 static int s5k4ba_enum_framesizes(struct v4l2_subdev *sd, \
 					struct v4l2_frmsizeenum *fsize)
 {
@@ -336,20 +322,6 @@ static int s5k4ba_enum_framesizes(struct v4l2_subdev *sd, \
 
 static int s5k4ba_enum_frameintervals(struct v4l2_subdev *sd,
 					struct v4l2_frmivalenum *fival)
-{
-	int err = 0;
-
-	return err;
-}
-
-static int s5k4ba_enum_fmt(struct v4l2_subdev *sd, struct v4l2_fmtdesc *fmtdesc)
-{
-	int err = 0;
-
-	return err;
-}
-
-static int s5k4ba_try_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
 {
 	int err = 0;
 
@@ -509,7 +481,7 @@ static int s5k4ba_init(struct v4l2_subdev *sd, u32 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int err = -EINVAL, i;
-	int i2c_data;
+
 	v4l_info(client, "%s: camera initialization start\n", __func__);
 
 	for (i = 0; i < S5K4BA_INIT_REGS; i++) {
@@ -519,25 +491,6 @@ static int s5k4ba_init(struct v4l2_subdev *sd, u32 val)
 			v4l_info(client, "%s: register set failed\n", \
 			__func__);
 	}
-#if 1
-	for (i = 0; i < S5K4BA_SVGA_REGS; i++) {
-		err = s5k4ba_i2c_write(sd, s5k4ba_svga_reg[i], \
-					sizeof(s5k4ba_svga_reg[i]));
-		if (err < 0)
-			v4l_info(client, "%s: register set failed\n", \
-			__func__);
-	}
-
-#else
-	for (i = 0; i < S5K4BA_UXGA_REGS; i++) {
-		err = s5k4ba_i2c_write(sd, s5k4ba_uxga_reg[i], \
-					sizeof(s5k4ba_uxga_reg[i]));
-		if (err < 0)
-			v4l_info(client, "%s: register set failed\n", \
-			__func__);
-
-	}
-#endif
 	if (err < 0) {
 		v4l_err(client, "%s: camera initialization failed\n", \
 			__func__);
@@ -547,62 +500,13 @@ static int s5k4ba_init(struct v4l2_subdev *sd, u32 val)
 	return 0;
 }
 
-/*
- * s_config subdev ops
- * With camera device, we need to re-initialize every single opening time
- * therefor, it is not necessary to be initialized on probe time.
- * except for version checking.
- * NOTE: version checking is optional
- */
-static int s5k4ba_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
+static int s5k4ba_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *ffmt)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct s5k4ba_state *state = to_state(sd);
-	struct s5k4ba_platform_data *pdata;
-
-	dev_info(&client->dev, "fetching platform data\n");
-
-	pdata = client->dev.platform_data;
-
-	if (!pdata) {
-		dev_err(&client->dev, "%s: no platform data\n", __func__);
-		return -ENODEV;
-	}
-
-	/*
-	 * Assign default format and resolution
-	 * Use configured default information in platform data
-	 * or without them, use default information in driver
-	 */
-	if (!(pdata->default_width && pdata->default_height)) {
-		/* TODO: assign driver default resolution */
-	} else {
-		state->pix.width = pdata->default_width;
-		state->pix.height = pdata->default_height;
-	}
-
-	if (!pdata->pixelformat)
-		state->pix.pixelformat = DEFAULT_FMT;
-	else
-		state->pix.pixelformat = pdata->pixelformat;
-
-	if (!pdata->freq)
-		state->freq = 24000000;	/* 24MHz default */
-	else
-		state->freq = pdata->freq;
-
-	if (!pdata->is_mipi) {
-		state->is_mipi = 0;
-		dev_info(&client->dev, "parallel mode\n");
-	} else
-		state->is_mipi = pdata->is_mipi;
-
 	return 0;
 }
 
 static const struct v4l2_subdev_core_ops s5k4ba_core_ops = {
 	.init = s5k4ba_init,	/* initializing API */
-	.s_config = s5k4ba_s_config,	/* Fetch platform data */
 	.queryctrl = s5k4ba_queryctrl,
 	.querymenu = s5k4ba_querymenu,
 	.g_ctrl = s5k4ba_g_ctrl,
@@ -611,12 +515,9 @@ static const struct v4l2_subdev_core_ops s5k4ba_core_ops = {
 
 static const struct v4l2_subdev_video_ops s5k4ba_video_ops = {
 	.s_crystal_freq = s5k4ba_s_crystal_freq,
-	.g_fmt = s5k4ba_g_fmt,
-	.s_fmt = s5k4ba_s_fmt,
 	.enum_framesizes = s5k4ba_enum_framesizes,
 	.enum_frameintervals = s5k4ba_enum_frameintervals,
-	.enum_fmt = s5k4ba_enum_fmt,
-	.try_fmt = s5k4ba_try_fmt,
+	.s_mbus_fmt = s5k4ba_s_fmt,
 	.g_parm = s5k4ba_g_parm,
 	.s_parm = s5k4ba_s_parm,
 };
@@ -646,7 +547,7 @@ static int s5k4ba_probe(struct i2c_client *client,
 
 	/* Registering subdev */
 	v4l2_i2c_subdev_init(sd, client, &s5k4ba_ops);
-
+	printk("%s\n", __func__);
 	dev_info(&client->dev, "s5k4ba has been probed\n");
 	return 0;
 }
@@ -667,14 +568,27 @@ static const struct i2c_device_id s5k4ba_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, s5k4ba_id);
 
-static struct v4l2_i2c_driver_data v4l2_i2c_data = {
-	.name = S5K4BA_DRIVER_NAME,
-	.probe = s5k4ba_probe,
-	.remove = s5k4ba_remove,
-	.id_table = s5k4ba_id,
+static struct i2c_driver s5k4ba_i2c_driver = {
+	.driver = {
+		.name	= S5K4BA_DRIVER_NAME,
+	},
+	.probe		= s5k4ba_probe,
+	.remove		= s5k4ba_remove,
+	.id_table	= s5k4ba_id,
 };
+
+static int __init s5k4ba_mod_init(void)
+{
+	return i2c_add_driver(&s5k4ba_i2c_driver);
+}
+
+static void __exit s5k4ba_mod_exit(void)
+{
+	i2c_del_driver(&s5k4ba_i2c_driver);
+}
+module_init(s5k4ba_mod_init);
+module_exit(s5k4ba_mod_exit);
 
 MODULE_DESCRIPTION("Samsung Electronics S5K4BA UXGA camera driver");
 MODULE_AUTHOR("Jinsung Yang <jsgood.yang@samsung.com>");
 MODULE_LICENSE("GPL");
-

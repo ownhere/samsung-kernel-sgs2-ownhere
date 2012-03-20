@@ -223,7 +223,7 @@ then
   busybox_recovery rm /etc
   busybox_recovery ln -s /system/etc /etc
   busybox_recovery cp /res/keys-samsung /res/keys
-  exec /sbin/recovery.samsung
+  exec /sbin/recovery-samsung
 else
   exec /sbin/recovery
 fi;

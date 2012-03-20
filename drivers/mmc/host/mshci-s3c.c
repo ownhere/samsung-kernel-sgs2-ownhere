@@ -27,8 +27,19 @@
 #include <plat/gpio-cfg.h>
 #include <plat/mshci.h>
 #include <plat/clock.h>
+#include <plat/cpu.h>
 
 #include "mshci.h"
+
+#ifdef CONFIG_MMC_MSHCI_S3C_DMA_MAP
+int mshci_s3c_dma_map_sg(struct mshci_host *host, struct device *dev,
+		struct scatterlist *sg, int nents,
+		enum dma_data_direction dir, int flush_type);
+
+void mshci_s3c_dma_unmap_sg(struct mshci_host *host, struct device *dev,
+		struct scatterlist *sg, int nents,
+		enum dma_data_direction dir, int flush_type);
+#endif
 
 #define MAX_BUS_CLK	(1)
 
@@ -80,10 +91,17 @@ static unsigned int mshci_s3c_get_max_clk(struct mshci_host *host)
 
 		rate = clk_get_rate(busclk);
 		/* It should be checked later ############# */
-		if (rate > max)
-			max = rate >> 1;
+		if (rate > max) {
+			if ((soc_is_exynos4412() || soc_is_exynos4212()) &&
+				(samsung_rev() >= EXYNOS4412_REV_1_0))
+				max = rate >> 2;
+			else
+				max = rate >> 1;
+		}
 	}
 
+	/* max clock can be change after changing clock source. */
+	host->mmc->f_max = max;
 	return max;
 }
 
@@ -114,7 +132,7 @@ static unsigned int mshci_s3c_consider_clock(struct mshci_s3c *ourhost,
 	dev_dbg(&ourhost->pdev->dev, "clk %d: rate %ld, want %d, got %ld\n",
 		src, rate, wanted, rate / div);
 
-	return (wanted - (rate / div));
+	return wanted - (rate / div);
 }
 
 /**
@@ -207,11 +225,9 @@ static void mshci_s3c_set_ios(struct mshci_host *host,
 	if (ios->power_mode != MMC_POWER_OFF) {
 		switch (ios->bus_width) {
 		case MMC_BUS_WIDTH_8:
-		case MMC_BUS_WIDTH_8_DDR:
 			width = 8;
 			break;
 		case MMC_BUS_WIDTH_4:
-		case MMC_BUS_WIDTH_4_DDR:
 			width = 4;
 			break;
 		case MMC_BUS_WIDTH_1:
@@ -229,22 +245,17 @@ static void mshci_s3c_set_ios(struct mshci_host *host,
 		pdata->cfg_card(ourhost->pdev, host->ioaddr,
 				ios, host->mmc->card);
 
-#if defined (CONFIG_S5PV310_MSHC_VPLL_46MHZ) || \
-	defined (CONFIG_S5PV310_MSHC_EPLL_45MHZ)
 	if (pdata->cfg_ddr) {
-		if (ios->bus_width == MMC_BUS_WIDTH_8_DDR ||
-			ios->bus_width == MMC_BUS_WIDTH_4_DDR )
-			pdata->cfg_ddr(ourhost->pdev, 1 );
-		else if (ios->bus_width == MMC_BUS_WIDTH_8 ||
-			ios->bus_width == MMC_BUS_WIDTH_4)
+		if (ios->timing == MMC_TIMING_UHS_DDR50)
+			pdata->cfg_ddr(ourhost->pdev, 1);
+		else
 			pdata->cfg_ddr(ourhost->pdev, 0);
 	}
-#endif
-
-	mdelay(1);
+	/* after change DDR/SDR, max_clk has been changed.
+	   You should re-calc the max_clk */
+	host->max_clk = mshci_s3c_get_max_clk(host);
 }
 
-#ifdef CONFIG_MACH_C1
 /**
  * mshci_s3c_init_card - Reset eMMC device
  *
@@ -259,15 +270,26 @@ static void mshci_s3c_init_card(struct mshci_host *host)
 	if (pdata->init_card)
 		pdata->init_card(ourhost->pdev);
 }
-#endif
+
+static int mshci_s3c_get_fifo_depth(struct mshci_host *host)
+{
+	struct mshci_s3c *ourhost = to_s3c(host);
+	struct s3c_mshci_platdata *pdata = ourhost->pdata;
+
+	return pdata->fifo_depth;
+}
+
 
 static struct mshci_ops mshci_s3c_ops = {
 	.get_max_clock		= mshci_s3c_get_max_clk,
 	.set_clock		= mshci_s3c_set_clock,
 	.set_ios		= mshci_s3c_set_ios,
-#ifdef CONFIG_MACH_C1
 	.init_card		= mshci_s3c_init_card,
+#ifdef CONFIG_MMC_MSHCI_S3C_DMA_MAP
+	.dma_map_sg		= mshci_s3c_dma_map_sg,
+	.dma_unmap_sg		= mshci_s3c_dma_unmap_sg,
 #endif
+	.get_fifo_depth		= mshci_s3c_get_fifo_depth,
 };
 
 static void mshci_s3c_notify_change(struct platform_device *dev, int state)
@@ -280,12 +302,10 @@ static void mshci_s3c_notify_change(struct platform_device *dev, int state)
 	if (host) {
 		if (state) {
 			dev_dbg(&dev->dev, "card inserted.\n");
-			pr_info("%s : card inserted.\n",__func__);
 			host->flags &= ~MSHCI_DEVICE_DEAD;
 			tasklet_schedule(&host->card_tasklet);
 		} else {
 			dev_dbg(&dev->dev, "card removed.\n");
-			pr_info("%s : card removed.\n",__func__);
 			host->flags |= MSHCI_DEVICE_DEAD;
 			tasklet_schedule(&host->card_tasklet);
 		}
@@ -335,26 +355,35 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 	}
 	sc = mshci_priv(host);
 
+	if (soc_is_exynos4210()) {
+		host->data_addr = 0x0;
+		host->hold_bit = 0;
+	} else {
+		host->data_addr = 0x100;
+		host->hold_bit = CMD_USE_HOLD_REG;
+	}
+
 	sc->host = host;
 	sc->pdev = pdev;
 	sc->pdata = pdata;
 	sc->ext_cd_gpio = -1;
 
-#ifndef CONFIG_S5PV310_FPGA
 	platform_set_drvdata(pdev, host);
 
-	sc->clk_io = clk_get(dev, "mshc");
+	sc->clk_io = clk_get(dev, "dwmci");
 	if (IS_ERR(sc->clk_io)) {
 		dev_err(dev, "failed to get io clock\n");
 		ret = PTR_ERR(sc->clk_io);
 		goto err_io_clk;
 	}
+
 	/* enable the local io clock and keep it running for the moment. */
 	clk_enable(sc->clk_io);
 
 	for (clks = 0, ptr = 0; ptr < MAX_BUS_CLK; ptr++) {
 		struct clk *clk;
 		char *name = pdata->clocks[ptr];
+
 		if (name == NULL)
 			continue;
 		clk = clk_get(dev, name);
@@ -363,30 +392,27 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 			continue;
 		}
 
-#if defined (CONFIG_S5PV310_MSHC_VPLL_46MHZ) || \
-	defined (CONFIG_S5PV310_MSHC_EPLL_45MHZ)
-	if (!strcmp("sclk_mshc",name)) {
+#if defined(CONFIG_EXYNOS4_MSHC_VPLL_46MHZ) || \
+	defined(CONFIG_EXYNOS4_MSHC_EPLL_45MHZ)
+	if (!strcmp("sclk_dwmci", name)) {
 		struct clk *parent_clk;
 
-		if (!(parent_clk = clk_get_parent(clk))) {
+		parent_clk = clk_get_parent(clk);
+
+		if (!parent_clk) {
 			dev_err(dev, "failed to get parent clock %s\n"
 			, (char *)(clk->name));
 		} else {
 			for ( ; ; ) {
 				parent_clk = clk_get_parent(parent_clk);
-				if ( parent_clk ) {
-#ifdef CONFIG_S5PV310_MSHC_EPLL_45MHZ
+				if (parent_clk) {
+#ifdef CONFIG_EXYNOS4_MSHC_EPLL_45MHZ
 					if (!strcmp("fout_epll", \
 							parent_clk->name)) {
-#if defined(CONFIG_MACH_C1Q1_REV02) || defined(CONFIG_MACH_P6_REV02)
-						clk_set_rate \
-							(parent_clk, 144000000);
-#else
 						clk_set_rate \
 							(parent_clk, 180633600);
-#endif
 						pdata->cfg_ddr(pdev, 0);
-#elif defined (CONFIG_S5PV310_MSHC_VPLL_46MHZ)
+#elif defined(CONFIG_EXYNOS4_MSHC_VPLL_46MHZ)
 					if (!strcmp("fout_vpll", \
 							parent_clk->name)) {
 						clk_set_rate \
@@ -395,8 +421,7 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 #endif
 						clk_enable(parent_clk);
 						break;
-					}
-					else
+					} else
 						continue;
 				} else {
 					dev_err(dev, "failed to"
@@ -413,18 +438,15 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 		sc->clk_bus[ptr] = clk;
 		clk_enable(clk);
 
-
 		dev_info(dev, "clock source %d: %s (%ld Hz)\n",
 			 ptr, name, clk_get_rate(clk));
 	}
-
 
 	if (clks == 0) {
 		dev_err(dev, "failed to find any bus clocks\n");
 		ret = -ENOENT;
 		goto err_no_busclks;
 	}
-#endif
 
 	sc->ioarea = request_mem_region(res->start, resource_size(res),
 					mmc_hostname(host->mmc));
@@ -442,11 +464,10 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 	}
 
 	/* Ensure we have minimal gpio selected CMD/CLK/Detect */
-	if (pdata->cfg_gpio) {
+	if (pdata->cfg_gpio)
 		pdata->cfg_gpio(pdev, pdata->max_width);
-	} else {
+	else
 		dev_err(dev, "cfg_gpio dose not exist.!\n");
-	}
 
 	host->hw_name = "samsung-mshci";
 	host->ops = &mshci_s3c_ops;
@@ -458,7 +479,12 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 	else
 		host->mmc->caps = 0;
 
-	if (pdata->cd_type == S3C_MSHCI_CD_PERMANENT){
+        if (pdata->host_caps2)
+                host->mmc->caps2 = pdata->host_caps2;
+	else
+                host->mmc->caps2 = 0;
+
+	if (pdata->cd_type == S3C_MSHCI_CD_PERMANENT) {
 		host->quirks |= MSHCI_QUIRK_BROKEN_PRESENT_BIT;
 		host->mmc->caps |= MMC_CAP_NONREMOVABLE;
 	}
@@ -482,7 +508,8 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 
 		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
 		if (sc->ext_cd_irq &&
-			request_irq(sc->ext_cd_irq, mshci_s3c_gpio_card_detect_isr,
+			request_irq(sc->ext_cd_irq,
+				mshci_s3c_gpio_card_detect_isr,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				dev_name(&pdev->dev), sc)) {
 			dev_err(&pdev->dev, "cannot request irq for card detect\n");
@@ -496,7 +523,6 @@ static int __devinit mshci_s3c_probe(struct platform_device *pdev)
 		dev_err(dev, "mshci_add_host() failed\n");
 		goto err_add_host;
 	}
-
 	return 0;
 
  err_add_host:
@@ -528,14 +554,23 @@ static int __devexit mshci_s3c_remove(struct platform_device *pdev)
 static int mshci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
 {
 	struct mshci_host *host = platform_get_drvdata(dev);
+	struct s3c_mshci_platdata *pdata = dev->dev.platform_data;
 
 	mshci_suspend_host(host, pm);
+
+	if (pdata->set_power)
+		pdata->set_power(dev, 0);
+
 	return 0;
 }
 
 static int mshci_s3c_resume(struct platform_device *dev)
 {
 	struct mshci_host *host = platform_get_drvdata(dev);
+	struct s3c_mshci_platdata *pdata = dev->dev.platform_data;
+
+	if (pdata->set_power)
+		pdata->set_power(dev, 1);
 
 	mshci_resume_host(host);
 	return 0;
@@ -552,20 +587,10 @@ static void mshci_s3c_shutdown(struct platform_device *dev, pm_message_t pm)
 		pdata->shutdown();
 }
 
+
 #else
-
-static int mshci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
-{
-	pr_info("%s : is DUMMY\n", __func__);
-	return 0;
-}
-
-static int mshci_s3c_resume(struct platform_device *dev)
-{
-	pr_info("%s : is DUMMY\n", __func__);
-	return 0;
-}
-
+#define mshci_s3c_suspend NULL
+#define mshci_s3c_resume NULL
 #endif
 
 static struct platform_driver mshci_s3c_driver = {
@@ -573,10 +598,9 @@ static struct platform_driver mshci_s3c_driver = {
 	.remove		= __devexit_p(mshci_s3c_remove),
 	.suspend	= mshci_s3c_suspend,
 	.resume	        = mshci_s3c_resume,
-	.shutdown	= mshci_s3c_shutdown,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "s3c-mshci",
+		.name	= "dw_mmc",
 	},
 };
 
@@ -596,4 +620,4 @@ module_exit(mshci_s3c_exit);
 MODULE_DESCRIPTION("Samsung MSHCI (HSMMC) glue");
 MODULE_AUTHOR("Hyunsung Jang, <hs79.jang@samsung.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:s3c-mshci");
+MODULE_ALIAS("platform:dw_mmc");

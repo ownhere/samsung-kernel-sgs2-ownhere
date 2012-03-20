@@ -23,6 +23,10 @@
 #define S3C_CSIS_INTMSK		(0x10)
 #define S3C_CSIS_INTSRC		(0x14)
 #define S3C_CSIS_RESOL		(0x2c)
+#define S3C_CSIS_PKTDATA_ODD	(0x2000)
+#define S3C_CSIS_PKTDATA_EVEN	(0x3000)
+
+
 
 /*
  * Bit Definitions
@@ -44,12 +48,11 @@
 /* D-PHY Control Register */
 #define S3C_CSIS_DPHYCTRL_HS_SETTLE_MASK	(0x1f << 27)
 #define S3C_CSIS_DPHYCTRL_HS_SETTLE_SHIFT	(27)
-#define S3C_CSIS_DPHYCTRL_DISABLE		(0xf << 0)
-#define S3C_CSIS_DPHYCTRL_ENABLE		(0xf << 0)
+#define S3C_CSIS_DPHYCTRL_ENABLE		(0x1f << 0)
 
 /* Configuration Register */
 #define S3C_CSIS_CONFIG_FORMAT_SHIFT		(2)
-#define S3C_CSIS_CONFIG_FORMAT_MASK		(0x1f << 2)
+#define S3C_CSIS_CONFIG_FORMAT_MASK		(0x3f << 2)
 #define S3C_CSIS_CONFIG_NR_LANE_1		(0 << 0)
 #define S3C_CSIS_CONFIG_NR_LANE_2		(1 << 0)
 #define S3C_CSIS_CONFIG_NR_LANE_3		(1 << 1)
@@ -108,6 +111,11 @@
 						S3C_CSIS_INTSRC_ERR_ECC | \
 						S3C_CSIS_INTSRC_ERR_CRC | \
 						S3C_CSIS_INTSRC_ERR_ID)
+
+#define S3C_CSIS_INTSRC_NON_IMAGE_DATA		(S3C_CSIS_INTSRC_EVEN_BEFORE | \
+						S3C_CSIS_INTSRC_EVEN_AFTER | \
+						S3C_CSIS_INTSRC_ODD_BEFORE | \
+						S3C_CSIS_INTSRC_ODD_AFTER)
 
 /* Resolution Register */
 #define S3C_CSIS_RESOL_HOR_SHIFT		(16)

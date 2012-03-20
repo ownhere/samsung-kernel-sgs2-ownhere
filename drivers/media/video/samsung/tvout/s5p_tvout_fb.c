@@ -38,6 +38,10 @@
 	_IOW('F', 214, struct s5ptvfb_user_plane_alpha)
 #define S5PTVFB_WIN_SET_CHROMA	\
 	_IOW('F', 215, struct s5ptvfb_user_chroma)
+#define S5PTVFB_WAITFORVSYNC \
+	_IO('F', 32)
+#define S5PTVFB_SET_VSYNC_INT \
+	_IOW('F', 216, u32)
 #define S5PTVFB_WIN_SET_ADDR	\
 	_IOW('F', 219, u32)
 #define S5PTVFB_SCALING	\
@@ -116,6 +120,13 @@ static struct s5ptvfb_lcd lcd = {
 		.inv_vden = 0,
 	},
 };
+
+static int s5p_tvout_fb_wait_for_vsync(void)
+{
+	sleep_on_timeout(&s5ptv_wq, HZ / 10);
+
+	return 0;
+}
 
 static inline unsigned int s5p_tvout_fb_chan_to_field(unsigned int chan,
 						struct fb_bitfield bf)
@@ -351,7 +362,7 @@ static int s5p_tvout_fb_set_par(struct fb_info *fb)
 	if (!fb->fix.smem_start) {
 #ifndef CONFIG_USER_ALLOC_TVOUT
 		printk(KERN_INFO " The frame buffer is allocated here\n");
-		//s5p_tvout_fb_map_video_memory(win->id);
+		/* s5p_tvout_fb_map_video_memory(win->id);*/
 #else
 		printk(KERN_ERR
 		"[Warning] The frame buffer should be allocated by ioctl\n");
@@ -514,7 +525,12 @@ static int s5p_tvout_fb_ioctl(struct fb_info *fb, unsigned int cmd,
 			s5p_mixer_ctrl_set_chroma_key(layer, win->chroma);
 		}
 		break;
-
+	case S5PTVFB_SET_VSYNC_INT:
+		s5p_mixer_ctrl_set_vsync_interrupt((int)argp);
+		break;
+	case S5PTVFB_WAITFORVSYNC:
+		s5p_tvout_fb_wait_for_vsync();
+		break;
 	case S5PTVFB_WIN_SET_ADDR:
 #if defined(CONFIG_S5P_SYSMMU_TV) && defined(CONFIG_UMP_VCM_ALLOC)
 		fb->fix.smem_start = ump_dd_dev_virtual_get_from_secure_id(
@@ -698,7 +714,7 @@ err_alloc_fb:
 
 int s5p_tvout_fb_register_framebuffer(struct device *dev_fb)
 {
-	int ret, i = 0;
+	int ret, j, i = 0;
 
 	do {
 		ret = register_framebuffer(fb[0]);
@@ -712,7 +728,8 @@ int s5p_tvout_fb_register_framebuffer(struct device *dev_fb)
 		ret = register_framebuffer(fb[i]);
 		if (ret) {
 			tvout_err("fail to register framebuffer device\n");
-			return -1;
+			ret = -1;
+			goto err;
 		}
 	}
 
@@ -729,4 +746,9 @@ int s5p_tvout_fb_register_framebuffer(struct device *dev_fb)
 	}
 
 	return 0;
+
+err:
+	for (j = 0; j < i; j++)
+		unregister_framebuffer(fb[j]);
+	return ret;
 }

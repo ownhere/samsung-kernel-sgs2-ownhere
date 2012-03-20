@@ -81,10 +81,10 @@ enum s5k4ba_control {
  * User tuned register setting values
  */
 static unsigned char s5k4ba_init_reg[][2] = {
-	{0xfc, 0x01},
-	{0x03, 0x00},
-	{0xfc, 0x01},
-	{0x03, 0x01},	/* sw reset */
+	//{0xfc, 0x01},
+	//{0x03, 0x00},
+	//{0xfc, 0x01},
+	//{0x03, 0x01},	/* sw reset */
 
 	{0xfc, 0x07},
 	{0x66, 0x01},   /* Watch Dog Time On */
@@ -92,7 +92,7 @@ static unsigned char s5k4ba_init_reg[][2] = {
 	{0x00, 0xAA},	/* For EDS Check */
 	{0x21, 0x03},	/* peter0223 */
 	{0xfc, 0x01},
-	{0x04, 0x00},	/* ARM Clock Divider */
+	{0x04, 0x01},	/* ARM Clock Divider */
 
 	{0xfc, 0x02},
 	{0x30, 0x90},	/* Analog offset */
@@ -1121,8 +1121,7 @@ static unsigned char s5k4ba_init_reg[][2] = {
 	{0xFF, 0xFF}	/* REGISTER END */
 };
 
-
-
+#ifdef USE_4BA_SVGA
 /* For SVGA ( 800 x 600) on 4BA module */
 static unsigned char s5k4ba_svga_reg[][2] = {
 	{0xfc, 0x02},
@@ -1186,7 +1185,8 @@ static unsigned char s5k4ba_svga_reg[][2] = {
 
 	{0xFF, 0xFF} 	/* REGISTER END */
 };
-
+#endif
+#ifdef USE_4BA_UXGA
 /* For UXGA ( 1600 x 1200) on 4BA module */
 static unsigned char s5k4ba_uxga_reg[][2] = {
 	{0xfc, 0x02},
@@ -1247,7 +1247,7 @@ static unsigned char s5k4ba_uxga_reg[][2] = {
 
 	{0xFF, 0xFF}	/* REGISTER END */
 };
-
+#endif
 #define S5K4BA_INIT_REGS	\
 	(sizeof(s5k4ba_init_reg) / sizeof(s5k4ba_init_reg[0]))
 

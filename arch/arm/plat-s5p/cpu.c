@@ -1,7 +1,7 @@
 /* linux/arch/arm/plat-s5p/cpu.c
  *
- * Copyright (c) 2009 Samsung Electronics Co., Ltd.
- *		http://www.samsung.com/
+ * Copyright (c) 2009-2011 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com
  *
  * S5P CPU Support
  *
@@ -12,81 +12,107 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
-#include <mach/map.h>
+
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+
+#include <mach/map.h>
 #include <mach/regs-clock.h>
+
 #include <plat/cpu.h>
 #include <plat/s5p6440.h>
 #include <plat/s5p6450.h>
-#include <plat/s5p6442.h>
 #include <plat/s5pc100.h>
 #include <plat/s5pv210.h>
-#include <plat/s5pv310.h>
+#include <plat/exynos4.h>
+#include <plat/exynos5.h>
 
 /* table of supported CPUs */
 
 static const char name_s5p6440[] = "S5P6440";
 static const char name_s5p6450[] = "S5P6450";
-static const char name_s5p6442[] = "S5P6442";
 static const char name_s5pc100[] = "S5PC100";
 static const char name_s5pv210[] = "S5PV210/S5PC110";
-static const char name_s5pv310[] = "S5PV310";
+static const char name_exynos4210[] = "EXYNOS4210";
+static const char name_exynos4212[] = "EXYNOS4212";
+static const char name_exynos4412[] = "EXYNOS4412";
+static const char name_exynos5210[] = "EXYNOS5210";
+static const char name_exynos5250[] = "EXYNOS5250";
 
 static struct cpu_table cpu_ids[] __initdata = {
 	{
-		.idcode		= 0x56440100,
-		.idmask		= 0xffffff00,
+		.idcode		= S5P6440_CPU_ID,
+		.idmask		= S5P64XX_CPU_MASK,
 		.map_io		= s5p6440_map_io,
 		.init_clocks	= s5p6440_init_clocks,
 		.init_uarts	= s5p6440_init_uarts,
-		.init		= s5p6440_init,
+		.init		= s5p64x0_init,
 		.name		= name_s5p6440,
 	}, {
-		.idcode		= 0x36450000,
-		.idmask		= 0xffffff00,
+		.idcode		= S5P6450_CPU_ID,
+		.idmask		= S5P64XX_CPU_MASK,
 		.map_io		= s5p6450_map_io,
 		.init_clocks	= s5p6450_init_clocks,
 		.init_uarts	= s5p6450_init_uarts,
-		.init		= s5p6450_init,
+		.init		= s5p64x0_init,
 		.name		= name_s5p6450,
 	}, {
-
-		.idcode		= 0x36442000,
-		.idmask		= 0xffffff00,
-		.map_io		= s5p6442_map_io,
-		.init_clocks	= s5p6442_init_clocks,
-		.init_uarts	= s5p6442_init_uarts,
-		.init		= s5p6442_init,
-		.name		= name_s5p6442,
-	}, {
-		.idcode		= 0x43100000,
-		.idmask		= 0xfffff000,
+		.idcode		= S5PC100_CPU_ID,
+		.idmask		= S5PC100_CPU_MASK,
 		.map_io		= s5pc100_map_io,
 		.init_clocks	= s5pc100_init_clocks,
 		.init_uarts	= s5pc100_init_uarts,
 		.init		= s5pc100_init,
 		.name		= name_s5pc100,
 	}, {
-		.idcode		= 0x43110000,
-		.idmask		= 0xfffff000,
+		.idcode		= S5PV210_CPU_ID,
+		.idmask		= S5PV210_CPU_MASK,
 		.map_io		= s5pv210_map_io,
 		.init_clocks	= s5pv210_init_clocks,
 		.init_uarts	= s5pv210_init_uarts,
 		.init		= s5pv210_init,
 		.name		= name_s5pv210,
 	}, {
-#ifdef CONFIG_CPU_S5PV310_EVT1
-		.idcode		= 0x43210000,
-#else
-		.idcode		= 0x43200000,
-#endif
-		.idmask		= 0xfffff000,
-		.map_io		= s5pv310_map_io,
-		.init_clocks	= s5pv310_init_clocks,
-		.init_uarts	= s5pv310_init_uarts,
-		.init		= s5pv310_init,
-		.name		= name_s5pv310,
+		.idcode		= EXYNOS4210_CPU_ID,
+		.idmask		= EXYNOS_CPU_MASK,
+		.map_io		= exynos4_map_io,
+		.init_clocks	= exynos4_init_clocks,
+		.init_uarts	= exynos4_init_uarts,
+		.init		= exynos4_init,
+		.name		= name_exynos4210,
+	}, {
+		.idcode		= EXYNOS4212_CPU_ID,
+		.idmask		= EXYNOS_CPU_MASK,
+		.map_io		= exynos4_map_io,
+		.init_clocks	= exynos4_init_clocks,
+		.init_uarts	= exynos4_init_uarts,
+		.init		= exynos4_init,
+		.name		= name_exynos4212,
+	}, {
+		.idcode		= EXYNOS4412_CPU_ID,
+		.idmask		= EXYNOS_CPU_MASK,
+		.map_io		= exynos4_map_io,
+		.init_clocks	= exynos4_init_clocks,
+		.init_uarts	= exynos4_init_uarts,
+		.init		= exynos4_init,
+		.name		= name_exynos4412,
+
+	}, {
+		.idcode         = EXYNOS5210_CPU_ID,
+		.idmask         = EXYNOS_CPU_MASK,
+		.map_io         = exynos5_map_io,
+		.init_clocks    = exynos5_init_clocks,
+		.init_uarts     = exynos5_init_uarts,
+		.init           = exynos5_init,
+		.name           = name_exynos5210,
+	}, {
+		.idcode         = EXYNOS5250_CPU_ID,
+		.idmask         = EXYNOS_CPU_MASK,
+		.map_io         = exynos5_map_io,
+		.init_clocks    = exynos5_init_clocks,
+		.init_uarts     = exynos5_init_uarts,
+		.init           = exynos5_init,
+		.name           = name_exynos5250,
 	},
 };
 
@@ -104,40 +130,23 @@ static struct map_desc s5p_iodesc[] __initdata = {
 		.length		= SZ_64K,
 		.type		= MT_DEVICE,
 	}, {
-		.virtual	= (unsigned long)S3C_VA_UART,
-		.pfn		= __phys_to_pfn(S3C_PA_UART),
-		.length		= SZ_512K,
-		.type		= MT_DEVICE,
-#ifdef CONFIG_ARM_VIC
-	}, {
-		.virtual	= (unsigned long)VA_VIC0,
-		.pfn		= __phys_to_pfn(S5P_PA_VIC0),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	}, {
-		.virtual	= (unsigned long)VA_VIC1,
-		.pfn		= __phys_to_pfn(S5P_PA_VIC1),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-#endif
-	}, {
 		.virtual	= (unsigned long)S3C_VA_TIMER,
 		.pfn		= __phys_to_pfn(S5P_PA_TIMER),
 		.length		= SZ_16K,
 		.type		= MT_DEVICE,
 	}, {
-		.virtual	= (unsigned long)S3C_VA_OTG,
-		.pfn		= __phys_to_pfn(S5P_PA_OTG),
-		.length		= SZ_1M,
+		.virtual	= (unsigned long)S3C_VA_WATCHDOG,
+		.pfn		= __phys_to_pfn(S3C_PA_WDT),
+		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	}, {
-		.virtual	= (unsigned long)S3C_VA_OTGSFR,
-		.pfn		= __phys_to_pfn(S5P_PA_OTGSFR),
-		.length		= SZ_1M,
+		.virtual	= (unsigned long)S5P_VA_SROMC,
+		.pfn		= __phys_to_pfn(S5P_PA_SROMC),
+		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	}, {
-		.virtual	= (unsigned long)S5P_VA_GPIO,
-		.pfn		= __phys_to_pfn(S5P_PA_GPIO),
+		.virtual	= (unsigned long)S3C_VA_HSPHY,
+		.pfn		= __phys_to_pfn(S5P_PA_HSPHY),
 		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	},
@@ -145,16 +154,17 @@ static struct map_desc s5p_iodesc[] __initdata = {
 
 /* read cpu identification code */
 
+unsigned long cpu_idcode;
 void __init s5p_init_io(struct map_desc *mach_desc,
 			int size, void __iomem *cpuid_addr)
 {
-	unsigned long idcode;
-
 	/* initialize the io descriptors we need for initialization */
 	iotable_init(s5p_iodesc, ARRAY_SIZE(s5p_iodesc));
 	if (mach_desc)
 		iotable_init(mach_desc, size);
 
-	idcode = __raw_readl(cpuid_addr);
-	s3c_init_cpu(idcode, cpu_ids, ARRAY_SIZE(cpu_ids));
+	/* detect cpu id and rev. */
+	s5p_init_cpu(cpuid_addr);
+
+	s3c_init_cpu(samsung_cpu_id, cpu_ids, ARRAY_SIZE(cpu_ids));
 }

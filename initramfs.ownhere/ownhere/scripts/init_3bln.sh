@@ -1,4 +1,7 @@
 #!/system/bin/sh
+
+exit 0 
+
 SRC=/ownhere/files/lights.GT-I9100.so
 DEST=/system/lib/hw/lights.GT-I9100.so
 

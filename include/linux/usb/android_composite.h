@@ -17,21 +17,16 @@
 #ifndef	__LINUX_USB_ANDROID_H
 #define	__LINUX_USB_ANDROID_H
 
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-#  define MAX_MULTI_CONFIGURATION	5
-#endif
-
 #include <linux/usb/composite.h>
 #include <linux/if_ether.h>
 
-struct android_usb_function {
-	struct list_head	list;
-	char			*name;
-	int 			(*bind_config)(struct usb_configuration *c);
-};
-
 struct android_usb_product {
-	/* Default product ID. */
+	/* Vendor ID for this set of functions.
+	 * Default vendor_id in platform data will be used if this is zero.
+	 */
+	__u16 vendor_id;
+
+	/* Product ID for this set of functions. */
 	__u16 product_id;
 
 	/* List of function names associated with this product.
@@ -40,16 +35,6 @@ struct android_usb_product {
 	 */
 	int num_functions;
 	char **functions;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-/* soonyong.cho : Below variables are used for Samsung composite framework. */
-	/* List of multi configuration functions */
-	char **multi_conf_functions[MAX_MULTI_CONFIGURATION];
-	__u8 bDeviceClass;
-	__u8 bDeviceSubClass;
-	__u8 bDeviceProtocol;
-	int  mode; /* if product id is same, you have to refer this mode value. */
-	char *s;
-#endif
 };
 
 struct android_usb_platform_data {
@@ -82,6 +67,11 @@ struct android_usb_platform_data {
 	 */
 	int num_functions;
 	char **functions;
+
+	/* Number of LUNs function have  [For USB Mass storage]
+	 * (anywhere from 1 to FSG_MAX_LUNS which is 8).
+	 */
+	unsigned int            nluns;
 };
 
 /* Platform data for "usb_mass_storage" driver. */
@@ -102,9 +92,9 @@ struct usb_ether_platform_data {
 	const char *vendorDescr;
 };
 
-extern void android_register_function(struct android_usb_function *f);
-
-extern void android_enable_function(struct usb_function *f, int enable);
-
+/* Platform data for ACM driver. */
+struct acm_platform_data {
+	u8	num_inst;
+};
 
 #endif	/* __LINUX_USB_ANDROID_H */

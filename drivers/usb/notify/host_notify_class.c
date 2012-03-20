@@ -22,11 +22,11 @@ struct notify_data {
 
 static struct notify_data host_notify;
 
-static ssize_t mode_show(
-	struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
 {
 	struct host_notify_dev *ndev = (struct host_notify_dev *)
-		dev_get_drvdata(dev);
+	    dev_get_drvdata(dev);
 	char *mode;
 
 	switch (ndev->mode) {
@@ -45,43 +45,43 @@ static ssize_t mode_show(
 		break;
 	}
 
+	printk(KERN_INFO "host_notify: read mode %s\n", mode);
 	return sprintf(buf, "%s\n", mode);
 }
 
-static ssize_t mode_store(
-		struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t size)
+static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
+			  const char *buf, size_t size)
 {
 	struct host_notify_dev *ndev = (struct host_notify_dev *)
-		dev_get_drvdata(dev);
+	    dev_get_drvdata(dev);
 
 	char *mode;
 	size_t ret = -ENOMEM;
 
-	mode = kzalloc(size+1, GFP_KERNEL);
+	mode = kzalloc(size + 1, GFP_KERNEL);
 	if (!mode)
 		goto error;
 
 	sscanf(buf, "%s", mode);
 
 	if (ndev->set_mode) {
+		printk(KERN_INFO "host_notify: set mode %s\n", mode);
 		if (!strcmp(mode, "HOST"))
 			ndev->set_mode(NOTIFY_SET_ON);
 		else if (!strcmp(mode, "NONE"))
 			ndev->set_mode(NOTIFY_SET_OFF);
-		printk(KERN_INFO "host_notify: set mode %s\n", mode);
 	}
 	ret = size;
 	kfree(mode);
-error:
+ error:
 	return ret;
 }
 
 static ssize_t booster_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
+			    char *buf)
 {
 	struct host_notify_dev *ndev = (struct host_notify_dev *)
-		dev_get_drvdata(dev);
+	    dev_get_drvdata(dev);
 	char *booster;
 
 	switch (ndev->booster) {
@@ -94,44 +94,44 @@ static ssize_t booster_show(struct device *dev, struct device_attribute *attr,
 		break;
 	}
 
+	printk(KERN_INFO "host_notify: read booster %s\n", booster);
 	return sprintf(buf, "%s\n", booster);
 }
 
-static ssize_t booster_store(
-		struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t size)
+static ssize_t booster_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t size)
 {
 	struct host_notify_dev *ndev = (struct host_notify_dev *)
-		dev_get_drvdata(dev);
+	    dev_get_drvdata(dev);
 
 	char *booster;
 	size_t ret = -ENOMEM;
 
-	booster = kzalloc(size+1, GFP_KERNEL);
+	booster = kzalloc(size + 1, GFP_KERNEL);
 	if (!booster)
 		goto error;
 
 	sscanf(buf, "%s", booster);
 
 	if (ndev->set_booster) {
-		if (!strcmp(booster, "ON")) {
-			ndev->set_booster(NOTIFY_SET_ON);
-			ndev->mode = NOTIFY_TEST_MODE;
-		} else if (!strcmp(booster, "OFF")) {
-			ndev->set_booster(NOTIFY_SET_OFF);
-			ndev->mode = NOTIFY_NONE_MODE;
-		}
 		printk(KERN_INFO "host_notify: set booster %s\n", booster);
+		if (!strcmp(booster, "ON")) {
+			ndev->mode = NOTIFY_TEST_MODE;
+			ndev->set_booster(NOTIFY_SET_ON);
+		} else if (!strcmp(booster, "OFF")) {
+			ndev->mode = NOTIFY_NONE_MODE;
+			ndev->set_booster(NOTIFY_SET_OFF);
+		}
 	}
 	ret = size;
 	kfree(booster);
-error:
+ error:
 	return ret;
 }
 
 static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR | S_IWGRP, mode_show, mode_store);
 static DEVICE_ATTR(booster, S_IRUGO | S_IWUSR | S_IWGRP,
-				booster_show, booster_store);
+		   booster_show, booster_store);
 
 static struct attribute *host_notify_attrs[] = {
 	&dev_attr_mode.attr,
@@ -145,8 +145,9 @@ static struct attribute_group host_notify_attr_grp = {
 
 void host_state_notify(struct host_notify_dev *ndev, int state)
 {
-	printk(KERN_INFO "host_notify: ndev name=%s: from state=%d -> to state=%d\n",
-		ndev->name, ndev->state, state);
+	printk(KERN_INFO
+	       "host_notify: ndev name=%s: from state=%d -> to state=%d\n",
+	       ndev->name, ndev->state, state);
 	if (ndev->state != state) {
 		ndev->state = state;
 		kobject_uevent(&ndev->dev->kobj, KOBJ_CHANGE);
@@ -154,11 +155,10 @@ void host_state_notify(struct host_notify_dev *ndev, int state)
 }
 EXPORT_SYMBOL_GPL(host_state_notify);
 
-static int
-host_notify_uevent(struct device *dev, struct kobj_uevent_env *env)
+static int host_notify_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct host_notify_dev *ndev = (struct host_notify_dev *)
-		dev_get_drvdata(dev);
+	    dev_get_drvdata(dev);
 	char *state;
 
 	if (!ndev) {
@@ -196,7 +196,7 @@ static int create_notify_class(void)
 {
 	if (!host_notify.host_notify_class) {
 		host_notify.host_notify_class
-			= class_create(THIS_MODULE, "host_notify");
+		    = class_create(THIS_MODULE, "host_notify");
 		if (IS_ERR(host_notify.host_notify_class))
 			return PTR_ERR(host_notify.host_notify_class);
 		atomic_set(&host_notify.device_count, 0);
@@ -218,14 +218,14 @@ int host_notify_dev_register(struct host_notify_dev *ndev)
 
 	ndev->index = atomic_inc_return(&host_notify.device_count);
 	ndev->dev = device_create(host_notify.host_notify_class, NULL,
-		MKDEV(0, ndev->index), NULL, ndev->name);
+				  MKDEV(0, ndev->index), NULL, ndev->name);
 	if (IS_ERR(ndev->dev))
 		return PTR_ERR(ndev->dev);
 
 	ret = sysfs_create_group(&ndev->dev->kobj, &host_notify_attr_grp);
 	if (ret < 0) {
 		device_destroy(host_notify.host_notify_class,
-				MKDEV(0, ndev->index));
+			       MKDEV(0, ndev->index));
 		return ret;
 	}
 

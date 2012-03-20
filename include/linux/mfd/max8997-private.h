@@ -29,7 +29,7 @@
 					 MAX8997_NUM_IRQ_MUIC_REGS)
 
 /* MAX 8997 PMIC registers */
-enum {
+enum max8997_pmic_reg {
 	MAX8997_REG_ID,
 	MAX8997_REG_VER,
 	MAX8997_REG_IRQ_SOURCE,
@@ -185,11 +185,12 @@ enum {
 	MAX8997_REG_DVSOKTIMER2,
 	MAX8997_REG_DVSOKTIMER4,
 	MAX8997_REG_DVSOKTIMER5,
-	MAX8997_REG_END
+
+	MAX8997_REG_PMIC_END
 };
 
 /* MAX8997 MUIC registers */
-enum {
+enum max8997_muic_reg {
 	MAX8997_MUIC_REG_ID = 0,
 	MAX8997_MUIC_REG_INT1,
 	MAX8997_MUIC_REG_INT2,
@@ -206,7 +207,30 @@ enum {
 	MAX8997_MUIC_REG_CTRL2,
 	MAX8997_MUIC_REG_CTRL3,
 	MAX8997_MUIC_REG_RESERVED_0x0F,
+
 	MAX8997_MUIC_REG_END
+};
+
+enum max8997_haptic_reg {
+	MAX8997_HAPTIC_REG_GENERAL      = 0x00,
+	MAX8997_HAPTIC_REG_CONF1        = 0x01,
+	MAX8997_HAPTIC_REG_CONF2        = 0x02,
+	MAX8997_HAPTIC_REG_DRVCONF      = 0x03,
+	MAX8997_HAPTIC_REG_CYCLECONF1   = 0x04,
+	MAX8997_HAPTIC_REG_CYCLECONF2   = 0x05,
+	MAX8997_HAPTIC_REG_SIGCONF1     = 0x06,
+	MAX8997_HAPTIC_REG_SIGCONF2     = 0x07,
+	MAX8997_HAPTIC_REG_SIGCONF3     = 0x08,
+	MAX8997_HAPTIC_REG_SIGCONF4     = 0x09,
+	MAX8997_HAPTIC_REG_SIGDC1       = 0x0a,
+	MAX8997_HAPTIC_REG_SIGDC2       = 0x0b,
+	MAX8997_HAPTIC_REG_SIGPWMDC1    = 0x0c,
+	MAX8997_HAPTIC_REG_SIGPWMDC2    = 0x0d,
+	MAX8997_HAPTIC_REG_SIGPWMDC3    = 0x0e,
+	MAX8997_HAPTIC_REG_SIGPWMDC4    = 0x0f,
+	MAX8997_HAPTIC_REG_MTR_REV      = 0x10,
+
+	MAX8997_HAPTIC_REG_END          = 0x11,
 };
 
 /* IRQ definitions */
@@ -363,6 +387,10 @@ struct max8997_dev {
 	u8 irq_masks_cache[MAX8997_NUM_IRQ_REGS];
 	int type;
 	int wakeup;
+
+	/* For hiberantion */
+	u8 reg_dump[MAX8997_REG_PMIC_END + MAX8997_MUIC_REG_END +
+		MAX8997_HAPTIC_REG_END];
 };
 
 int max8997_irq_init(struct max8997_dev *max8997);
@@ -377,3 +405,4 @@ extern int max8997_bulk_write(struct i2c_client *i2c, u8 reg, int count,
 extern int max8997_update_reg(struct i2c_client *i2c, u8 reg, u8 val, u8 mask);
 
 #endif /*  __LINUX_MFD_MAX8997_PRIV_H */
+

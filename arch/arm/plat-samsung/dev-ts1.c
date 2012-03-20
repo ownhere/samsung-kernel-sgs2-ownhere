@@ -1,4 +1,4 @@
-/* linux/arch/arm/mach-s3c64xx/dev-ts.c
+/* linux/arch/arm/plat-samsung/dev-ts1.c
  *
  * Copyright (c) 2008 Simtec Electronics
  *	http://armlinux.simtec.co.uk/
@@ -30,8 +30,8 @@ static struct resource s3c_ts_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = IRQ_TC,
-		.end   = IRQ_TC,
+		.start = IRQ_PEN1,
+		.end   = IRQ_PEN1,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -58,4 +58,3 @@ void __init s3c24xx_ts1_set_platdata(struct s3c2410_ts_mach_info *pd)
 
 	s3c_device_ts1.dev.platform_data = npd;
 }
-EXPORT_SYMBOL(s3c24xx_ts1_set_platdata);

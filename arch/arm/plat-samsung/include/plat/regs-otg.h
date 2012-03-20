@@ -1,4 +1,4 @@
-/* linux/arch/arm/plat-s3c/include/plat/regs-otg.h
+/* linux/arch/arm/plat-samsung/include/plat/regs-otg.h
  *
  * Copyright (C) 2004 Herbert Poetzl <herbert@13thfloor.at>
  *
@@ -12,15 +12,14 @@
 #define __ASM_ARCH_REGS_USB_OTG_HS_H
 
 /* USB2.0 OTG Controller register */
-#define S3C_USBOTG_PHYREG(x)		((x) + S3C_VA_OTGSFR)
+#define S3C_USBOTG_PHYREG(x)		((x) + S3C_VA_HSPHY)
 #define S3C_USBOTG_PHYPWR		S3C_USBOTG_PHYREG(0x0)
 #define S3C_USBOTG_PHYCLK		S3C_USBOTG_PHYREG(0x4)
 #define S3C_USBOTG_RSTCON		S3C_USBOTG_PHYREG(0x8)
-#define S3C_USBOTG_PHYTUNE		S3C_USBOTG_PHYREG(0x24)
 #define S3C_USBOTG_PHY1CON		S3C_USBOTG_PHYREG(0x34)
 
 /* USB2.0 OTG Controller register */
-#define S3C_USBOTGREG(x) ((x) + S3C_VA_OTG)
+#define S3C_USBOTGREG(x) (x)
 /*============================================================================================== */
 	/* Core Global Registers */
 #define S3C_UDC_OTG_GOTGCTL		S3C_USBOTGREG(0x000)		/* OTG Control & Status */
@@ -62,7 +61,6 @@
 #define S3C_UDC_OTG_HCINTMSK0		S3C_USBOTGREG(0x50C)		/* Host Channel-0 Interrupt Mask */
 #define S3C_UDC_OTG_HCTSIZ0		S3C_USBOTGREG(0x510)		/* Host Channel-0 Transfer Size */
 #define S3C_UDC_OTG_HCDMA0		S3C_USBOTGREG(0x514)		/* Host Channel-0 DMA Address */
-
 
 /*============================================================================================== */
 /* Device Mode Registers */
@@ -156,8 +154,8 @@
 #define INT_SOF				(0x1<<3)
 #define INT_DEV_MODE			(0x0<<0)
 #define INT_HOST_MODE			(0x1<<1)
-#define	INT_GOUTNakEff			(0x01<<7)
-#define	INT_GINNakEff			(0x01<<6)
+#define INT_GOUTNakEff			(0x01<<7)
+#define INT_GINNakEff			(0x01<<6)
 
 #define FULL_SPEED_CONTROL_PKT_SIZE	8
 #define FULL_SPEED_BULK_PKT_SIZE	64
@@ -254,8 +252,8 @@
 #define DEPTSIZ_PKT_CNT_BIT 		(19)
 #define DEPTSIZ_XFER_SIZE_BIT		(0)
 
-#define	DEPTSIZ_SETUP_PKCNT_1		(1<<29)
-#define	DEPTSIZ_SETUP_PKCNT_2		(2<<29)
-#define	DEPTSIZ_SETUP_PKCNT_3		(3<<29)
+#define DEPTSIZ_SETUP_PKCNT_1		(1<<29)
+#define DEPTSIZ_SETUP_PKCNT_2		(2<<29)
+#define DEPTSIZ_SETUP_PKCNT_3		(3<<29)
 
 #endif

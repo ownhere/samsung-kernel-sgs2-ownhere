@@ -42,6 +42,8 @@ xfs_acl_from_disk(struct xfs_acl *aclp)
 	int count, i;
 
 	count = be32_to_cpu(aclp->acl_cnt);
+	if (count > XFS_ACL_MAX_ENTRIES)
+		return ERR_PTR(-EFSCORRUPTED);
 
 	acl = posix_acl_alloc(count, GFP_KERNEL);
 	if (!acl)
@@ -219,13 +221,14 @@ xfs_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 }
 
 int
-xfs_check_acl(struct inode *inode, int mask)
+xfs_check_acl(struct inode *inode, int mask, unsigned int flags)
 {
-	struct xfs_inode *ip = XFS_I(inode);
+	struct xfs_inode *ip;
 	struct posix_acl *acl;
 	int error = -EAGAIN;
 
-	xfs_itrace_entry(ip);
+	ip = XFS_I(inode);
+	trace_xfs_check_acl(ip);
 
 	/*
 	 * If there is no attribute fork no ACL exists on this inode and
@@ -233,6 +236,12 @@ xfs_check_acl(struct inode *inode, int mask)
 	 */
 	if (!XFS_IFORK_Q(ip))
 		return -EAGAIN;
+
+	if (flags & IPERM_FLAG_RCU) {
+		if (!negative_cached_acl(inode, ACL_TYPE_ACCESS))
+			return -ECHILD;
+		return -EAGAIN;
+	}
 
 	acl = xfs_get_acl(inode, ACL_TYPE_ACCESS);
 	if (IS_ERR(acl))

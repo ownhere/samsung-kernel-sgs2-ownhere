@@ -68,7 +68,9 @@ USING_MALI_RUN_TIME_PM ?= 0
 USING_MALI_PMM_TESTSUITE ?= 0
 USING_MALI_PMU ?= 0
 USING_GPU_UTILIZATION ?= 0
+OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 6
 USING_PROFILING ?= 0
+USING_TRACEPOINTS ?= 0
 USING_MALI_MAJOR_PREDEFINE = 1
 USING_MALI_DVFS_ENABLED ?= 0
 TIMESTAMP ?= default
@@ -82,7 +84,7 @@ ifeq ($(USING_OS_MEMORY),1)
         USING_MMU = 1
 endif
 # Check if a Mali Core sub module should be enabled, true or false returned
-submodule_enabled = $(shell gcc $(DEFINES) -E $(MALI_FILE_PREFIX)/arch/config.h | grep type | grep -c $(2))
+#submodule_enabled = $(shell gcc $(DEFINES) -E $(MALI_FILE_PREFIX)/arch/config.h | grep type | grep -c $(2))
 
 # Inside the kernel build system
 
@@ -102,13 +104,15 @@ DEFINES += -DMALI_PMM_RUNTIME_JOB_CONTROL_ON=$(USING_MALI_RUN_TIME_PM)
 DEFINES += -DUSING_MALI_PMM=$(USING_PMM)
 DEFINES += -DMALI_GPU_UTILIZATION=$(USING_GPU_UTILIZATION)
 DEFINES += -DCONFIG_MALI_MEM_SIZE=$(CONFIG_MALI_MEM_SIZE)
+DEFINES += -D_MALI_OSK_SPECIFIC_INDIRECT_MMAP
 DEFINES += -DMALI_TIMELINE_PROFILING_ENABLED=$(USING_PROFILING)
 DEFINES += -DMALI_POWER_MGMT_TEST_SUITE=$(USING_MALI_PMM_TESTSUITE)
 DEFINES += -DMALI_MAJOR_PREDEFINE=$(USING_MALI_MAJOR_PREDEFINE)
 DEFINES += -DMALI_DVFS_ENABLED=$(USING_MALI_DVFS_ENABLED)
 DEFINES += -DUSING_MALI_PMM_EARLYSUSPEND=$(USING_MALI_PMM_EARLYSUSPEND)
 DEFINES += -DMALI_STATE_TRACKING=0
-#DEFINES += -DUSING_KERNEL_WITH_DMA_ALLOC_PHYS_PAGE=$(USING_KERNEL_WITH_DMA_ALLOC_PHYS_PAGE)
+DEFINES += -DMALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB=$(OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB)
+DEFINES += -DMALI_TRACEPOINTS_ENABLED=$(USING_TRACEPOINTS)
 
 ifeq ($(BUILD),debug)
 DEFINES += -DDEBUG
@@ -140,12 +144,7 @@ EXTRA_CFLAGS += $(INCLUDES)\
 		$(DEFINES) 
 
 
-# The GPL product will only include the license/gpl directory
-ifeq ($(wildcard $(MALI_FILE_PREFIX)/linux/license/gpl/*),)
-EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/linux/license/proprietary
-else
 EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/linux/license/gpl
-endif
 EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/common/pmm
 
 # Source files which always are included in a build
@@ -172,13 +171,18 @@ OSKFILES=\
         $(FILES_PREFIX)$(OSKOS)/mali_osk_timers.o
 endif #($(CONFIG_VIDEO_UMP),y)
 
+ifeq ($(CONFIG_CPU_EXYNOS4210),y)
 	MALI_PLATFORM_FILE = platform/orion-m400/mali_platform.o
+else
+	MALI_PLATFORM_FILE = platform/pegasus-m400/mali_platform.o
+endif #($(CONFIG_CPU_EXYNOS4210),y)
 
 UKKFILES=\
         $(FILES_PREFIX)$(OSKOS)/mali_ukk_mem.o \
         $(FILES_PREFIX)$(OSKOS)/mali_ukk_gp.o \
         $(FILES_PREFIX)$(OSKOS)/mali_ukk_pp.o \
-        $(FILES_PREFIX)$(OSKOS)/mali_ukk_core.o
+        $(FILES_PREFIX)$(OSKOS)/mali_ukk_core.o \
+        $(FILES_PREFIX)$(OSKOS)/mali_ukk_vsync.o
 
 mali-y := \
 	$(KBUILDROOT)common/mali_kernel_core.o \
@@ -186,16 +190,27 @@ mali-y := \
 	$(KBUILDROOT)linux/mali_osk_indir_mmap.o \
 	$(KBUILDROOT)common/mali_kernel_rendercore.o \
 	$(KBUILDROOT)common/mali_kernel_descriptor_mapping.o \
+	$(KBUILDROOT)common/mali_kernel_vsync.o \
+    $(KBUILDROOT)linux/mali_kernel_sysfs.o \
 	$(KBUILDROOT)$(MALI_PLATFORM_FILE) \
 	$(KBUILDROOT)$(OSKFILES) \
 	$(KBUILDROOT)$(UKKFILES) 
 	#__malidrv_build_info.o
 
 ifeq ($(USING_PROFILING),1)
+EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/timestamp-default
+EXTRA_CFLAGS += -I$(MALI_FILE_PREFIX)/profiling/include
 mali-y += \
 	common/mali_kernel_profiling.o \
-	timestamp-$(TIMESTAMP)/mali_timestamp.o
+	timestamp-$(TIMESTAMP)/mali_timestamp.o \
+	linux/mali_ukk_profiling.o
+
 EXTRA_CFLAGS += -I$(KBUILD_EXTMOD)/timestamp-$(TIMESTAMP)
+endif
+
+ifeq ($(USING_TRACEPOINTS),1)
+mali-y += \
+	linux/mali_osk_profiling.o
 endif
 
 # Selecting files to compile by parsing the config file
@@ -211,56 +226,43 @@ mali-y += \
 	linux/mali_osk_pm.o \
 	linux/mali_device_pause_resume.o
 endif
+ifeq ($(USING_MALI_PMU),1)
+mali-y += \
+	common/pmm/mali_pmm_pmu.o
+endif
 
 ifeq ($(USING_GPU_UTILIZATION),1)
 mali-y += \
 	common/mali_kernel_utilization.o
 endif
 
-ifneq ($(call submodule_enabled, $M, MALI400PP),0)
-	# Mali-400 PP in use
-	EXTRA_CFLAGS += -DUSING_MALI400
-	mali-y += common/mali_kernel_MALI200.o
-endif
+# Mali-400 PP in use
+EXTRA_CFLAGS += -DUSING_MALI400
+mali-y += common/mali_kernel_MALI200.o
 
-ifneq ($(call submodule_enabled, $M, MALI400GP),0)
-	# Mali-400 GP in use
-	mali-y += common/mali_kernel_GP2.o
-endif
+# Mali-400 GP in use
+mali-y += common/mali_kernel_GP2.o
 
-ifneq ($(call submodule_enabled, $M, MALI200),0)
-        # Mali200 in use
-        EXTRA_CFLAGS += -DUSING_MALI200
-	mali-y += common/mali_kernel_MALI200.o
-endif
+# Mali MMU in use
+mali-y += \
+	common/mali_kernel_mem_mmu.o \
+	common/mali_kernel_memory_engine.o \
+	common/mali_block_allocator.o \
+	common/mali_kernel_mem_os.o
 
-ifneq ($(call submodule_enabled, $M, MALIGP2),0)
-	# MaliGP2 in use
-	mali-y += common/mali_kernel_GP2.o
-endif
-
-ifneq ($(call submodule_enabled, $M, MMU),0)
-	# Mali MMU in use
-	mali-y += \
-		common/mali_kernel_mem_mmu.o \
-		common/mali_kernel_memory_engine.o \
-		common/mali_block_allocator.o \
-		common/mali_kernel_mem_os.o
-else
-	# No Mali MMU in use
-	mali-y += common/mali_kernel_mem_buddy.o
-endif
-
-ifneq ($(call submodule_enabled, $M, MALI400L2),0)
-        # Mali Level2 cache in use
-        EXTRA_CFLAGS += -DUSING_MALI400_L2_CACHE
-        mali-y += common/mali_kernel_l2_cache.o
-endif
+# Mali Level2 cache in use
+EXTRA_CFLAGS += -DUSING_MALI400_L2_CACHE
+mali-y += common/mali_kernel_l2_cache.o
 
 ifeq ($(USING_MALI_DVFS_ENABLED),1)
+ifeq ($(CONFIG_CPU_EXYNOS4210),y)
 mali-y += \
 	platform/orion-m400/mali_platform_dvfs.o
-endif
+else
+mali-y += \
+	platform/pegasus-m400/mali_platform_dvfs.o
+endif #($(CONFIG_CPU_EXYNOS4210),y)
+endif #($(USING_MALI_DVFS_ENABLED),1)
 
 ifeq ($(CONFIG_GPU_CLOCK_CONTROL),y)
 mali-y += \

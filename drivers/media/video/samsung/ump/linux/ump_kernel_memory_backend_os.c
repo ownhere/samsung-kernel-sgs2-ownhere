@@ -40,6 +40,7 @@ typedef struct os_allocator
 static void os_free(void* ctx, ump_dd_mem * descriptor);
 static int os_allocate(void* ctx, ump_dd_mem * descriptor);
 static void os_memory_backend_destroy(ump_memory_backend * backend);
+static u32 os_stat(struct ump_memory_backend *backend);
 
 
 
@@ -60,7 +61,7 @@ ump_memory_backend * ump_os_memory_backend_create(const int max_allocation)
 	info->num_pages_max = max_allocation >> PAGE_SHIFT;
 	info->num_pages_allocated = 0;
 
-	init_MUTEX(&info->mutex);
+	sema_init(&info->mutex, 1);
 
 	backend = kmalloc(sizeof(ump_memory_backend), GFP_KERNEL);
 	if (NULL == backend)
@@ -73,6 +74,7 @@ ump_memory_backend * ump_os_memory_backend_create(const int max_allocation)
 	backend->allocate = os_allocate;
 	backend->release = os_free;
 	backend->shutdown = os_memory_backend_destroy;
+	backend->stat = os_stat;
 	backend->pre_allocate_physical_check = NULL;
 	backend->adjust_to_mali_phys = NULL;
 	backend->get = NULL;
@@ -244,4 +246,12 @@ static void os_free(void* ctx, ump_dd_mem * descriptor)
 	}
 
 	vfree(descriptor->block_array);
+}
+
+
+static u32 os_stat(struct ump_memory_backend *backend)
+{
+	os_allocator *info;
+	info = (os_allocator*)backend->ctx;
+	return info->num_pages_allocated * _MALI_OSK_MALI_PAGE_SIZE;
 }

@@ -54,7 +54,7 @@ else
 			rm $PWD/arch/arm/boot/zImage
 		fi
 	fi
-	$prefix make -j `cat /proc/cpuinfo |grep -c ^processor` EXTRA_AFLAGS=-mfpu=neon ARCH=arm CROSS_COMPILE=${compiler} INSTALL_MOD_PATH=$PWD/${myinitramfs} CONFIG_INITRAMFS_SOURCE=$PWD/${myinitramfs} CONFIG_INITRAMFS_ROOT_UID=0 CONFIG_INITRAMFS_ROOT_GID=0 LOCALVERSION="-I9100-${branch}" $1 $2 $3 $4 $5 $6 $7 $8 $9
+	$prefix make -j `cat /proc/cpuinfo |grep -c ^processor` EXTRA_AFLAGS=-mfpu=neon ARCH=arm CROSS_COMPILE=${compiler} INSTALL_MOD_PATH=$PWD/${myinitramfs} CONFIG_INITRAMFS_SOURCE=$PWD/${myinitramfs} CONFIG_INITRAMFS_ROOT_UID=0 CONFIG_INITRAMFS_ROOT_GID=0 LOCALVERSION="-I9100-${branch}" USE_SEC_FIPS_MODE=true $1 $2 $3 $4 $5 $6 $7 $8 $9
 	if [ -e $PWD/arch/arm/boot/zImage ]; then
 		$PWD/ownherefiles/paddingsu.sh ${myinitramfs}
 	fi

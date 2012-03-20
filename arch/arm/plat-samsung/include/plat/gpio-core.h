@@ -13,18 +13,6 @@
 
 #define GPIOCON_OFF	(0x00)
 #define GPIODAT_OFF	(0x04)
-#define GPIOPUD_OFF	(0x08)
-#define GPIODRV_OFF	(0x0c)
-#define GPIOCONPDN_OFF	(0x10)
-#define GPIOPUDPDN_OFF	(0x14)
-
-#define S3C_GPIO_EDGE_FALLING		(0x02)
-#define S3C_GPIO_EDGE_RISING		(0x04)
-#define S3C_GPIO_EDGE_BOTH		(0x06)
-
-#define S5P_GPIO_EDGE_FALLING		(0x02)
-#define S5P_GPIO_EDGE_RISING		(0x03)
-#define S5P_GPIO_EDGE_BOTH		(0x04)
 
 #define con_4bit_shift(__off) ((__off) * 4)
 
@@ -55,9 +43,10 @@ struct s3c_gpio_cfg;
  * struct s3c_gpio_chip - wrapper for specific implementation of gpio
  * @chip: The chip structure to be exported via gpiolib.
  * @base: The base pointer to the gpio configuration registers.
+ * @group: The group register number for gpio interrupt support.
+ * @irq_base: The base irq number.
  * @config: special function and pull-resistor control information.
  * @lock: Lock for exclusive access to this gpio bank.
- * @group: GThe interrupt group either GPIO or EINT.
  * @pm_save: Save information for suspend/resume support.
  *
  * This wrapper provides the necessary information for the Samsung
@@ -76,10 +65,12 @@ struct s3c_gpio_chip {
 	struct s3c_gpio_cfg	*config;
 	struct s3c_gpio_pm	*pm;
 	void __iomem		*base;
-	spinlock_t		 lock;
+	int			irq_base;
 	int			group;
+	unsigned int		eint_offset;
+	spinlock_t		lock;
 #ifdef CONFIG_PM
-	u32			pm_save[7];
+	u32			pm_save[4];
 #endif
 };
 
@@ -87,28 +78,6 @@ static inline struct s3c_gpio_chip *to_s3c_gpio(struct gpio_chip *gpc)
 {
 	return container_of(gpc, struct s3c_gpio_chip, chip);
 }
-
-struct irq_desc;
-
-/**
- * struct samsung_irq_gpio - define the gpio irq information
- */
-struct samsung_irq_gpio {
-	int			start;
-	int			nr_groups;
-	unsigned long		valid_groups;
-	void			*base;
-};
-
-/**
- * struct samsung_irq_gpio_info - Pass the gpio irq info to framework
- */
-struct samsung_irq_gpio_info {
-	int			irq;
-	void			(*handler)(unsigned int, struct irq_desc *);
-	struct samsung_irq_gpio	sig;
-};
-
 
 /** s3c_gpiolib_add() - add the s3c specific version of a gpio_chip.
  * @chip: The chip to register
@@ -140,7 +109,7 @@ extern void s3c_gpiolib_add(struct s3c_gpio_chip *chip);
  * of control per GPIO, generally in the form of:
  * 0000 = Input
  * 0001 = Output
- * others = Special functions (dependant on bank)
+ * others = Special functions (dependent on bank)
  *
  * Note, since the code to deal with the case where there are two control
  * registers instead of one, we do not have a separate set of function
@@ -150,17 +119,22 @@ extern void samsung_gpiolib_add_4bit_chips(struct s3c_gpio_chip *chip,
 					   int nr_chips);
 extern void samsung_gpiolib_add_4bit2_chips(struct s3c_gpio_chip *chip,
 					    int nr_chips);
+extern void samsung_gpiolib_add_2bit_chips(struct s3c_gpio_chip *chip,
+					   int nr_chips);
 
 extern void samsung_gpiolib_add_4bit(struct s3c_gpio_chip *chip);
 extern void samsung_gpiolib_add_4bit2(struct s3c_gpio_chip *chip);
 
-#ifdef CONFIG_SAMSUNG_IRQ_GPIO
-extern void samsung_irq_gpio_add(struct s3c_gpio_chip *chip);
-extern void samsung_irq_gpio_register(struct samsung_irq_gpio_info *gpios, int num);
-#else
-#define samsung_irq_gpio_add(x)		do { } while (0)
-#define samsung_irq_gpio_register(g, n)	do { } while (0)
-#endif
+
+/**
+ * samsung_gpiolib_to_irq - convert gpio pin to irq number
+ * @chip: The gpio chip that the pin belongs to.
+ * @offset: The offset of the pin in the chip.
+ *
+ * This helper returns the irq number calculated from the chip->irq_base and
+ * the provided offset.
+ */
+extern int samsung_gpiolib_to_irq(struct gpio_chip *chip, unsigned int offset);
 
 /* exported for core SoC support to change */
 extern struct s3c_gpio_cfg s3c24xx_gpiocfg_default;
@@ -168,9 +142,9 @@ extern struct s3c_gpio_cfg s3c24xx_gpiocfg_default;
 #ifdef CONFIG_S3C_GPIO_TRACK
 extern struct s3c_gpio_chip *s3c_gpios[S3C_GPIO_END];
 
-static inline struct s3c_gpio_chip *s3c_gpiolib_getchip(unsigned int chip)
+static inline struct s3c_gpio_chip *s3c_gpiolib_getchip(unsigned int pin)
 {
-	return (chip < S3C_GPIO_END) ? s3c_gpios[chip] : NULL;
+	return (pin < S3C_GPIO_END) ? s3c_gpios[pin] : NULL;
 }
 #else
 /* machine specific code should provide s3c_gpiolib_getchip */
@@ -192,8 +166,6 @@ extern struct s3c_gpio_pm s3c_gpio_pm_4bit;
 #define __gpio_pm(x) NULL
 
 #endif /* CONFIG_PM */
-
-extern void s3c_gpio_setpdn(struct s3c_gpio_chip *chip, u32 con, u32 pud);
 
 /* locking wrappers to deal with multiple access to the same gpio bank */
 #define s3c_gpio_lock(_oc, _fl) spin_lock_irqsave(&(_oc)->lock, _fl)

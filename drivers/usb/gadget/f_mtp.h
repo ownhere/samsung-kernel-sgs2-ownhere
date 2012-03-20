@@ -29,8 +29,8 @@
 #define GET_SETUP_DATA		6
 #define SET_SETUP_DATA		7
 #define SEND_RESET_ACK		8
-#define SET_ZLP_DATA 		9
-#define GET_HIGH_FULL_SPEED 	10
+#define SET_ZLP_DATA		9
+#define GET_HIGH_FULL_SPEED	10
 #define SIG_SETUP		44
 
 /*PIMA15740-2000 spec*/
@@ -44,7 +44,8 @@
 
 
 int mtp_function_add(struct usb_configuration *c);
-int mtp_function_config_changed(struct usb_composite_dev *cdev,	struct usb_configuration *c);
+int mtp_function_config_changed(struct usb_composite_dev *cdev,
+		struct usb_configuration *c);
 int mtp_enable(void);
 void mtp_function_enable(int enable);
 
@@ -53,4 +54,3 @@ struct usb_mtp_ctrlrequest {
 };
 
 #endif /* __F_MTP_H */
-

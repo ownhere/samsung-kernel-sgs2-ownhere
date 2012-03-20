@@ -29,6 +29,9 @@
  * SPI_GPIO_NO_CHIPSELECT to the controller_data:
  *		.controller_data = (void *) SPI_GPIO_NO_CHIPSELECT;
  *
+ * If the MISO or MOSI pin is not available then it should be set to
+ * SPI_GPIO_NO_MISO or SPI_GPIO_NO_MOSI.
+ *
  * If the bitbanged bus is later switched to a "native" controller,
  * that platform_device and controller_data should be removed.
  */

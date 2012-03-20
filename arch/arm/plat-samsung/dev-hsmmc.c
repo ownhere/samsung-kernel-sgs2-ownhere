@@ -40,10 +40,8 @@ static u64 s3c_device_hsmmc_dmamask = 0xffffffffUL;
 struct s3c_sdhci_platdata s3c_hsmmc0_def_platdata = {
 	.max_width	= 4,
 	.host_caps	= (MMC_CAP_4_BIT_DATA |
-#if defined(CONFIG_MMC_CH0_CLOCK_GATING)
-			MMC_CAP_CLOCK_GATING |
-#endif
 			   MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED),
+	.clk_type	= S3C_SDHCI_CLK_DIV_INTERNAL,
 };
 
 struct platform_device s3c_device_hsmmc0 = {
@@ -67,9 +65,10 @@ void s3c_sdhci0_set_platdata(struct s3c_sdhci_platdata *pd)
 	set->ext_cd_cleanup = pd->ext_cd_cleanup;
 	set->ext_cd_gpio = pd->ext_cd_gpio;
 	set->ext_cd_gpio_invert = pd->ext_cd_gpio_invert;
-	set->wp_gpio = pd->wp_gpio;
-	set->has_wp_gpio = pd->has_wp_gpio;
+	set->pm_flags = pd->pm_flags;
 
+	if (pd->vmmc_name)
+		strncpy(set->vmmc_name, pd->vmmc_name, MAX_VMMC_NAME);
 	if (pd->max_width)
 		set->max_width = pd->max_width;
 	if (pd->cfg_gpio)
@@ -78,4 +77,6 @@ void s3c_sdhci0_set_platdata(struct s3c_sdhci_platdata *pd)
 		set->cfg_card = pd->cfg_card;
 	if (pd->host_caps)
 		set->host_caps |= pd->host_caps;
+	if (pd->clk_type)
+		set->clk_type = pd->clk_type;
 }

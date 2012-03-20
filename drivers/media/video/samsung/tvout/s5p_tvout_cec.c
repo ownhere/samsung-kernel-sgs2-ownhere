@@ -15,6 +15,7 @@
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
 #include <linux/clk.h>
+#include <linux/sched.h>
 
 #include <plat/tvout.h>
 
@@ -109,22 +110,22 @@ static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
 			size_t count, loff_t *ppos)
 {
 	ssize_t retval;
+	unsigned long spin_flags;
 
 	if (wait_event_interruptible(cec_rx_struct.waitq,
 			atomic_read(&cec_rx_struct.state) == STATE_DONE)) {
 		return -ERESTARTSYS;
 	}
-
-	spin_lock_irq(&cec_rx_struct.lock);
+	spin_lock_irqsave(&cec_rx_struct.lock, spin_flags);
 
 	if (cec_rx_struct.size > count) {
-		spin_unlock_irq(&cec_rx_struct.lock);
+		spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 
 		return -1;
 	}
 
 	if (copy_to_user(buffer, cec_rx_struct.buffer, cec_rx_struct.size)) {
-		spin_unlock_irq(&cec_rx_struct.lock);
+		spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 		printk(KERN_ERR " copy_to_user() failed!\n");
 
 		return -EFAULT;
@@ -133,7 +134,7 @@ static ssize_t s5p_cec_read(struct file *file, char __user *buffer,
 	retval = cec_rx_struct.size;
 
 	s5p_cec_set_rx_state(STATE_RX);
-	spin_unlock_irq(&cec_rx_struct.lock);
+	spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
 
 	return retval;
 }
@@ -294,52 +295,44 @@ static irqreturn_t s5p_cec_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __init s5p_cec_probe(struct platform_device *pdev)
+static int __devinit s5p_cec_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_cec *pdata;
 	u8 *buffer;
 	int irq_num;
 	int ret;
 
-	/*
-	 * CEC GPIO number is changed.
-	 */
-	#if 0
-	s3c_gpio_cfgpin(S5PV210_GPH1(4), S3C_GPIO_SFN(0x4));
-	s3c_gpio_setpull(S5PV210_GPH1(4), S3C_GPIO_PULL_NONE);
-	#endif
 	pdata = to_tvout_plat(&pdev->dev);
 
 	if (pdata->cfg_gpio)
 		pdata->cfg_gpio(pdev);
 
-
 	/* get ioremap addr */
-	s5p_cec_mem_probe(pdev);
+	ret = s5p_cec_mem_probe(pdev);
+	if (ret != 0) {
+		printk(KERN_ERR  "failed to s5p_cec_mem_probe ret = %d\n", ret);
+		goto err_mem_probe;
+	}
 
 	if (misc_register(&cec_misc_device)) {
 		printk(KERN_WARNING " Couldn't register device 10, %d.\n",
 			CEC_MINOR);
-
-		return -EBUSY;
+		ret = -EBUSY;
+		goto err_misc_register;
 	}
 
 	irq_num = platform_get_irq(pdev, 0);
-
 	if (irq_num < 0) {
 		printk(KERN_ERR  "failed to get %s irq resource\n", "cec");
 		ret = -ENOENT;
-
-		return ret;
+		goto err_get_irq;
 	}
 
 	ret = request_irq(irq_num, s5p_cec_irq_handler, IRQF_DISABLED,
 		pdev->name, &pdev->id);
-
 	if (ret != 0) {
 		printk(KERN_ERR  "failed to install %s irq (%d)\n", "cec", ret);
-
-		return ret;
+		goto err_request_irq;
 	}
 
 	init_waitqueue_head(&cec_rx_struct.waitq);
@@ -347,24 +340,29 @@ static int __init s5p_cec_probe(struct platform_device *pdev)
 	init_waitqueue_head(&cec_tx_struct.waitq);
 
 	buffer = kmalloc(CEC_TX_BUFF_SIZE, GFP_KERNEL);
-
 	if (!buffer) {
 		printk(KERN_ERR " kmalloc() failed!\n");
 		misc_deregister(&cec_misc_device);
-
-		return -EIO;
+		ret = -EIO;
+		goto err_kmalloc;
 	}
 
 	cec_rx_struct.buffer = buffer;
-
 	cec_rx_struct.size   = 0;
 	TV_CLK_GET_WITH_ERR_CHECK(hdmi_cec_clk, pdev, "hdmicec");
 
+err_kmalloc:
+	free_irq(irq_num, &pdev->id);
+err_request_irq:
+err_get_irq:
+	misc_deregister(&cec_misc_device);
+err_misc_register:
+err_mem_probe:
 
 	return 0;
 }
 
-static int s5p_cec_remove(struct platform_device *pdev)
+static int __devexit s5p_cec_remove(struct platform_device *pdev)
 {
 	return 0;
 }
@@ -386,7 +384,7 @@ static int s5p_cec_resume(struct platform_device *dev)
 
 static struct platform_driver s5p_cec_driver = {
 	.probe		= s5p_cec_probe,
-	.remove		= s5p_cec_remove,
+	.remove		= __devexit_p(s5p_cec_remove),
 	.suspend	= s5p_cec_suspend,
 	.resume		= s5p_cec_resume,
 	.driver		= {

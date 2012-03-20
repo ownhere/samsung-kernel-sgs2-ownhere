@@ -1,10 +1,15 @@
 #ifndef __LINUX_CMA_H
 #define __LINUX_CMA_H
 
-/*
+/* linux/include/linux/cma.h
+ *
  * Contiguous Memory Allocator framework
  * Copyright (c) 2010 by Samsung Electronics.
  * Written by Michal Nazarewicz (m.nazarewicz@samsung.com)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of  the GNU General Public License version 2 as
+ * published by the Free Software Foundation
  */
 
 /*

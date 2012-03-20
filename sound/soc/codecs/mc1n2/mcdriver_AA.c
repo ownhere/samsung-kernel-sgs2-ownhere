@@ -1,12 +1,12 @@
 /****************************************************************************
  *
- *		Copyright(c) 2010 Yamaha Corporation. All rights reserved.
+ *		Copyright(c) 2010-2011 Yamaha Corporation. All rights reserved.
  *
  *		Module		: mcdriver.c
  *
  *		Description	: MC Driver
  *
- *		Version		: 1.0.0 	2010.09.03
+ *		Version		: 1.0.2		2011.04.18
  *
  ****************************************************************************/
 
@@ -2687,19 +2687,19 @@ static void	InitVolInfo
 	{
 		gsGlobalInfo_AA.sVolInfo.aswA_Lin1[bCh]		= MCDRV_LOGICAL_VOL_MUTE;
 	}
-	for(bCh = 0; bCh < LIN2_VOL_CHANNELS; bCh++)	
+	for(bCh = 0; bCh < LIN2_VOL_CHANNELS; bCh++)
 	{
 		gsGlobalInfo_AA.sVolInfo.aswA_Lin2[bCh]		= MCDRV_LOGICAL_VOL_MUTE;
 	}
-	for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)	
+	for(bCh = 0; bCh < MIC1_VOL_CHANNELS; bCh++)
 	{
 		gsGlobalInfo_AA.sVolInfo.aswA_Mic1[bCh]		= MCDRV_LOGICAL_VOL_MUTE;
 	}
-	for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)	
+	for(bCh = 0; bCh < MIC2_VOL_CHANNELS; bCh++)
 	{
 		gsGlobalInfo_AA.sVolInfo.aswA_Mic2[bCh]		= MCDRV_LOGICAL_VOL_MUTE;
 	}
-	for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)	
+	for(bCh = 0; bCh < MIC3_VOL_CHANNELS; bCh++)
 	{
 		gsGlobalInfo_AA.sVolInfo.aswA_Mic3[bCh]		= MCDRV_LOGICAL_VOL_MUTE;
 	}
@@ -7654,7 +7654,7 @@ void	McResCtrl_GetPowerInfo_AA
 	else
 	{
 		if(McDevProf_IsValid(eMCDRV_FUNC_LI2) == 1
-		&& ((gsGlobalInfo_AA.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON 
+		&& ((gsGlobalInfo_AA.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE2_R_BLOCK] & MCDRV_SRC2_LINE2_R_ON) == MCDRV_SRC2_LINE2_R_ON
 			|| (gsGlobalInfo_AA.sPathInfo.asAdc0[1].abSrcOnOff[MCDRV_SRC_LINE2_M_BLOCK] & MCDRV_SRC2_LINE2_M_ON) == MCDRV_SRC2_LINE2_M_ON))
 		{
 			bAnalogOn	= 1;
@@ -12813,10 +12813,10 @@ SINT32	McPacket_AddDigitalIO_AA
 
 	/*	unused path power down	*/
 	sPowerUpdate.dDigital		= MCDRV_POWUPDATE_DIGITAL_ALL_AA;
-	sPowerUpdate.abAnalog[0]	= 
-	sPowerUpdate.abAnalog[1]	= 
-	sPowerUpdate.abAnalog[2]	= 
-	sPowerUpdate.abAnalog[3]	= 
+	sPowerUpdate.abAnalog[0]	=
+	sPowerUpdate.abAnalog[1]	=
+	sPowerUpdate.abAnalog[2]	=
+	sPowerUpdate.abAnalog[3]	=
 	sPowerUpdate.abAnalog[4]	= 0;
 	return McPacket_AddPowerDown_AA(&sPowerInfo, &sPowerUpdate);
 }
@@ -13543,10 +13543,10 @@ SINT32	McPacket_AddDAC_AA
 
 	/*	unused path power down	*/
 	sPowerUpdate.dDigital		= MCDRV_POWUPDATE_DIGITAL_ALL_AA;
-	sPowerUpdate.abAnalog[0]	= 
-	sPowerUpdate.abAnalog[1]	= 
-	sPowerUpdate.abAnalog[2]	= 
-	sPowerUpdate.abAnalog[3]	= 
+	sPowerUpdate.abAnalog[0]	=
+	sPowerUpdate.abAnalog[1]	=
+	sPowerUpdate.abAnalog[2]	=
+	sPowerUpdate.abAnalog[3]	=
 	sPowerUpdate.abAnalog[4]	= 0;
 	return McPacket_AddPowerDown_AA(&sPowerInfo, &sPowerUpdate);
 }
@@ -13637,10 +13637,10 @@ SINT32	McPacket_AddADC_AA
 
 	/*	unused path power down	*/
 	sPowerUpdate.dDigital		= MCDRV_POWUPDATE_DIGITAL_ALL_AA;
-	sPowerUpdate.abAnalog[0]	= 
-	sPowerUpdate.abAnalog[1]	= 
-	sPowerUpdate.abAnalog[2]	= 
-	sPowerUpdate.abAnalog[3]	= 
+	sPowerUpdate.abAnalog[0]	=
+	sPowerUpdate.abAnalog[1]	=
+	sPowerUpdate.abAnalog[2]	=
+	sPowerUpdate.abAnalog[3]	=
 	sPowerUpdate.abAnalog[4]	= 0;
 	sdRet	= McPacket_AddPowerDown_AA(&sPowerInfo, &sPowerUpdate);
 	if(sdRet != MCDRV_SUCCESS)
@@ -13737,9 +13737,9 @@ SINT32	McPacket_AddDNG_AA
 	{
 		sPowerInfo.abAnalog[0]	&= (UINT8)~MCB_AA_PWM_VR;
 		sPowerUpdate.abAnalog[0]	= (UINT8)MCDRV_POWUPDATE_ANALOG0_ALL_AA;
-		sPowerUpdate.abAnalog[1]	= 
-		sPowerUpdate.abAnalog[2]	= 
-		sPowerUpdate.abAnalog[3]	= 
+		sPowerUpdate.abAnalog[1]	=
+		sPowerUpdate.abAnalog[2]	=
+		sPowerUpdate.abAnalog[3]	=
 		sPowerUpdate.abAnalog[4]	= 0;
 	}
 	sdRet	= McPacket_AddPowerUp_AA(&sPowerInfo, &sPowerUpdate);
@@ -13907,10 +13907,10 @@ SINT32	McPacket_AddAE_AA
 		sPowerInfo.dDigital	&= ~MCDRV_POWINFO_DIGITAL_DPBDSP_AA;
 		sPowerInfo.dDigital	&= ~MCDRV_POWINFO_DIGITAL_PLLRST0_AA;
 		sPowerUpdate.dDigital	= MCDRV_POWUPDATE_DIGITAL_ALL_AA;
-		sPowerUpdate.abAnalog[0]	= 
-		sPowerUpdate.abAnalog[1]	= 
-		sPowerUpdate.abAnalog[2]	= 
-		sPowerUpdate.abAnalog[3]	= 
+		sPowerUpdate.abAnalog[0]	=
+		sPowerUpdate.abAnalog[1]	=
+		sPowerUpdate.abAnalog[2]	=
+		sPowerUpdate.abAnalog[3]	=
 		sPowerUpdate.abAnalog[4]	= 0;
 		sdRet	= McPacket_AddPowerUp_AA(&sPowerInfo, &sPowerUpdate);
 		if(MCDRV_SUCCESS != sdRet)
@@ -14062,10 +14062,10 @@ SINT32	McPacket_AddPDM_AA
 
 	/*	unused path power down	*/
 	sPowerUpdate.dDigital		= MCDRV_POWUPDATE_DIGITAL_ALL_AA;
-	sPowerUpdate.abAnalog[0]	= 
-	sPowerUpdate.abAnalog[1]	= 
-	sPowerUpdate.abAnalog[2]	= 
-	sPowerUpdate.abAnalog[3]	= 
+	sPowerUpdate.abAnalog[0]	=
+	sPowerUpdate.abAnalog[1]	=
+	sPowerUpdate.abAnalog[2]	=
+	sPowerUpdate.abAnalog[3]	=
 	sPowerUpdate.abAnalog[4]	= 0;
 	sdRet	= McPacket_AddPowerDown_AA(&sPowerInfo, &sPowerUpdate);
 	if(sdRet != MCDRV_SUCCESS)
@@ -15131,7 +15131,7 @@ static	SINT32	get_path
 		return MCDRV_ERROR_STATE;
 	}
 
-	McResCtrl_GetPathInfo_AA(psPathInfo);
+	McResCtrl_GetPathInfoVirtual_AA(psPathInfo);
 
 	return MCDRV_SUCCESS;
 }
@@ -15863,7 +15863,7 @@ static	SINT32	set_ae
 	}
 
 	McResCtrl_GetPathInfoVirtual_AA(&sPathInfo);
-	return 	set_path(&sPathInfo);
+	return	set_path(&sPathInfo);
 }
 
 /****************************************************************************
@@ -16606,10 +16606,10 @@ static SINT32	ValidatePathParam(
 				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit0[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit0[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit0[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DIT1_PATH_CHANNELS; bCh++)
@@ -16629,15 +16629,15 @@ static SINT32	ValidatePathParam(
 				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit1[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit1[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit1[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DIT2_PATH_CHANNELS; bCh++)
 		{
-			if((psPathInfo->asDit0[bCh].abSrcOnOff[bBlock] & (0x03)) == 0x02)
+			if((psPathInfo->asDit2[bCh].abSrcOnOff[bBlock] & (0x03)) == 0x02)
 			{
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x01;
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x02;
@@ -16652,10 +16652,10 @@ static SINT32	ValidatePathParam(
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x10;
 				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x20;
 			}
-			if((psPathInfo->asDit2[bCh].abSrcOnOff[bBlock] & (0x0C)) == 0x08)
+			if((psPathInfo->asDit2[bCh].abSrcOnOff[bBlock] & (0xC0)) == 0x80)
 			{
-				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x04;
-				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x08;
+				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	&= (UINT8)~0x40;
+				sCurPathInfo.asDit2[bCh].abSrcOnOff[bBlock]	|= 0x80;
 			}
 		}
 		for(bCh = 0; bCh < DAC_PATH_CHANNELS; bCh++)
@@ -18274,5 +18274,3 @@ SINT32	McDrv_Ctrl_AA
 
 	return sdRet;
 }
-
-

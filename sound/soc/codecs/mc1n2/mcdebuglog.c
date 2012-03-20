@@ -6,7 +6,7 @@
  *
  *		Description	: MC Driver debug log
  *
- *		Version		: 1.0.0 	2010.09.10
+ *		Version		: 1.0.0		2010.09.10
  *
  ****************************************************************************/
 
@@ -20,8 +20,6 @@
 #include "mcdevprof.h"
 #include "mcservice.h"
 #include "mcmachdep.h"
-#include <linux/string.h>
-#include <linux/kernel.h>
 
 
 

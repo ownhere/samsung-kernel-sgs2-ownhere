@@ -125,6 +125,27 @@
 
 #define S3C2443_PWRCFG_SLEEP		(1<<15)
 
+#define S3C2443_PWRCFG_USBPHY		(1 << 4)
+
+#define S3C2443_URSTCON_FUNCRST		(1 << 2)
+#define S3C2443_URSTCON_PHYRST		(1 << 0)
+
+#define S3C2443_PHYCTRL_CLKSEL		(1 << 3)
+#define S3C2443_PHYCTRL_EXTCLK		(1 << 2)
+#define S3C2443_PHYCTRL_PLLSEL		(1 << 1)
+#define S3C2443_PHYCTRL_DSPORT		(1 << 0)
+
+#define S3C2443_PHYPWR_COMMON_ON	(1 << 31)
+#define S3C2443_PHYPWR_ANALOG_PD	(1 << 4)
+#define S3C2443_PHYPWR_PLL_REFCLK	(1 << 3)
+#define S3C2443_PHYPWR_XO_ON		(1 << 2)
+#define S3C2443_PHYPWR_PLL_PWRDN	(1 << 1)
+#define S3C2443_PHYPWR_FSUSPEND		(1 << 0)
+
+#define S3C2443_UCLKCON_DETECT_VBUS	(1 << 31)
+#define S3C2443_UCLKCON_FUNC_CLKEN	(1 << 2)
+#define S3C2443_UCLKCON_TCLKEN		(1 << 0)
+
 #include <asm/div64.h>
 
 static inline unsigned int

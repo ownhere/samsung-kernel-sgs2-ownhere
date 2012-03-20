@@ -137,6 +137,7 @@ struct cma_chunk *cma_bf_alloc(struct cma_region *reg,
 		return NULL;
 
 	/* Now look for items which can satisfy alignment requirements */
+	node = &item->by_size;
 	for (;;) {
 		dma_addr_t start = ALIGN(item->ch.start, alignment);
 		dma_addr_t end   = item->ch.start + item->ch.size;

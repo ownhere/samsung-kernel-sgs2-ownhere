@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/serial_core.h>
 #include <linux/io.h>
+#include <linux/power/charger-manager.h>
 
 #include <asm/cacheflush.h>
 #include <mach/hardware.h>
@@ -32,6 +33,7 @@
 #include <mach/pm-core.h>
 
 /* for external use */
+unsigned long s3c_suspend_wakeup_stat;
 
 unsigned long s3c_pm_flags;
 
@@ -53,7 +55,9 @@ void s3c_pm_dbg(const char *fmt, ...)
 	vsprintf(buff, fmt, va);
 	va_end(va);
 
+#ifdef CONFIG_DEBUG_LL
 	printascii(buff);
+#endif
 }
 
 static inline void s3c_pm_debug_init(void)
@@ -87,10 +91,9 @@ static void s3c_pm_save_uart(unsigned int uart, struct pm_uart_save *save)
 
 	if (pm_uart_udivslot)
 		save->udivslot = __raw_readl(regs + S3C2443_DIVSLOT);
-#if 0
+
 	S3C_PMDBG("UART[%d]: ULCON=%04x, UCON=%04x, UFCON=%04x, UBRDIV=%04x\n",
 		  uart, save->ulcon, save->ucon, save->ufcon, save->ubrdiv);
-#endif
 }
 
 static void s3c_pm_save_uarts(void)
@@ -134,18 +137,18 @@ static void s3c_pm_restore_uarts(void) { }
 /* The IRQ ext-int code goes here, it is too small to currently bother
  * with its own file. */
 
-unsigned long s3c_irqwake_intmask	= 0xffffffddL;
+unsigned long s3c_irqwake_intmask	= 0xffffffffL;
 unsigned long s3c_irqwake_eintmask	= 0xffffffffL;
 
-int s3c_irqext_wake(unsigned int irqno, unsigned int state)
+int s3c_irqext_wake(struct irq_data *data, unsigned int state)
 {
-	unsigned long bit = 1L << IRQ_EINT_BIT(irqno);
+	unsigned long bit = 1L << IRQ_EINT_BIT(data->irq);
 
 	if (!(s3c_irqwake_eintallow & bit))
 		return -ENOENT;
 
 	printk(KERN_INFO "wake %s for irq %d\n",
-	       state ? "enabled" : "disabled", irqno);
+	       state ? "enabled" : "disabled", data->irq);
 
 	if (!state)
 		s3c_irqwake_eintmask |= bit;
@@ -169,9 +172,7 @@ void s3c_pm_do_save(struct sleep_save *ptr, int count)
 {
 	for (; count > 0; count--, ptr++) {
 		ptr->val = __raw_readl(ptr->reg);
-#if 0
 		S3C_PMDBG("saved %p value %08lx\n", ptr->reg, ptr->val);
-#endif
 	}
 }
 
@@ -189,7 +190,10 @@ void s3c_pm_do_save(struct sleep_save *ptr, int count)
 void s3c_pm_do_restore(struct sleep_save *ptr, int count)
 {
 	for (; count > 0; count--, ptr++) {
-#if 0
+#if defined(CONFIG_CPU_EXYNOS4210)
+		S3C_PMDBG("restore %p (restore %08lx, was %08x)\n",
+			  ptr->reg, ptr->val, __raw_readl(ptr->reg));
+#else
 		printk(KERN_DEBUG "restore %p (restore %08lx, was %08x)\n",
 		       ptr->reg, ptr->val, __raw_readl(ptr->reg));
 #endif
@@ -219,25 +223,25 @@ void s3c_pm_do_restore_core(struct sleep_save *ptr, int count)
  *
  * print any IRQs asserted at resume time (ie, we woke from)
 */
-#if 0
-static void s3c_pm_show_resume_irqs(int start, unsigned long which,
-				    unsigned long mask)
+static void __maybe_unused s3c_pm_show_resume_irqs(int start,
+						   unsigned long which,
+						   unsigned long mask)
 {
 	int i;
 
 	which &= ~mask;
 
 	for (i = 0; i <= 31; i++) {
-		if (which & (1L<<i)) {
+		if (which & (1L<<i))
 			S3C_PMDBG("IRQ %d asserted at resume\n", start+i);
-		}
 	}
 }
-#endif
-
 
 void (*pm_cpu_prep)(void);
 void (*pm_cpu_sleep)(void);
+void (*pm_cpu_restore)(void);
+int (*pm_prepare)(void);
+void (*pm_finish)(void);
 
 #define any_allowed(mask, allow) (((mask) & (allow)) != (allow))
 
@@ -248,8 +252,6 @@ void (*pm_cpu_sleep)(void);
 
 static int s3c_pm_enter(suspend_state_t state)
 {
-	static unsigned long regs_save[16];
-
 	/* ensure the debug is initialised (if enabled) */
 
 	s3c_pm_debug_init();
@@ -273,15 +275,10 @@ static int s3c_pm_enter(suspend_state_t state)
 		return -EINVAL;
 	}
 
-	/* store the physical address of the register recovery block */
-
-	s3c_sleep_save_phys = virt_to_phys(regs_save);
-
-	S3C_PMDBG("s3c_sleep_save_phys=0x%08lx\n", s3c_sleep_save_phys);
-
 	/* save all necessary core registers not covered by the drivers */
 
 	s3c_pm_save_gpios();
+	s3c_pm_saved_gpios();
 	s3c_pm_save_uarts();
 	s3c_pm_save_core();
 
@@ -308,29 +305,29 @@ static int s3c_pm_enter(suspend_state_t state)
 
 	s3c_pm_arch_stop_clocks();
 
+	printk(KERN_ALERT "PM: SLEEP\n");
+
 	/* s3c_cpu_save will also act as our return point from when
 	 * we resume as it saves its own register state and restores it
 	 * during the resume.  */
 
-	S3C_PMINFO("%s: s3c_cpu_save\n", __func__);
-	if (s3c_cpu_save(regs_save) == 0) {
-		S3C_PMDBG("S3C PM Resume by early wakeup.\n");
-		goto early_wakeup;
-	}
+	s3c_cpu_save(0, PLAT_PHYS_OFFSET - PAGE_OFFSET);
 
 	/* restore the cpu state using the kernel's cpu init code. */
 
-	S3C_PMINFO("%s: cpu_init\n", __func__);
 	cpu_init();
 
-	/* restore the system state */
-	S3C_PMINFO("%s: s3c_pm_restore_core\n", __func__);
 	s3c_pm_restore_core();
 	s3c_pm_restore_uarts();
 	s3c_pm_restore_gpios();
+	s3c_pm_restored_gpios();
 
-	S3C_PMINFO("%s: s3c_pm_debug_init\n", __func__);
 	s3c_pm_debug_init();
+
+	/* restore the system state */
+
+	if (pm_cpu_restore)
+		pm_cpu_restore();
 
 	/* check what irq (if any) restored the system */
 
@@ -339,62 +336,22 @@ static int s3c_pm_enter(suspend_state_t state)
 	S3C_PMDBG("%s: post sleep, preparing to return\n", __func__);
 
 	/* LEDs should now be 1110 */
-	/* s3c_pm_debug_smdkled(1 << 1, 0); */
+	s3c_pm_debug_smdkled(1 << 1, 0);
 
 	s3c_pm_check_restore();
 
 	/* ok, let's return from sleep */
 
 	S3C_PMDBG("S3C PM Resume (post-restore)\n");
-
-early_wakeup:
-	/* exit early wakeup */
-
 	return 0;
-}
-
-#if defined(CONFIG_CACHE_L2X0)
-static void flush_l2_cache(void)
-{
-	outer_nolock_flush_all();
-}
-#endif
-
-/* callback from assembly code */
-void s3c_pm_cb_flushcache(void)
-{
-	flush_cache_all();
-#if defined(CONFIG_CACHE_L2X0)
-	flush_l2_cache();
-#endif
-}
-
-int (*pm_begin)(void);
-int (*pm_prepare)(void);
-void (*pm_end)(void);
-
-static int s3c_pm_begin(suspend_state_t state)
-{
-	int ret = 0;
-
-	if (pm_begin)
-		ret = pm_begin();
-
-	return ret;
-}
-
-static void s3c_pm_end(void)
-{
-	if (pm_end)
-		pm_end();
 }
 
 static int s3c_pm_prepare(void)
 {
 	/* prepare check area if configured */
 
-	disable_hlt();
 	s3c_pm_check_prepare();
+
 	if (pm_prepare)
 		pm_prepare();
 
@@ -403,17 +360,34 @@ static int s3c_pm_prepare(void)
 
 static void s3c_pm_finish(void)
 {
+	if (pm_finish)
+		pm_finish();
+
 	s3c_pm_check_cleanup();
-	enable_hlt();
 }
 
-static struct platform_suspend_ops s3c_pm_ops = {
-	.begin		= s3c_pm_begin,
+#if defined(CONFIG_CHARGER_MANAGER)
+static bool s3c_cm_suspend_again(void)
+{
+	bool ret;
+
+	if (!is_charger_manager_active())
+		return false;
+
+	ret = cm_suspend_again();
+
+	return ret;
+}
+#endif
+
+static const struct platform_suspend_ops s3c_pm_ops = {
 	.enter		= s3c_pm_enter,
 	.prepare	= s3c_pm_prepare,
 	.finish		= s3c_pm_finish,
-	.end		= s3c_pm_end,
 	.valid		= suspend_valid_only_mem,
+#if defined(CONFIG_CHARGER_MANAGER)
+	.suspend_again	= s3c_cm_suspend_again,
+#endif
 };
 
 /* s3c_pm_init

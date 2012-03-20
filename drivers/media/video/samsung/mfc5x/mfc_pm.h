@@ -21,8 +21,9 @@ int mfc_clock_on(void);
 void mfc_clock_off(void);
 int mfc_power_on(void);
 int mfc_power_off(void);
-#ifdef CONFIG_ARCH_S5PV310
+#ifdef CONFIG_CPU_EXYNOS4210
 bool mfc_power_chk(void);
 #endif
+void mfc_pd_enable(void);
 
 #endif /* __MFC_PM_H */

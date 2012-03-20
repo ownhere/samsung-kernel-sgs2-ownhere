@@ -11,6 +11,9 @@
  * published by the Free Software Foundation.
 */
 
+#include <linux/device.h>
+#include <media/v4l2-mediabus.h>
+
 struct s5k4ba_platform_data {
 	unsigned int default_width;
 	unsigned int default_height;
@@ -21,3 +24,10 @@ struct s5k4ba_platform_data {
 	int is_mipi;
 };
 
+struct s5k4ba_mbus_platform_data {
+	int id;
+	struct v4l2_mbus_framefmt fmt;
+	unsigned long clk_rate;	/* master clock frequency in Hz */
+	int (*set_power)(int on);
+	int (*set_clock)(struct device *dev, int on);
+};

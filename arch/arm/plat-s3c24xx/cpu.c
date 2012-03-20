@@ -88,7 +88,7 @@ static struct cpu_table cpu_ids[] __initdata = {
 	{
 		.idcode		= 0x32440000,
 		.idmask		= 0xffffffff,
-		.map_io		= s3c244x_map_io,
+		.map_io		= s3c2440_map_io,
 		.init_clocks	= s3c244x_init_clocks,
 		.init_uarts	= s3c244x_init_uarts,
 		.init		= s3c2440_init,
@@ -97,7 +97,7 @@ static struct cpu_table cpu_ids[] __initdata = {
 	{
 		.idcode		= 0x32440001,
 		.idmask		= 0xffffffff,
-		.map_io		= s3c244x_map_io,
+		.map_io		= s3c2440_map_io,
 		.init_clocks	= s3c244x_init_clocks,
 		.init_uarts	= s3c244x_init_uarts,
 		.init		= s3c2440_init,
@@ -106,7 +106,7 @@ static struct cpu_table cpu_ids[] __initdata = {
 	{
 		.idcode		= 0x32440aaa,
 		.idmask		= 0xffffffff,
-		.map_io		= s3c244x_map_io,
+		.map_io		= s3c2442_map_io,
 		.init_clocks	= s3c244x_init_clocks,
 		.init_uarts	= s3c244x_init_uarts,
 		.init		= s3c2442_init,
@@ -115,7 +115,7 @@ static struct cpu_table cpu_ids[] __initdata = {
 	{
 		.idcode		= 0x32440aab,
 		.idmask		= 0xffffffff,
-		.map_io		= s3c244x_map_io,
+		.map_io		= s3c2442_map_io,
 		.init_clocks	= s3c244x_init_clocks,
 		.init_uarts	= s3c244x_init_uarts,
 		.init		= s3c2442_init,
@@ -138,15 +138,6 @@ static struct cpu_table cpu_ids[] __initdata = {
 		.init_uarts	= s3c2412_init_uarts,
 		.init		= s3c2412_init,
 		.name		= name_s3c2412,
-	},
-	{			/* an earlier version of the s3c2416 */
-		.idcode		= 0x32450001,
-		.idmask		= 0xffffffff,
-		.map_io		= s3c2416_map_io,
-		.init_clocks	= s3c2416_init_clocks,
-		.init_uarts	= s3c2416_init_uarts,
-		.init		= s3c2416_init,
-		.name		= name_s3c2416,
 	},
 	{			/* a strange version of the s3c2416 */
 		.idcode		= 0x32450003,
@@ -239,19 +230,18 @@ static void s3c24xx_pm_restart(char mode, const char *cmd)
 
 void __init s3c24xx_init_io(struct map_desc *mach_desc, int size)
 {
-	unsigned long idcode = 0x0;
-
 	/* initialise the io descriptors we need for initialisation */
 	iotable_init(mach_desc, size);
 	iotable_init(s3c_iodesc, ARRAY_SIZE(s3c_iodesc));
 
 	if (cpu_architecture() >= CPU_ARCH_ARMv5) {
-		idcode = s3c24xx_read_idcode_v5();
+		samsung_cpu_id = s3c24xx_read_idcode_v5();
 	} else {
-		idcode = s3c24xx_read_idcode_v4();
+		samsung_cpu_id = s3c24xx_read_idcode_v4();
 	}
+	s3c24xx_init_cpu();
 
 	arm_pm_restart = s3c24xx_pm_restart;
 
-	s3c_init_cpu(idcode, cpu_ids, ARRAY_SIZE(cpu_ids));
+	s3c_init_cpu(samsung_cpu_id, cpu_ids, ARRAY_SIZE(cpu_ids));
 }

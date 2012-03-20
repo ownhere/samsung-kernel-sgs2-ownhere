@@ -5,14 +5,15 @@
 # For Mali
 config VIDEO_MALI400MP
 	bool "Enable MALI integration"
-	default "0"
+	depends on VIDEO_SAMSUNG
+	default n
 	---help---
                 This enables MALI integration in the multimedia device driver
 
 choice
 depends on VIDEO_MALI400MP
 prompt "MALI MEMORY OPTION"
-default MALI_OSMEM_ONLY 
+default MALI_OSMEM_ONLY
 config MALI_DED_ONLY
   bool "mali dedicated memory only"
    ---help---
@@ -43,7 +44,7 @@ int "Dedicated Memory Size"
 config VIDEO_MALI400MP_DEBUG
 	bool "Enables debug messages"
 	depends on VIDEO_MALI400MP
-	default n
+	default y
 	help
 	  This enables Mali driver debug messages.
 

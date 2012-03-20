@@ -1,4 +1,3 @@
-
 #include <linux/kernel.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
@@ -22,32 +21,32 @@ enum {
 
 /*dev_state*/
 /*power_state*/
-#define RADIO_ON            1
-#define RADIO_POWERDOWN     0
+#define RADIO_ON		1
+#define RADIO_POWERDOWN		0
 /*seek_state*/
-#define RADIO_SEEK_ON       1
-#define RADIO_SEEK_OFF      0
+#define RADIO_SEEK_ON		1
+#define RADIO_SEEK_OFF		0
 
-#define FREQ_87500_kHz      8750
-#define FREQ_76000_kHz      7600
+#define FREQ_87500_kHz		8750
+#define FREQ_76000_kHz		7600
 
-#define RSSI_seek_th_MAX    0x7F
-#define RSSI_seek_th_MIN    0x00
+#define RSSI_seek_th_MAX	0x7F
+#define RSSI_seek_th_MIN	0x00
 
-#define seek_SNR_th_DISB    0x00
-#define seek_SNR_th_MIN     0x01	/*most stops */
-#define seek_SNR_th_MAX     0x0F	/*fewest stops */
+#define seek_SNR_th_DISB	0x00
+#define seek_SNR_th_MIN		0x01	/*most stops */
+#define seek_SNR_th_MAX		0x0F	/*fewest stops */
 
-#define seek_FM_ID_th_DISB  0x00
-#define seek_FM_ID_th_MAX   0x01	/*most stops */
-#define seek_FM_ID_th_MIN   0x0F	/*fewest stops */
+#define seek_FM_ID_th_DISB	0x00
+#define seek_FM_ID_th_MAX	0x01	/*most stops */
+#define seek_FM_ID_th_MIN	0x0F	/*fewest stops */
 
-#define TUNE_RSSI_THRESHOLD		0x00
-#define TUNE_SNR_THRESHOLD		0x01
-#define TUNE_CNT_THRESHOLD		0x00
+#define TUNE_RSSI_THRESHOLD	0x00
+#define TUNE_SNR_THRESHOLD	0x01
+#define TUNE_CNT_THRESHOLD	0x00
 
 #ifdef RDS_INTERRUPT_ON_ALWAYS
-#define RDS_BUFFER_LENGTH 50
+#define RDS_BUFFER_LENGTH	50
 static u16 *RDS_Block_Data_buffer;
 static u8 *RDS_Block_Error_buffer;
 static u8 RDS_Buffer_Index_read;	/* index number for last read data */
@@ -87,7 +86,7 @@ static int i2c_write(u8);
 /**********************************************/
 
 /*Si4709 device structure*/
-static Si4709_device_t Si4709_dev = {
+static struct Si4709_device_t Si4709_dev = {
 	.client = NULL,
 	.valid = eFALSE,
 	.valid_client_state = eFALSE,
@@ -147,8 +146,8 @@ int Si4709_dev_init(struct i2c_client *client)
 	/*Single RDS_Block_Data buffer size is 4x16 bits */
 	RDS_Block_Data_buffer = kzalloc(RDS_BUFFER_LENGTH * 8, GFP_KERNEL);
 	if (!RDS_Block_Data_buffer) {
-		error("Not sufficient memory for creating\
-			RDS_Block_Data_buffer");
+		error("Not sufficient memory for creating "
+				"RDS_Block_Data_buffer");
 		ret = -ENOMEM;
 		goto EXIT;
 	}
@@ -156,8 +155,8 @@ int Si4709_dev_init(struct i2c_client *client)
 	/*Single RDS_Block_Error buffer size is 4x8 bits */
 	RDS_Block_Error_buffer = kzalloc(RDS_BUFFER_LENGTH * 4, GFP_KERNEL);
 	if (!RDS_Block_Error_buffer) {
-		error("Not sufficient memory for creating\
-			RDS_Block_Error_buffer");
+		error("Not sufficient memory for creating "
+				"RDS_Block_Error_buffer");
 		ret = -ENOMEM;
 		kfree(RDS_Block_Data_buffer);
 		goto EXIT;
@@ -203,10 +202,10 @@ int Si4709_dev_exit(void)
 
 	/* Temporary blocked by abnormal function call(E-CIM 2657654) */
 	/* DW Shim. 2010.03.04 */
-/*    Si4709_dev.client = NULL;	*/
+	/*    Si4709_dev.client = NULL;	*/
 
-/*    Si4709_dev.valid_client_state = eFALSE;	*/
-/*    Si4709_dev.valid = eFALSE;	*/
+	/*    Si4709_dev.valid_client_state = eFALSE;	*/
+	/*    Si4709_dev.valid = eFALSE;	*/
 
 #ifdef RDS_INTERRUPT_ON_ALWAYS
 	if (Si4709_wq)
@@ -242,90 +241,90 @@ int Si4709_dev_powerup(void)
 		if (ret < 0) {
 			debug("powerup failed");
 		} else if (Si4709_dev.valid_client_state == eFALSE) {
-			debug("Si4709_dev_powerup called\
-				when DS(state, client) is invalid");
+			debug("Si4709_dev_powerup called "
+					"when DS(state, client) is invalid");
 			ret = -1;
 		} else {
-			/* initial settings */
+/* initial settings */
 #ifdef _ENABLE_RDS_
 #if 0
 			POWERCFG_BITSET_RDSM_LOW(&Si4709_dev.
-						 registers[POWERCFG]);
+					registers[POWERCFG]);
 #else
 			POWERCFG_BITSET_RDSM_HIGH(&Si4709_dev.
-						  registers[POWERCFG]);
+					registers[POWERCFG]);
 #endif
 #endif
 			/* POWERCFG_BITSET_SKMODE_HIGH( */
 			/*      &Si4709_dev.registers[POWERCFG]); */
 /*VNVS:18-NOV'09 : wrap at the upper and lower band limit and continue seeking*/
 			POWERCFG_BITSET_SKMODE_LOW(&Si4709_dev.
-						   registers[POWERCFG]);
+					registers[POWERCFG]);
 			SYSCONFIG1_BITSET_STCIEN_HIGH(&Si4709_dev.
-						      registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 			SYSCONFIG1_BITSET_RDSIEN_LOW(&Si4709_dev.
-						     registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 #ifdef _ENABLE_RDS_
 			SYSCONFIG1_BITSET_RDS_HIGH(&Si4709_dev.
-						   registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 #else
 			SYSCONFIG1_BITSET_RDS_LOW(&Si4709_dev.
-						  registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 #endif
 /*VNVS:18-NOV'09 : Setting DE-Time Constant as 50us(Europe,Japan,Australia)*/
 			SYSCONFIG1_BITSET_DE_50(&Si4709_dev.
-						registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 			SYSCONFIG1_BITSET_GPIO_STC_RDS_INT(&Si4709_dev.
-							   registers
-							   [SYSCONFIG1]);
+					registers
+					[SYSCONFIG1]);
 			SYSCONFIG1_BITSET_RESERVED(&Si4709_dev.
-						   registers[SYSCONFIG1]);
+					registers[SYSCONFIG1]);
 
 			/* SYSCONFIG2_BITSET_SEEKTH( */
 			/*      &Si4709_dev.registers[SYSCONFIG2],2); */
 /*VNVS:18-NOV'09 : modified for detecting more stations of good quality*/
 			SYSCONFIG2_BITSET_SEEKTH(&Si4709_dev.
-						 registers[SYSCONFIG2],
-						 TUNE_RSSI_THRESHOLD);
+					registers[SYSCONFIG2],
+					TUNE_RSSI_THRESHOLD);
 			SYSCONFIG2_BITSET_VOLUME(&Si4709_dev.
-						 registers[SYSCONFIG2], 0x0F);
+					registers[SYSCONFIG2], 0x0F);
 			SYSCONFIG2_BITSET_BAND_87p5_108_MHz(&Si4709_dev.
-							    registers
-							    [SYSCONFIG2]);
+					registers
+					[SYSCONFIG2]);
 			Si4709_dev.settings.band = BAND_87500_108000_kHz;
 			Si4709_dev.settings.bottom_of_band = FREQ_87500_kHz;
 
 			SYSCONFIG2_BITSET_SPACE_100_KHz(&Si4709_dev.
-							registers[SYSCONFIG2]);
+					registers[SYSCONFIG2]);
 			Si4709_dev.settings.channel_spacing =
-			    CHAN_SPACING_100_kHz;
+				CHAN_SPACING_100_kHz;
 
 			/* SYSCONFIG3_BITSET_SKSNR( */
 			/*      &Si4709_dev.registers[SYSCONFIG3],3); */
 /*VNVS:18-NOV'09 : modified for detecting more stations of good quality*/
 			SYSCONFIG3_BITSET_SKSNR(&Si4709_dev.
-						registers[SYSCONFIG3],
-						TUNE_SNR_THRESHOLD);
+					registers[SYSCONFIG3],
+					TUNE_SNR_THRESHOLD);
 			SYSCONFIG3_BITSET_SKCNT(&Si4709_dev.
-						registers[SYSCONFIG3],
-						TUNE_CNT_THRESHOLD);
+					registers[SYSCONFIG3],
+					TUNE_CNT_THRESHOLD);
 
 			SYSCONFIG3_BITSET_RESERVED(&Si4709_dev.
-						   registers[SYSCONFIG3]);
+					registers[SYSCONFIG3]);
 
 			Si4709_dev.settings.timeout_RDS =
-			    msecs_to_jiffies(value);
+				msecs_to_jiffies(value);
 			Si4709_dev.settings.curr_snr = TUNE_SNR_THRESHOLD;
 			Si4709_dev.settings.curr_rssi_th = TUNE_RSSI_THRESHOLD;
 
-			/*this will write all the above registers */
+/*this will write all the above registers */
 			ret = i2c_write(SYSCONFIG3);
 			if (ret < 0)
 				debug("Si4709_dev_powerup i2c_write 1 failed");
 			else {
 				Si4709_dev.valid = eTRUE;
 #ifdef RDS_INTERRUPT_ON_ALWAYS
-				/*Initialising read and write indices */
+/*Initialising read and write indices */
 				RDS_Buffer_Index_read = 0;
 				RDS_Buffer_Index_write = 0;
 
@@ -337,7 +336,7 @@ int Si4709_dev_powerup(void)
 		}
 	} else
 		debug("Device already Powered-ON");
-	
+
 	enable_irq(Si4709_dev_irq);
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -382,8 +381,8 @@ int Si4709_dev_suspend(void)
 	mutex_lock(&(Si4709_dev.lock));
 
 	if (Si4709_dev.valid_client_state == eFALSE) {
-		debug("Si4709_dev_suspend called\
-			when DS(state, client) is invalid");
+		debug("Si4709_dev_suspend called "
+				"when DS(state, client) is invalid");
 		ret = -1;
 	}
 #if 0
@@ -417,8 +416,8 @@ int Si4709_dev_resume(void)
 	mutex_lock(&(Si4709_dev.lock));
 
 	if (Si4709_dev.valid_client_state == eFALSE) {
-		debug("Si4709_dev_resume called\
-			when DS(state, client) is invalid");
+		debug("Si4709_dev_resume called "
+				"when DS(state, client) is invalid");
 		ret = -1;
 	}
 #if 0
@@ -456,27 +455,24 @@ int Si4709_dev_band_set(int band)
 		switch (band) {
 		case BAND_87500_108000_kHz:
 			SYSCONFIG2_BITSET_BAND_87p5_108_MHz(&Si4709_dev.
-							    registers
-							    [SYSCONFIG2]);
+								registers
+								[SYSCONFIG2]);
 			Si4709_dev.settings.band = BAND_87500_108000_kHz;
 			Si4709_dev.settings.bottom_of_band = FREQ_87500_kHz;
 			break;
-
 		case BAND_76000_108000_kHz:
 			SYSCONFIG2_BITSET_BAND_76_108_MHz(&Si4709_dev.
-							  registers
-							  [SYSCONFIG2]);
+								registers
+								[SYSCONFIG2]);
 			Si4709_dev.settings.band = BAND_76000_108000_kHz;
 			Si4709_dev.settings.bottom_of_band = FREQ_76000_kHz;
 			break;
-
 		case BAND_76000_90000_kHz:
 			SYSCONFIG2_BITSET_BAND_76_90_MHz(&Si4709_dev.
-							 registers[SYSCONFIG2]);
+							registers[SYSCONFIG2]);
 			Si4709_dev.settings.band = BAND_76000_90000_kHz;
 			Si4709_dev.settings.bottom_of_band = FREQ_76000_kHz;
 			break;
-
 		default:
 			ret = -1;
 		}
@@ -487,7 +483,7 @@ int Si4709_dev_band_set(int band)
 				debug("Si4709_dev_band_set i2c_write 1 failed");
 				Si4709_dev.settings.band = prev_band;
 				Si4709_dev.settings.bottom_of_band =
-				    prev_bottom_of_band;
+					prev_bottom_of_band;
 				Si4709_dev.registers[SYSCONFIG2] = sysconfig2;
 			}
 		}
@@ -510,8 +506,8 @@ int Si4709_dev_ch_spacing_set(int ch_spacing)
 	sysconfig2 = Si4709_dev.registers[SYSCONFIG2];
 	prev_ch_spacing = Si4709_dev.settings.channel_spacing;
 	if (Si4709_dev.valid == eFALSE) {
-		debug("Si4709_dev_ch_spacing_set called\
-			when DS is invalid");
+		debug("Si4709_dev_ch_spacing_set called "
+				"when DS is invalid");
 		ret = -1;
 	} else {
 		switch (ch_spacing) {
@@ -519,34 +515,34 @@ int Si4709_dev_ch_spacing_set(int ch_spacing)
 			SYSCONFIG2_BITSET_SPACE_200_KHz(&Si4709_dev.
 							registers[SYSCONFIG2]);
 			Si4709_dev.settings.channel_spacing =
-			    CHAN_SPACING_200_kHz;
+							CHAN_SPACING_200_kHz;
 			break;
 
 		case CHAN_SPACING_100_kHz:
 			SYSCONFIG2_BITSET_SPACE_100_KHz(&Si4709_dev.
 							registers[SYSCONFIG2]);
 			Si4709_dev.settings.channel_spacing =
-			    CHAN_SPACING_100_kHz;
+							CHAN_SPACING_100_kHz;
 			break;
 
 		case CHAN_SPACING_50_kHz:
 			SYSCONFIG2_BITSET_SPACE_50_KHz(&Si4709_dev.
-						       registers[SYSCONFIG2]);
+							registers[SYSCONFIG2]);
 			Si4709_dev.settings.channel_spacing =
-			    CHAN_SPACING_50_kHz;
+							CHAN_SPACING_50_kHz;
 			break;
 
 		default:
-			ret = -1;
+				ret = -1;
 		}
 
 		if (ret == 0) {
 			ret = i2c_write(SYSCONFIG2);
 			if (ret < 0) {
-				debug
-				    ("Si4709_dev_ch_spacing_set i2c_write 1 failed");
+				debug("Si4709_dev_ch_spacing_set "
+						"i2c_write 1 failed");
 				Si4709_dev.settings.channel_spacing =
-				    prev_ch_spacing;
+					prev_ch_spacing;
 				Si4709_dev.registers[SYSCONFIG2] = sysconfig2;
 			}
 		}
@@ -581,7 +577,7 @@ int Si4709_dev_chan_select(u32 frequency)
 	return ret;
 }
 
-int Si4709_dev_chan_get(u32 * frequency)
+int Si4709_dev_chan_get(u32 *frequency)
 {
 	int ret = 0;
 
@@ -595,10 +591,10 @@ int Si4709_dev_chan_get(u32 * frequency)
 	} else {
 		ret = i2c_read(READCHAN);
 		if (ret < 0)
-			debug("Si4709_dev_chan_get i2c_read failed");
+			error("Si4709_dev_chan_get i2c_read failed");
 		else
 			get_cur_chan_freq(frequency,
-					  Si4709_dev.registers[READCHAN]);
+					Si4709_dev.registers[READCHAN]);
 	}
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -606,7 +602,7 @@ int Si4709_dev_chan_get(u32 * frequency)
 	return ret;
 }
 
-int Si4709_dev_seek_up(u32 * frequency)
+int Si4709_dev_seek_up(u32 *frequency)
 {
 	int ret = 0;
 
@@ -630,7 +626,7 @@ int Si4709_dev_seek_up(u32 * frequency)
 	return ret;
 }
 
-int Si4709_dev_seek_down(u32 * frequency)
+int Si4709_dev_seek_down(u32 *frequency)
 {
 	int ret = 0;
 
@@ -655,7 +651,7 @@ int Si4709_dev_seek_down(u32 * frequency)
 }
 
 #if 0
-int Si4709_dev_seek_auto(u32 * seek_preset_user)
+int Si4709_dev_seek_auto(u32 *seek_preset_user)
 {
 	u8 *rssi_seek;
 	int ret = 0;
@@ -669,8 +665,8 @@ int Si4709_dev_seek_auto(u32 * seek_preset_user)
 		debug("Si4709_dev_seek_auto called when DS is invalid");
 		ret = -1;
 	} else {
-		rssi_seek = (u8 *) kzalloc(sizeof(u8) * NUM_SEEK_PRESETS,
-					   GFP_KERNEL);
+		rssi_seek = kzalloc(sizeof(u8) * NUM_SEEK_PRESETS,
+				GFP_KERNEL);
 		if (rssi_seek == NULL) {
 			debug("Si4709_ioctl: no memory");
 			ret = -ENOMEM;
@@ -679,14 +675,14 @@ int Si4709_dev_seek_auto(u32 * seek_preset_user)
 			if (ret == 0) {
 				debug("Si4709_dev_seek_auto tune_freq success");
 				get_cur_chan_freq(&
-						  (Si4709_dev.rssi_freq[0].
-						   frequency),
-						  Si4709_dev.
-						  registers[READCHAN]);
+						(Si4709_dev.rssi_freq[0].
+						 frequency),
+						Si4709_dev.
+						registers[READCHAN]);
 				Si4709_dev_cur_RSSI_get(&
-							(Si4709_dev.
-							 rssi_freq[0].
-							 rsssi_val));
+						(Si4709_dev.
+						 rssi_freq[0].
+						 rsssi_val));
 			} else {
 				debug("tunning failed, seek auto failed");
 				ret = -1;
@@ -694,67 +690,68 @@ int Si4709_dev_seek_auto(u32 * seek_preset_user)
 #if 0
 			for (i = 0; i < 50; i++) {
 				ret =
-				    seek(&(Si4709_dev.settings.seek_preset[i]),
-					 1);
+					seek(&(Si4709_dev.settings.
+							seek_preset[i]),
+							1);
 				if (ret == 0) {
 					get_cur_chan_freq(&
-							  (Si4709_dev.
-							   rssi_freq[i].
-							   frequency),
-							  Si4709_dev.
-							  registers[READCHAN]);
+							(Si4709_dev.
+							 rssi_freq[i].
+							 frequency),
+							Si4709_dev.
+							registers[READCHAN]);
 					Si4709_dev_cur_RSSI_get(&
-								(Si4709_dev.
-								 rssi_freq[i].
-								 rsssi_val));
+							(Si4709_dev.
+							 rssi_freq[i].
+							 rsssi_val));
 					rssi_seek++;
 				} else
 					debug("seek failed");
 			}
 #endif
-/***new method ****/
+			/***new method ****/
 			for (i = 1; i < 30; i++) {
-				ret =
-				    seek(&(Si4709_dev.settings.seek_preset[i]),
-					 1);
+				ret = seek(&(Si4709_dev.settings.
+							seek_preset[i]), 1);
 				if (ret == 0) {
 					get_cur_chan_freq(&
-							  (Si4709_dev.
-							   rssi_freq[i].
-							   frequency),
-							  Si4709_dev.
-							  registers[READCHAN]);
+							(Si4709_dev.
+							 rssi_freq[i].
+							 frequency),
+							Si4709_dev.
+							registers[READCHAN]);
 					Si4709_dev_cur_RSSI_get(&
-								(Si4709_dev.
-								 rssi_freq[i].
-								 rsssi_val));
+							(Si4709_dev.
+							 rssi_freq[i].
+							 rsssi_val));
 				} else
 					debug("seek failed");
 			}
 
-/***Sort the array of structures on the basis of RSSI value****/
+		/***Sort the array of structures on the basis of RSSI value****/
 			for (i = 0; i < 29; i++) {
 				for (j = i + 1; j < 30; j++) {
 					if (Si4709_dev.rssi_freq[j].rsssi_val >
-					    Si4709_dev.rssi_freq[i].rsssi_val) {
+							Si4709_dev.rssi_freq[i].
+							rsssi_val) {
 						temp = Si4709_dev.rssi_freq[i];
 						Si4709_dev.rssi_freq[i] =
-						    Si4709_dev.rssi_freq[j];
+							Si4709_dev.rssi_freq[j];
 						Si4709_dev.rssi_freq[j] = temp;
 					}
 				}
 			}
 
-/***Store the frequency in Array*****/
+			/***Store the frequency in Array*****/
 			for (i = 0; i < 19; i++) {
 				Si4709_dev.settings.seek_preset[i] =
-				    Si4709_dev.rssi_freq[i].frequency;
+					Si4709_dev.rssi_freq[i].frequency;
 			}
 		}
 	}
 
 	memcpy(seek_preset_user, Si4709_dev.settings.seek_preset,
-	       sizeof(int) * NUM_SEEK_PRESETS);
+			sizeof(int) * NUM_SEEK_PRESETS);
 	kfree(rssi_seek);
 
 	return ret;
@@ -773,12 +770,12 @@ int Si4709_dev_RSSI_seek_th_set(u8 seek_th)
 	sysconfig2 = Si4709_dev.registers[SYSCONFIG2];
 
 	if (Si4709_dev.valid == eFALSE) {
-		debug("Si4709_dev_RSSI_seek_th_set called\
-			when DS is invalid");
+		debug("Si4709_dev_RSSI_seek_th_set called "
+				"when DS is invalid");
 		ret = -1;
 	} else {
 		SYSCONFIG2_BITSET_SEEKTH(&Si4709_dev.registers[SYSCONFIG2],
-					 seek_th);
+				seek_th);
 		Si4709_dev.settings.curr_rssi_th = seek_th;
 
 		ret = i2c_write(SYSCONFIG2);
@@ -805,12 +802,12 @@ int Si4709_dev_seek_SNR_th_set(u8 seek_SNR)
 	sysconfig3 = Si4709_dev.registers[SYSCONFIG3];
 
 	if (Si4709_dev.valid == eFALSE) {
-		debug("Si4709_dev_seek_SNR_th_set called\
-			when DS is invalid");
+		debug("Si4709_dev_seek_SNR_th_set called "
+				"when DS is invalid");
 		ret = -1;
 	} else {
 		SYSCONFIG3_BITSET_SKSNR(&Si4709_dev.registers[SYSCONFIG3],
-					seek_SNR);
+				seek_SNR);
 		SYSCONFIG3_BITSET_RESERVED(&Si4709_dev.registers[SYSCONFIG3]);
 		Si4709_dev.settings.curr_snr = seek_SNR;
 
@@ -838,18 +835,18 @@ int Si4709_dev_seek_FM_ID_th_set(u8 seek_FM_ID_th)
 	sysconfig3 = Si4709_dev.registers[SYSCONFIG3];
 
 	if (Si4709_dev.valid == eFALSE) {
-		debug("Si4709_dev_seek_SNR_th_set called\
-			when DS is invalid");
+		debug("Si4709_dev_seek_SNR_th_set called "
+				"when DS is invalid");
 		ret = -1;
 	} else {
 		SYSCONFIG3_BITSET_SKCNT(&Si4709_dev.registers[SYSCONFIG3],
-					seek_FM_ID_th);
+				seek_FM_ID_th);
 		SYSCONFIG3_BITSET_RESERVED(&Si4709_dev.registers[SYSCONFIG3]);
 
 		ret = i2c_write(SYSCONFIG3);
 		if (ret < 0) {
-			debug
-			    ("Si4709_dev_seek_FM_ID_th_set i2c_write 1 failed");
+			debug("Si4709_dev_seek_FM_ID_th_set i2c_write "
+				       "1 failed");
 			sysconfig3 = Si4709_dev.registers[SYSCONFIG3];
 		}
 	}
@@ -859,7 +856,7 @@ int Si4709_dev_seek_FM_ID_th_set(u8 seek_FM_ID_th)
 	return ret;
 }
 
-int Si4709_dev_cur_RSSI_get(rssi_snr_t * cur_RSSI)
+int Si4709_dev_cur_RSSI_get(struct rssi_snr_t *cur_RSSI)
 {
 	int ret = 0;
 
@@ -876,11 +873,11 @@ int Si4709_dev_cur_RSSI_get(rssi_snr_t * cur_RSSI)
 			debug("Si4709_dev_cur_RSSI_get i2c_read 1 failed");
 		} else {
 			cur_RSSI->curr_rssi =
-			    STATUSRSSI_RSSI_SIGNAL_STRENGTH(Si4709_dev.
-							    registers
-							    [STATUSRSSI]);
+				STATUSRSSI_RSSI_SIGNAL_STRENGTH(Si4709_dev.
+						registers
+						[STATUSRSSI]);
 			cur_RSSI->curr_rssi_th =
-			    Si4709_dev.settings.curr_rssi_th;
+				Si4709_dev.settings.curr_rssi_th;
 			cur_RSSI->curr_snr = Si4709_dev.settings.curr_snr;
 		}
 	}
@@ -891,10 +888,10 @@ int Si4709_dev_cur_RSSI_get(rssi_snr_t * cur_RSSI)
 }
 
 /* VNVS:START 13-OCT'09 :
-	Functions which reads device-id,chip-id,power configuration,
-	system configuration2 registers
-*/
-int Si4709_dev_device_id(device_id * dev_id)
+   Functions which reads device-id,chip-id,power configuration,
+   system configuration2 registers
+ */
+int Si4709_dev_device_id(struct device_id *dev_id)
 {
 	int ret = 0;
 
@@ -911,11 +908,11 @@ int Si4709_dev_device_id(device_id * dev_id)
 			debug("Si4709_dev_device_id i2c_read failed");
 		} else {
 			dev_id->part_number =
-			    DEVICE_ID_PART_NUMBER(Si4709_dev.
-						  registers[DEVICE_ID]);
+				DEVICE_ID_PART_NUMBER(Si4709_dev.
+						registers[DEVICE_ID]);
 			dev_id->manufact_number =
-			    DEVICE_ID_MANUFACT_NUMBER(Si4709_dev.
-						      registers[DEVICE_ID]);
+				DEVICE_ID_MANUFACT_NUMBER(Si4709_dev.
+						registers[DEVICE_ID]);
 		}
 	}
 
@@ -924,7 +921,7 @@ int Si4709_dev_device_id(device_id * dev_id)
 	return ret;
 }
 
-int Si4709_dev_chip_id(chip_id * chp_id)
+int Si4709_dev_chip_id(struct chip_id *chp_id)
 {
 	int ret = 0;
 
@@ -941,12 +938,13 @@ int Si4709_dev_chip_id(chip_id * chp_id)
 			debug("Si4709_dev_chip_id i2c_read failed");
 		} else {
 			chp_id->chip_version =
-			    CHIP_ID_CHIP_VERSION(Si4709_dev.registers[CHIP_ID]);
+				CHIP_ID_CHIP_VERSION(
+						Si4709_dev.registers[CHIP_ID]);
 			chp_id->device =
-			    CHIP_ID_DEVICE(Si4709_dev.registers[CHIP_ID]);
+				CHIP_ID_DEVICE(Si4709_dev.registers[CHIP_ID]);
 			chp_id->firmware_version =
-			    CHIP_ID_FIRMWARE_VERSION(Si4709_dev.
-						     registers[CHIP_ID]);
+				CHIP_ID_FIRMWARE_VERSION(Si4709_dev.
+						registers[CHIP_ID]);
 		}
 	}
 
@@ -955,7 +953,7 @@ int Si4709_dev_chip_id(chip_id * chp_id)
 	return ret;
 }
 
-int Si4709_dev_sys_config2(sys_config2 * sys_conf2)
+int Si4709_dev_sys_config2(struct sys_config2 *sys_conf2)
 {
 	int ret = 0;
 
@@ -972,17 +970,17 @@ int Si4709_dev_sys_config2(sys_config2 * sys_conf2)
 			debug("Si4709_sys_config2 i2c_read failed");
 		} else {
 			sys_conf2->rssi_th =
-			    SYS_CONFIG2_RSSI_TH(Si4709_dev.
+				SYS_CONFIG2_RSSI_TH(Si4709_dev.
 						registers[SYSCONFIG2]);
 			sys_conf2->fm_band =
-			    SYS_CONFIG2_FM_BAND(Si4709_dev.
+				SYS_CONFIG2_FM_BAND(Si4709_dev.
 						registers[SYSCONFIG2]);
 			sys_conf2->fm_chan_spac =
-			    SYS_CONFIG2_FM_CHAN_SPAC(Si4709_dev.
-						     registers[SYSCONFIG2]);
+				SYS_CONFIG2_FM_CHAN_SPAC(Si4709_dev.
+						registers[SYSCONFIG2]);
 			sys_conf2->fm_vol =
-			    SYS_CONFIG2_FM_VOL(Si4709_dev.
-					       registers[SYSCONFIG2]);
+				SYS_CONFIG2_FM_VOL(Si4709_dev.
+						registers[SYSCONFIG2]);
 		}
 	}
 
@@ -991,7 +989,7 @@ int Si4709_dev_sys_config2(sys_config2 * sys_conf2)
 	return ret;
 }
 
-int Si4709_dev_sys_config3(sys_config3 * sys_conf3)
+int Si4709_dev_sys_config3(struct sys_config3 *sys_conf3)
 {
 	int ret = 0;
 
@@ -1001,23 +999,23 @@ int Si4709_dev_sys_config3(sys_config3 * sys_conf3)
 
 	if (Si4709_dev.valid == eFALSE) {
 		debug("Si4709_sys_config3 called when DS is invalid");
-		ret = -1;
+		mutex_unlock(&(Si4709_dev.lock));
+		return  -1;
+	}
+	ret = i2c_read(SYSCONFIG3);
+	if (ret < 0) {
+		debug("Si4709_sys_config3 i2c_read failed");
 	} else {
-		ret = i2c_read(SYSCONFIG3);
-		if (ret < 0) {
-			debug("Si4709_sys_config3 i2c_read failed");
-		} else {
-			sys_conf3->smmute =
-			    (Si4709_dev.registers[SYSCONFIG3] & 0xC000) >> 14;
-			sys_conf3->smutea =
-			    (Si4709_dev.registers[SYSCONFIG3] & 0x3000) >> 12;
-			sys_conf3->volext =
-			    (Si4709_dev.registers[SYSCONFIG3] & 0x0100) >> 8;
-			sys_conf3->sksnr =
-			    (Si4709_dev.registers[SYSCONFIG3] & 0x00F0) >> 4;
-			sys_conf3->skcnt =
-			    (Si4709_dev.registers[SYSCONFIG3] & 0x000F);
-		}
+		sys_conf3->smmute =
+			(Si4709_dev.registers[SYSCONFIG3] & 0xC000) >> 14;
+		sys_conf3->smutea =
+			(Si4709_dev.registers[SYSCONFIG3] & 0x3000) >> 12;
+		sys_conf3->volext =
+			(Si4709_dev.registers[SYSCONFIG3] & 0x0100) >> 8;
+		sys_conf3->sksnr =
+			(Si4709_dev.registers[SYSCONFIG3] & 0x00F0) >> 4;
+		sys_conf3->skcnt =
+			(Si4709_dev.registers[SYSCONFIG3] & 0x000F);
 	}
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -1025,7 +1023,7 @@ int Si4709_dev_sys_config3(sys_config3 * sys_conf3)
 	return ret;
 }
 
-int Si4709_dev_status_rssi(status_rssi * status)
+int Si4709_dev_status_rssi(struct status_rssi *status)
 {
 	int ret = 0;
 
@@ -1035,29 +1033,29 @@ int Si4709_dev_status_rssi(status_rssi * status)
 
 	if (Si4709_dev.valid == eFALSE) {
 		debug("Si4709_dev_status_rssi called when DS is invalid");
-		ret = -1;
+		mutex_unlock(&(Si4709_dev.lock));
+		return  -1;
+	}
+	ret = i2c_read(STATUSRSSI);
+	if (ret < 0) {
+		debug("Si4709_sys_config3 i2c_read failed");
 	} else {
-		ret = i2c_read(STATUSRSSI);
-		if (ret < 0) {
-			debug("Si4709_sys_config3 i2c_read failed");
-		} else {
-			status->rdsr =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x8000) >> 15;
-			status->stc =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x4000) >> 14;
-			status->sfbl =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x2000) >> 13;
-			status->afcrl =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x1000) >> 12;
-			status->rdss =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x0800) >> 11;
-			status->blera =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x0600) >> 9;
-			status->st =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x0100) >> 8;
-			status->rssi =
-			    (Si4709_dev.registers[STATUSRSSI] & 0x00FF);
-		}
+		status->rdsr =
+			(Si4709_dev.registers[STATUSRSSI] & 0x8000) >> 15;
+		status->stc =
+			(Si4709_dev.registers[STATUSRSSI] & 0x4000) >> 14;
+		status->sfbl =
+			(Si4709_dev.registers[STATUSRSSI] & 0x2000) >> 13;
+		status->afcrl =
+			(Si4709_dev.registers[STATUSRSSI] & 0x1000) >> 12;
+		status->rdss =
+			(Si4709_dev.registers[STATUSRSSI] & 0x0800) >> 11;
+		status->blera =
+			(Si4709_dev.registers[STATUSRSSI] & 0x0600) >> 9;
+		status->st =
+			(Si4709_dev.registers[STATUSRSSI] & 0x0100) >> 8;
+		status->rssi =
+			(Si4709_dev.registers[STATUSRSSI] & 0x00FF);
 	}
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -1065,7 +1063,7 @@ int Si4709_dev_status_rssi(status_rssi * status)
 	return ret;
 }
 
-int Si4709_dev_sys_config2_set(sys_config2 * sys_conf2)
+int Si4709_dev_sys_config2_set(struct sys_config2 *sys_conf2)
 {
 	int ret = 0;
 	u16 register_bak = 0;
@@ -1080,30 +1078,33 @@ int Si4709_dev_sys_config2_set(sys_config2 * sys_conf2)
 		debug("Si4709_dev_sys_config2_set called when DS is invalid");
 		ret = -1;
 	} else {
-		printk(KERN_ERR "Si4709_dev_sys_config2_set()\
-			: Register Value = [0x%X], rssi-th = [%X]\n", Si4709_dev.registers[SYSCONFIG2], sys_conf2->rssi_th);
+		printk(KERN_ERR "Si4709_dev_sys_config2_set() "
+				": Register Value = [0x%X], rssi-th = [%X]\n",
+				Si4709_dev.registers[SYSCONFIG2],
+				sys_conf2->rssi_th);
 		Si4709_dev.registers[SYSCONFIG2] =
-		    (Si4709_dev.registers[SYSCONFIG2] & 0x00FF) |
-		    ((sys_conf2->rssi_th) << 8);
+			(Si4709_dev.registers[SYSCONFIG2] & 0x00FF) |
+			((sys_conf2->rssi_th) << 8);
 		Si4709_dev.registers[SYSCONFIG2] =
-		    (Si4709_dev.registers[SYSCONFIG2] & 0xFF3F) |
-		    ((sys_conf2->fm_band) << 6);
+			(Si4709_dev.registers[SYSCONFIG2] & 0xFF3F) |
+			((sys_conf2->fm_band) << 6);
 		Si4709_dev.registers[SYSCONFIG2] =
-		    (Si4709_dev.registers[SYSCONFIG2] & 0xFFCF) |
-		    ((sys_conf2->fm_chan_spac) << 4);
+			(Si4709_dev.registers[SYSCONFIG2] & 0xFFCF) |
+			((sys_conf2->fm_chan_spac) << 4);
 		Si4709_dev.registers[SYSCONFIG2] =
-		    (Si4709_dev.registers[SYSCONFIG2] & 0xFFF0) |
-		    (sys_conf2->fm_vol);
-		printk(KERN_ERR "Si4709_dev_sys_config2_set()\
-			: After Register Value = [0x%X]\n", Si4709_dev.registers[SYSCONFIG2]);
+			(Si4709_dev.registers[SYSCONFIG2] & 0xFFF0) |
+			(sys_conf2->fm_vol);
+		printk(KERN_ERR "Si4709_dev_sys_config2_set() "
+				": After Register Value = [0x%X]\n",
+				Si4709_dev.registers[SYSCONFIG2]);
 
 		ret = i2c_write(SYSCONFIG2);
 		if (ret < 0) {
 			debug("Si4709_dev_sys_config2_set i2c_write 1 failed");
 			Si4709_dev.registers[SYSCONFIG2] = register_bak;
 		} else
-			printk(KERN_ERR "Si4709_dev_sys_config2_set()\
-			: Write Sucess!!");
+			printk(KERN_ERR "Si4709_dev_sys_config2_set() "
+					": Write Sucess!!");
 	}
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -1111,7 +1112,7 @@ int Si4709_dev_sys_config2_set(sys_config2 * sys_conf2)
 	return ret;
 }
 
-int Si4709_dev_sys_config3_set(sys_config3 * sys_conf3)
+int Si4709_dev_sys_config3_set(struct sys_config3 *sys_conf3)
 {
 	int ret = 0;
 	u16 register_bak = 0;
@@ -1123,29 +1124,32 @@ int Si4709_dev_sys_config3_set(sys_config3 * sys_conf3)
 	register_bak = Si4709_dev.registers[SYSCONFIG3];
 
 	if (Si4709_dev.valid == eFALSE) {
-		debug("Si4709_dev_sys_config3_set called\
-			when DS is invalid");
+		debug("Si4709_dev_sys_config3_set called "
+				"when DS is invalid");
 		ret = -1;
 	} else {
-		printk(KERN_ERR "Si4709_dev_sys_config3_set() :\
-			Register Value = [0x%X], sksnrth = [%X]\n", Si4709_dev.registers[SYSCONFIG3], sys_conf3->sksnr);
+		printk(KERN_ERR "Si4709_dev_sys_config3_set() : "
+				"Register Value = [0x%X], sksnrth = [%X]\n",
+				Si4709_dev.registers[SYSCONFIG3],
+				sys_conf3->sksnr);
 		Si4709_dev.registers[SYSCONFIG3] =
-		    (Si4709_dev.registers[SYSCONFIG3] & 0x3FFF) |
-		    ((sys_conf3->smmute) << 14);
+			(Si4709_dev.registers[SYSCONFIG3] & 0x3FFF) |
+			((sys_conf3->smmute) << 14);
 		Si4709_dev.registers[SYSCONFIG3] =
-		    (Si4709_dev.registers[SYSCONFIG3] & 0xCFFF) |
-		    ((sys_conf3->smutea) << 12);
+			(Si4709_dev.registers[SYSCONFIG3] & 0xCFFF) |
+			((sys_conf3->smutea) << 12);
 		Si4709_dev.registers[SYSCONFIG3] =
-		    (Si4709_dev.registers[SYSCONFIG3] & 0xFEFF) |
-		    ((sys_conf3->volext) << 8);
+			(Si4709_dev.registers[SYSCONFIG3] & 0xFEFF) |
+			((sys_conf3->volext) << 8);
 		Si4709_dev.registers[SYSCONFIG3] =
-		    (Si4709_dev.registers[SYSCONFIG3] & 0xFF0F) |
-		    ((sys_conf3->sksnr) << 4);
+			(Si4709_dev.registers[SYSCONFIG3] & 0xFF0F) |
+			((sys_conf3->sksnr) << 4);
 		Si4709_dev.registers[SYSCONFIG3] =
-		    (Si4709_dev.registers[SYSCONFIG3] & 0xFFF0) |
-		    (sys_conf3->skcnt);
-		printk(KERN_ERR "Si4709_dev_sys_config3_set() :\
-			After Register Value = [0x%X]\n", Si4709_dev.registers[SYSCONFIG3]);
+			(Si4709_dev.registers[SYSCONFIG3] & 0xFFF0) |
+			(sys_conf3->skcnt);
+		printk(KERN_ERR "Si4709_dev_sys_config3_set() : "
+				"After Register Value = [0x%X]\n",
+				Si4709_dev.registers[SYSCONFIG3]);
 
 		ret = i2c_write(SYSCONFIG3);
 		if (ret < 0) {
@@ -1159,7 +1163,7 @@ int Si4709_dev_sys_config3_set(sys_config3 * sys_conf3)
 	return ret;
 }
 
-int Si4709_dev_power_config(power_config * pow_conf)
+int Si4709_dev_power_config(struct power_config *pow_conf)
 {
 	int ret = 0;
 
@@ -1176,32 +1180,32 @@ int Si4709_dev_power_config(power_config * pow_conf)
 			debug("Si4709_dev_power_config i2c_read failed");
 		else {
 			pow_conf->dsmute =
-			    POWER_CONFIG_SOFTMUTE_STATUS(Si4709_dev.
-							 registers[POWERCFG]);
+				POWER_CONFIG_SOFTMUTE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->dmute =
-			    POWER_CONFIG_MUTE_STATUS(Si4709_dev.
-						     registers[POWERCFG]);
+				POWER_CONFIG_MUTE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->mono =
-			    POWER_CONFIG_MONO_STATUS(Si4709_dev.
-						     registers[POWERCFG]);
+				POWER_CONFIG_MONO_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->rds_mode =
-			    POWER_CONFIG_RDS_MODE_STATUS(Si4709_dev.
-							 registers[POWERCFG]);
+				POWER_CONFIG_RDS_MODE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->sk_mode =
-			    POWER_CONFIG_SKMODE_STATUS(Si4709_dev.
-						       registers[POWERCFG]);
+				POWER_CONFIG_SKMODE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->seek_up =
-			    POWER_CONFIG_SEEKUP_STATUS(Si4709_dev.
-						       registers[POWERCFG]);
+				POWER_CONFIG_SEEKUP_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->seek =
-			    POWER_CONFIG_SEEK_STATUS(Si4709_dev.
-						     registers[POWERCFG]);
+				POWER_CONFIG_SEEK_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->power_disable =
-			    POWER_CONFIG_DISABLE_STATUS(Si4709_dev.
-							registers[POWERCFG]);
+				POWER_CONFIG_DISABLE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 			pow_conf->power_enable =
-			    POWER_CONFIG_ENABLE_STATUS(Si4709_dev.
-						       registers[POWERCFG]);
+				POWER_CONFIG_ENABLE_STATUS(Si4709_dev.
+						registers[POWERCFG]);
 		}
 	}
 
@@ -1214,7 +1218,7 @@ int Si4709_dev_power_config(power_config * pow_conf)
 
 /* VNVS:START 18-NOV'09 */
 /* Reading AFCRL Bit */
-int Si4709_dev_AFCRL_get(u8 * afc)
+int Si4709_dev_AFCRL_get(u8 *afc)
 {
 	int ret = 0;
 
@@ -1230,8 +1234,8 @@ int Si4709_dev_AFCRL_get(u8 * afc)
 		if (ret < 0)
 			debug("Si4709_dev_AFCRL_get i2c_read failed");
 		*afc =
-		    STATUSRSSI_AFC_RAIL_STATUS(Si4709_dev.
-					       registers[STATUSRSSI]);
+			STATUSRSSI_AFC_RAIL_STATUS(Si4709_dev.
+					registers[STATUSRSSI]);
 	}
 
 	mutex_unlock(&(Si4709_dev.lock));
@@ -1240,8 +1244,8 @@ int Si4709_dev_AFCRL_get(u8 * afc)
 }
 
 /* Setting DE
-	emphasis time constant 50us(Europe,Japan,Australia) or 75us(USA)
-*/
+   emphasis time constant 50us(Europe,Japan,Australia) or 75us(USA)
+ */
 int Si4709_dev_DE_set(u8 de_tc)
 {
 	u16 sysconfig1 = 0;
@@ -1262,18 +1266,18 @@ int Si4709_dev_DE_set(u8 de_tc)
 			SYSCONFIG1_BITSET_DE_50(&Si4709_dev.
 						registers[SYSCONFIG1]);
 			SYSCONFIG1_BITSET_RESERVED(&Si4709_dev.
-						   registers[SYSCONFIG1]);
-			break;
+							registers[SYSCONFIG1]);
+		break;
 
 		case DE_TIME_CONSTANT_75:
 			SYSCONFIG1_BITSET_DE_75(&Si4709_dev.
 						registers[SYSCONFIG1]);
 			SYSCONFIG1_BITSET_RESERVED(&Si4709_dev.
-						   registers[SYSCONFIG1]);
-			break;
+							registers[SYSCONFIG1]);
+		break;
 
 		default:
-			ret = -1;
+				ret = -1;
 		}
 
 		if (0 == ret) {
@@ -1364,7 +1368,7 @@ int Si4709_dev_VOLEXT_DISB(void)
 		ret = -1;
 	} else {
 		SYSCONFIG3_BITSET_VOLEXT_DISB(&Si4709_dev.
-					      registers[SYSCONFIG3]);
+				registers[SYSCONFIG3]);
 		SYSCONFIG3_BITSET_RESERVED(&Si4709_dev.registers[SYSCONFIG3]);
 
 		ret = i2c_write(SYSCONFIG3);
@@ -1395,7 +1399,7 @@ int Si4709_dev_volume_set(u8 volume)
 		ret = -1;
 	} else {
 		SYSCONFIG2_BITSET_VOLUME(&Si4709_dev.registers[SYSCONFIG2],
-					 volume);
+				volume);
 
 		ret = i2c_write(SYSCONFIG2);
 		if (ret < 0) {
@@ -1409,7 +1413,7 @@ int Si4709_dev_volume_set(u8 volume)
 	return ret;
 }
 
-int Si4709_dev_volume_get(u8 * volume)
+int Si4709_dev_volume_get(u8 *volume)
 {
 	int ret = 0;
 
@@ -1422,7 +1426,7 @@ int Si4709_dev_volume_get(u8 * volume)
 		ret = -1;
 	} else
 		*volume =
-		    SYSCONFIG2_GET_VOLUME(Si4709_dev.registers[SYSCONFIG2]);
+			SYSCONFIG2_GET_VOLUME(Si4709_dev.registers[SYSCONFIG2]);
 
 	mutex_unlock(&(Si4709_dev.lock));
 
@@ -1430,10 +1434,10 @@ int Si4709_dev_volume_get(u8 * volume)
 }
 
 /*
-  VNVS:START 19-AUG'10 : Adding DSMUTE ON/OFF feature.
-  The Soft Mute feature is available to attenuate the audio
-  outputs and minimize audible noise in very weak signal conditions.
-  */
+VNVS:START 19-AUG'10 : Adding DSMUTE ON/OFF feature.
+The Soft Mute feature is available to attenuate the audio
+outputs and minimize audible noise in very weak signal conditions.
+ */
 int Si4709_dev_DSMUTE_ON(void)
 {
 	int ret = 0;
@@ -1634,7 +1638,7 @@ int Si4709_dev_RDS_ENABLE(void)
 		SYSCONFIG1_BITSET_RDS_HIGH(&Si4709_dev.registers[SYSCONFIG1]);
 #ifdef RDS_INTERRUPT_ON_ALWAYS
 		SYSCONFIG1_BITSET_RDSIEN_HIGH(&Si4709_dev.
-					      registers[SYSCONFIG1]);
+				registers[SYSCONFIG1]);
 #endif
 		SYSCONFIG1_BITSET_RESERVED(&Si4709_dev.registers[SYSCONFIG1]);
 		ret = i2c_write(SYSCONFIG1);
@@ -1689,7 +1693,7 @@ int Si4709_dev_RDS_DISABLE(void)
 	return ret;
 }
 
-int Si4709_dev_rstate_get(dev_state_t * dev_state)
+int Si4709_dev_rstate_get(struct dev_state_t *dev_state)
 {
 	int ret = 0;
 
@@ -1719,127 +1723,107 @@ void Si4709_work_func(struct work_struct *work)
 	u8 group_type;
 #endif
 	debug_rds("%s", __func__);
-	/* mutex_lock(&(Si4709_dev.lock)); */
+/* mutex_lock(&(Si4709_dev.lock)); */
 
 	if (Si4709_dev.valid == eFALSE) {
 		error("Si4709_dev_RDS_data_get called when DS is invalid");
-		ret = -1;
-	} else {
-		if (RDS_Data_Lost > 1)
-			debug_rds("No_of_RDS_groups_Lost till now : %d",
-				  RDS_Data_Lost);
-
-/* RDSR bit and RDS Block data, so reading the RDS registers */
-		ret = i2c_read(RDSD);
-		if (ret < 0)
-			error("Si4709_work_func i2c_read failed");
-		else {
-/*Checking whether RDS Ready bit is set or not, if not set return immediately*/
-			if (!
-			    (STATUSRSSI_RDS_READY_STATUS
-			     (Si4709_dev.registers[STATUSRSSI]))) {
-				error("RDS Ready Bit Not set");
-				return;
-			}
-
-			debug_rds("RDS Ready bit is set");
-
-			debug_rds("No_of_RDS_groups_Available : %d",
-				  RDS_Data_Available);
-
-			RDS_Data_Available = 0;
-
-			debug_rds("RDS_Buffer_Index_write = %d",
-				  RDS_Buffer_Index_write);
-
-			/* Writing into the Circular Buffer */
-
-			/* Writing into RDS_Block_Data_buffer */
-			i = 0;
-			RDS_Block_Data_buffer[i++ +
-					      4 * RDS_Buffer_Index_write] =
-			    Si4709_dev.registers[RDSA];
-			RDS_Block_Data_buffer[i++ +
-					      4 * RDS_Buffer_Index_write] =
-			    Si4709_dev.registers[RDSB];
-			RDS_Block_Data_buffer[i++ +
-					      4 * RDS_Buffer_Index_write] =
-			    Si4709_dev.registers[RDSC];
-			RDS_Block_Data_buffer[i++ +
-					      4 * RDS_Buffer_Index_write] =
-			    Si4709_dev.registers[RDSD];
-
-			/*Writing into RDS_Block_Error_buffer */
-			i = 0;
-			RDS_Block_Error_buffer[i++ +
-					       4 * RDS_Buffer_Index_write] =
-			    STATUSRSSI_RDS_BLOCK_A_ERRORS(Si4709_dev.
-							  registers
-							  [STATUSRSSI]);
-			RDS_Block_Error_buffer[i++ +
-					       4 * RDS_Buffer_Index_write] =
-			    READCHAN_BLOCK_B_ERRORS(Si4709_dev.
-						    registers[READCHAN]);
-			RDS_Block_Error_buffer[i++ +
-					       4 * RDS_Buffer_Index_write] =
-			    READCHAN_BLOCK_C_ERRORS(Si4709_dev.
-						    registers[READCHAN]);
-			RDS_Block_Error_buffer[i++ +
-					       4 * RDS_Buffer_Index_write] =
-			    READCHAN_BLOCK_D_ERRORS(Si4709_dev.
-						    registers[READCHAN]);
-
-#ifdef RDS_TESTING
-			if (RDS_Block_Error_buffer
-			    [0 + 4 * RDS_Buffer_Index_write] < 3) {
-				debug_rds("PI Code is %d",
-					  RDS_Block_Data_buffer[0 +
-								4 *
-								RDS_Buffer_Index_write]);
-			}
-			if (RDS_Block_Error_buffer
-			    [1 + 4 * RDS_Buffer_Index_write] < 2) {
-				group_type =
-				    RDS_Block_Data_buffer[1 +
-							  4 *
-							  RDS_Buffer_Index_write]
-				    >> 11;
-
-				if (group_type & 0x01) {
-					debug_rds("PI Code is %d",
-						  RDS_Block_Data_buffer[2 +
-									4 *
-									RDS_Buffer_Index_write]);
-				}
-				if (group_type == GROUP_TYPE_2A
-				    || group_type == GROUP_TYPE_2B) {
-					if (RDS_Block_Error_buffer
-					    [2 + 4 * RDS_Buffer_Index_write] <
-					    3)
-						debug_rds
-						    ("Update RT with RDSC");
-					else
-						debug_rds
-						    ("RDS_Block_Error_buffer of Block C is greater than 3");
-				}
-			}
-#endif
-			RDS_Buffer_Index_write++;
-
-			if (RDS_Buffer_Index_write >= RDS_BUFFER_LENGTH)
-				RDS_Buffer_Index_write = 0;
-
-			debug_rds("RDS_Buffer_Index_write = %d",
-				  RDS_Buffer_Index_write);
-		}
+		return;
 	}
 
+	if (RDS_Data_Lost > 1)
+		debug_rds("No_of_RDS_groups_Lost till now : %d",
+				RDS_Data_Lost);
+
+/* RDSR bit and RDS Block data, so reading the RDS registers */
+	ret = i2c_read(RDSD);
+	if (ret < 0) {
+		error("Si4709_work_func i2c_read failed");
+		return;
+	}
+
+/*Checking whether RDS Ready bit is set or not, if not set return immediately*/
+	if (!(STATUSRSSI_RDS_READY_STATUS(Si4709_dev.registers[STATUSRSSI]))) {
+		error("RDS Ready Bit Not set");
+		return;
+	}
+
+	debug_rds("RDS Ready bit is set");
+
+	debug_rds("No_of_RDS_groups_Available : %d", RDS_Data_Available);
+
+	RDS_Data_Available = 0;
+
+	debug_rds("RDS_Buffer_Index_write = %d",
+			RDS_Buffer_Index_write);
+
+/* Writing into the Circular Buffer */
+
+/* Writing into RDS_Block_Data_buffer */
+	i = 0;
+	RDS_Block_Data_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		Si4709_dev.registers[RDSA];
+	RDS_Block_Data_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		Si4709_dev.registers[RDSB];
+	RDS_Block_Data_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		Si4709_dev.registers[RDSC];
+	RDS_Block_Data_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		Si4709_dev.registers[RDSD];
+
+/*Writing into RDS_Block_Error_buffer */
+	i = 0;
+	RDS_Block_Error_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		STATUSRSSI_RDS_BLOCK_A_ERRORS(
+				Si4709_dev.registers[STATUSRSSI]);
+	RDS_Block_Error_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		READCHAN_BLOCK_B_ERRORS(
+				Si4709_dev.registers[READCHAN]);
+	RDS_Block_Error_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		READCHAN_BLOCK_C_ERRORS(
+				Si4709_dev.registers[READCHAN]);
+	RDS_Block_Error_buffer[i++ + 4 * RDS_Buffer_Index_write] =
+		READCHAN_BLOCK_D_ERRORS(Si4709_dev.registers[READCHAN]);
+
+#ifdef RDS_TESTING
+	if (RDS_Block_Error_buffer
+			[0 + 4 * RDS_Buffer_Index_write] < 3) {
+		debug_rds("PI Code is %d",
+				RDS_Block_Data_buffer[0 + 4
+				* RDS_Buffer_Index_write]);
+	}
+	if (RDS_Block_Error_buffer
+			[1 + 4 * RDS_Buffer_Index_write] < 2) {
+		group_type = RDS_Block_Data_buffer[1 + 4
+			* RDS_Buffer_Index_write] >> 11;
+
+		if (group_type & 0x01) {
+			debug_rds("PI Code is %d",
+					RDS_Block_Data_buffer[2 + 4
+					* RDS_Buffer_Index_write]);
+		}
+		if (group_type == GROUP_TYPE_2A
+				|| group_type == GROUP_TYPE_2B) {
+			if (RDS_Block_Error_buffer
+					[2 + 4 * RDS_Buffer_Index_write] < 3) {
+				debug_rds("Update RT with RDSC");
+			} else {
+				debug_rds("RDS_Block_Error_buffer"
+						" of Block C is greater than 3");
+			}
+		}
+	}
+#endif
+	RDS_Buffer_Index_write++;
+
+	if (RDS_Buffer_Index_write >= RDS_BUFFER_LENGTH)
+		RDS_Buffer_Index_write = 0;
+
+	debug_rds("RDS_Buffer_Index_write = %d", RDS_Buffer_Index_write);
 	/* mutex_unlock(&(Si4709_dev.lock)); */
 }
 #endif
 /*VNVS:END*/
 
-int Si4709_dev_RDS_data_get(radio_data_t * data)
+int Si4709_dev_RDS_data_get(struct radio_data_t *data)
 {
 	int i, ret = 0;
 	u16 sysconfig1 = 0;
@@ -1852,185 +1836,152 @@ int Si4709_dev_RDS_data_get(radio_data_t * data)
 
 	if (Si4709_dev.valid == eFALSE) {
 		error("Si4709_dev_RDS_data_get called when DS is invalid");
-		ret = -1;
-	} else {
+		mutex_unlock(&(Si4709_dev.lock));
+		return  -1;
+	}
 #ifdef RDS_INTERRUPT_ON_ALWAYS
-		debug_rds("RDS_Buffer_Index_read = %d", RDS_Buffer_Index_read);
+	debug_rds("RDS_Buffer_Index_read = %d", RDS_Buffer_Index_read);
 
-		/*If No New RDS Data is available return error */
-		if (RDS_Buffer_Index_read == RDS_Buffer_Index_write) {
-			debug_rds("No_New_RDS_Data_is_available");
-			ret = i2c_read(READCHAN);
-			if (ret < 0)
-				error
-				    ("Si4709_dev_RDS_data_get i2c_read 1 failed");
-			else {
-				get_cur_chan_freq(&(data->curr_channel),
-						  Si4709_dev.
-						  registers[READCHAN]);
-				data->curr_rssi =
-				    STATUSRSSI_RSSI_SIGNAL_STRENGTH(Si4709_dev.
-								    registers
-								    [STATUSRSSI]);
-				debug_rds("curr_channel: %u, curr_rssi:%u",
-					  data->curr_channel,
-					  (u32) data->curr_rssi);
-			}
-			ret = -1;
-		} else {
-			ret = i2c_read(READCHAN);
-			if (ret < 0)
-				error
-				    ("Si4709_dev_RDS_data_get i2c_read 2 failed");
-			else {
-				get_cur_chan_freq(&(data->curr_channel),
-						  Si4709_dev.
-						  registers[READCHAN]);
-				data->curr_rssi =
-				    STATUSRSSI_RSSI_SIGNAL_STRENGTH(Si4709_dev.
-								    registers
-								    [STATUSRSSI]);
-				debug_rds("curr_channel: %u, curr_rssi:%u",
-					  data->curr_channel,
-					  (u32) data->curr_rssi);
-
-				/* Reading from RDS_Block_Data_buffer */
-				i = 0;
-				data->rdsa =
-				    RDS_Block_Data_buffer[i++ +
-							  4 *
-							  RDS_Buffer_Index_read];
-				data->rdsb =
-				    RDS_Block_Data_buffer[i++ +
-							  4 *
-							  RDS_Buffer_Index_read];
-				data->rdsc =
-				    RDS_Block_Data_buffer[i++ +
-							  4 *
-							  RDS_Buffer_Index_read];
-				data->rdsd =
-				    RDS_Block_Data_buffer[i++ +
-							  4 *
-							  RDS_Buffer_Index_read];
-
-				/* Reading from RDS_Block_Error_buffer */
-				i = 0;
-				data->blera =
-				    RDS_Block_Error_buffer[i++ +
-							   4 *
-							   RDS_Buffer_Index_read];
-				data->blerb =
-				    RDS_Block_Error_buffer[i++ +
-							   4 *
-							   RDS_Buffer_Index_read];
-				data->blerc =
-				    RDS_Block_Error_buffer[i++ +
-							   4 *
-							   RDS_Buffer_Index_read];
-				data->blerd =
-				    RDS_Block_Error_buffer[i++ +
-							   4 *
-							   RDS_Buffer_Index_read];
-
-				/*Flushing the read data */
-				memset(&RDS_Block_Data_buffer
-				       [0 + 4 * RDS_Buffer_Index_read], 0, 8);
-				memset(&RDS_Block_Error_buffer
-				       [0 + 4 * RDS_Buffer_Index_read], 0, 4);
-
-				RDS_Buffer_Index_read++;
-
-				if (RDS_Buffer_Index_read >= RDS_BUFFER_LENGTH)
-					RDS_Buffer_Index_read = 0;
-			}
+	/*If No New RDS Data is available return error */
+	if (RDS_Buffer_Index_read == RDS_Buffer_Index_write) {
+		debug_rds("No_New_RDS_Data_is_available");
+		ret = i2c_read(READCHAN);
+		if (ret < 0)
+			error("Si4709_dev_RDS_data_get i2c_read 1 failed");
+		else {
+			get_cur_chan_freq(&(data->curr_channel),
+					Si4709_dev.registers[READCHAN]);
+			data->curr_rssi = STATUSRSSI_RSSI_SIGNAL_STRENGTH(
+					Si4709_dev.registers[STATUSRSSI]);
+			debug_rds("curr_channel: %u, curr_rssi:%u",
+					data->curr_channel,
+					(u32) data->curr_rssi);
 		}
+		mutex_unlock(&(Si4709_dev.lock));
+		return -1;
+	}
+	ret = i2c_read(READCHAN);
 
-		debug_rds("RDS_Buffer_Index_read = %d", RDS_Buffer_Index_read);
+	if (ret < 0)
+		error("Si4709_dev_RDS_data_get i2c_read 2 failed");
+	else {
+		get_cur_chan_freq(&(data->curr_channel),
+				Si4709_dev.registers[READCHAN]);
+		data->curr_rssi =
+			STATUSRSSI_RSSI_SIGNAL_STRENGTH(
+					Si4709_dev.registers[STATUSRSSI]);
+		debug_rds("curr_channel: %u, curr_rssi:%u",
+				data->curr_channel, (u32) data->curr_rssi);
+
+		/* Reading from RDS_Block_Data_buffer */
+		i = 0;
+		data->rdsa = RDS_Block_Data_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->rdsb = RDS_Block_Data_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->rdsc = RDS_Block_Data_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->rdsd = RDS_Block_Data_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+
+		/* Reading from RDS_Block_Error_buffer */
+		i = 0;
+		data->blera = RDS_Block_Error_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->blerb = RDS_Block_Error_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->blerc = RDS_Block_Error_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+		data->blerd = RDS_Block_Error_buffer[i++ + 4
+			* RDS_Buffer_Index_read];
+
+		/*Flushing the read data */
+		memset(&RDS_Block_Data_buffer[0 + 4 * RDS_Buffer_Index_read],
+				0, 8);
+		memset(&RDS_Block_Error_buffer[0 + 4 * RDS_Buffer_Index_read],
+				0, 4);
+
+		RDS_Buffer_Index_read++;
+
+		if (RDS_Buffer_Index_read >= RDS_BUFFER_LENGTH)
+			RDS_Buffer_Index_read = 0;
+	}
+
+	debug_rds("RDS_Buffer_Index_read = %d", RDS_Buffer_Index_read);
 #else
-		SYSCONFIG1_BITSET_RDSIEN_HIGH(&Si4709_dev.
-					      registers[SYSCONFIG1]);
+	SYSCONFIG1_BITSET_RDSIEN_HIGH(&Si4709_dev.registers[SYSCONFIG1]);
+
+	ret = i2c_write(SYSCONFIG1);
+	if (ret < 0) {
+		debug("Si4709_dev_RDS_data_get i2c_write 1 failed");
+		Si4709_dev.registers[SYSCONFIG1] = sysconfig1;
+	} else {
+		ret = i2c_read(SYSCONFIG1);
+		if (ret < 0)
+			debug("Si4709_dev_RDS_data_get i2c_read 1 failed");
+
+		debug("sysconfig1: 0x%x", Si4709_dev.registers[SYSCONFIG1]);
+
+		sysconfig1 = Si4709_dev.registers[SYSCONFIG1];
+
+		Si4709_dev_wait_flag = RDS_WAITING;
+
+		wait_RDS();
+
+		ret = i2c_read(STATUSRSSI);
+		if (ret < 0)
+			debug("Si4709_dev_RDS_data_get i2c_read 2 failed");
+
+		debug("statusrssi: 0x%x", Si4709_dev.registers[STATUSRSSI]);
+
+		SYSCONFIG1_BITSET_RDSIEN_LOW(&Si4709_dev.registers[SYSCONFIG1]);
 
 		ret = i2c_write(SYSCONFIG1);
 		if (ret < 0) {
-			debug("Si4709_dev_RDS_data_get i2c_write 1 failed");
+			debug("Si4709_dev_RDS_data_get i2c_write 2 failed");
 			Si4709_dev.registers[SYSCONFIG1] = sysconfig1;
-		} else {
-			ret = i2c_read(SYSCONFIG1);
+		} else if (Si4709_dev_wait_flag == WAIT_OVER) {
+			Si4709_dev_wait_flag = NO_WAIT;
+
+			ret = i2c_read(RDSD);
 			if (ret < 0)
-				debug
-				    ("Si4709_dev_RDS_data_get i2c_read 1 failed");
+				debug("Si4709_dev_RDS_data_get "
+					"i2c_read 3 failed");
+			else {
+				data->rdsa = Si4709_dev.registers[RDSA];
+				data->rdsb = Si4709_dev.registers[RDSB];
+				data->rdsc = Si4709_dev.registers[RDSC];
+				data->rdsd = Si4709_dev.registers[RDSD];
 
-			debug("sysconfig1: 0x%x",
-			      Si4709_dev.registers[SYSCONFIG1]);
-			sysconfig1 = Si4709_dev.registers[SYSCONFIG1];
-
-			Si4709_dev_wait_flag = RDS_WAITING;
-
-			wait_RDS();
-
-			ret = i2c_read(STATUSRSSI);
-			if (ret < 0)
-				debug
-				    ("Si4709_dev_RDS_data_get i2c_read 2 failed");
-
-			debug("statusrssi: 0x%x",
-			      Si4709_dev.registers[STATUSRSSI]);
-			SYSCONFIG1_BITSET_RDSIEN_LOW(&Si4709_dev.
-						     registers[SYSCONFIG1]);
-
-			ret = i2c_write(SYSCONFIG1);
-			if (ret < 0) {
-				debug
-				    ("Si4709_dev_RDS_data_get i2c_write 2 failed");
-				Si4709_dev.registers[SYSCONFIG1] = sysconfig1;
-			} else if (Si4709_dev_wait_flag == WAIT_OVER) {
-				Si4709_dev_wait_flag = NO_WAIT;
-
-				ret = i2c_read(RDSD);
-				if (ret < 0)
-					debug
-					    ("Si4709_dev_RDS_data_get i2c_read 3 failed");
-				else {
-					data->rdsa = Si4709_dev.registers[RDSA];
-					data->rdsb = Si4709_dev.registers[RDSB];
-					data->rdsc = Si4709_dev.registers[RDSC];
-					data->rdsd = Si4709_dev.registers[RDSD];
-
-					get_cur_chan_freq(&(data->curr_channel),
-							  Si4709_dev.
-							  registers[READCHAN]);
-					debug("curr_channel: %u",
-					      data->curr_channel);
-					data->curr_rssi =
-					    STATUSRSSI_RSSI_SIGNAL_STRENGTH
-					    (Si4709_dev.registers[STATUSRSSI]);
-					debug("curr_rssi:%u",
-					      (u32) data->curr_rssi);
-					data->blera =
-					    STATUSRSSI_RDS_BLOCK_A_ERRORS
-					    (Si4709_dev.registers[STATUSRSSI]);
-					data->blerb =
-					    READCHAN_BLOCK_B_ERRORS(Si4709_dev.
-								    registers
-								    [READCHAN]);
-					data->blerc =
-					    READCHAN_BLOCK_C_ERRORS(Si4709_dev.
-								    registers
-								    [READCHAN]);
-					data->blerd =
-					    READCHAN_BLOCK_D_ERRORS(Si4709_dev.
-								    registers
-								    [READCHAN]);
-				}
-			} else {
-				debug
-				    ("Si4709_dev_RDS_data_get failure no interrupt or timeout");
-				Si4709_dev_wait_flag = NO_WAIT;
-				ret = -1;
+				get_cur_chan_freq(&(data->curr_channel),
+						Si4709_dev.registers[READCHAN]);
+				debug("curr_channel: %u", data->curr_channel);
+				data->curr_rssi =
+					STATUSRSSI_RSSI_SIGNAL_STRENGTH
+					(Si4709_dev.registers[STATUSRSSI]);
+				debug("curr_rssi:%u", (u32)data->curr_rssi);
+				data->blera =
+					STATUSRSSI_RDS_BLOCK_A_ERRORS
+					(Si4709_dev.registers[STATUSRSSI]);
+				data->blerb =
+					READCHAN_BLOCK_B_ERRORS(Si4709_dev.
+							registers[READCHAN]);
+				data->blerc =
+					READCHAN_BLOCK_C_ERRORS(Si4709_dev.
+							registers[READCHAN]);
+				data->blerd =
+					READCHAN_BLOCK_D_ERRORS(Si4709_dev.
+							registers[READCHAN]);
 			}
+		} else {
+			debug("Si4709_dev_RDS_data_get failure "
+				"no interrupt or timeout");
+			Si4709_dev_wait_flag = NO_WAIT;
+			mutex_unlock(&(Si4709_dev.lock));
+			return -1;
 		}
-#endif
 	}
+#endif
 
 	mutex_unlock(&(Si4709_dev.lock));
 
@@ -2118,10 +2069,10 @@ static int powerdown(void)
 
 		SYSCONFIG1_BITSET_GPIO_LOW(&Si4709_dev.registers[SYSCONFIG1]);
 		SYSCONFIG1_BITSET_RESERVED(&Si4709_dev.registers[SYSCONFIG1]);
-/*VNVS: 13-OCT'09 :
-	During Powerdown of the device RDS should be disabled
-	according to the Si4708/09 datasheet
-*/
+		/*VNVS: 13-OCT'09 :
+		  During Powerdown of the device RDS should be disabled
+		  according to the Si4708/09 datasheet
+		 */
 #ifdef _ENABLE_RDS_
 		SYSCONFIG1_BITSET_RDS_LOW(&Si4709_dev.registers[SYSCONFIG1]);
 #endif
@@ -2151,7 +2102,7 @@ static int powerdown(void)
 	return ret;
 }
 
-static int seek(u32 * frequency, int up)
+static int seek(u32 *frequency, int up)
 {
 	int ret = 0;
 	u16 powercfg = Si4709_dev.registers[POWERCFG];
@@ -2179,9 +2130,9 @@ static int seek(u32 * frequency, int up)
 		if (Si4709_dev_wait_flag == SEEK_CANCEL) {
 			powercfg = Si4709_dev.registers[POWERCFG];
 			POWERCFG_BITSET_SEEK_LOW(&Si4709_dev.
-						 registers[POWERCFG]);
+					registers[POWERCFG]);
 			POWERCFG_BITSET_RESERVED(&Si4709_dev.
-						 registers[POWERCFG]);
+					registers[POWERCFG]);
 
 			ret = i2c_write(POWERCFG);
 			if (ret < 0) {
@@ -2193,9 +2144,8 @@ static int seek(u32 * frequency, int up)
 			if (ret < 0)
 				debug("seek i2c_read 1 failed");
 			else {
-				channel =
-				    READCHAN_GET_CHAN(Si4709_dev.
-						      registers[READCHAN]);
+				channel = READCHAN_GET_CHAN(Si4709_dev.
+						registers[READCHAN]);
 				*frequency = channel_to_freq(channel);
 			}
 			*frequency = 0;
@@ -2210,29 +2160,34 @@ static int seek(u32 * frequency, int up)
 /* VNVS:START 13-OCT'09 : Checking the status of Seek/Tune Bit */
 #ifdef TEST_FM
 			if (STATUSRSSI_SEEK_TUNE_STATUS
-			    (Si4709_dev.registers[STATUSRSSI]) == COMPLETE) {
+				(Si4709_dev.registers[STATUSRSSI])
+					== COMPLETE) {
 				debug("Seek/Tune Status is set to 1 by device");
 				if (STATUSRSSI_SF_BL_STATUS
-				    (Si4709_dev.registers[STATUSRSSI]) ==
-				    SEEK_SUCCESSFUL) {
-					debug
-					    ("Seek Fail/Band Limit Status is set to 0 by device ---SeekUp Operation Completed");
+					(Si4709_dev.registers[STATUSRSSI]) ==
+						SEEK_SUCCESSFUL) {
+					debug("Seek Fail/Band Limit Status is "
+							"set to 0 by device ---"
+							"SeekUp Operation Completed");
 					valid_station_found = 1;
 				} else
-					debug
-					    ("Seek Fail/Band Limit Status is set to 1 by device ---SeekUp Operation Not Completed");
+					debug("Seek Fail/Band Limit Status is "
+							"set to 1 by device ---"
+							"SeekUp Operation "
+							"Not Completed");
 			} else
-				debug
-				    ("Seek/Tune Status is set to 0 by device ---SeekUp Operation Not Completed");
+				debug("Seek/Tune Status is set to 0 by device "
+						"---SeekUp Operation "
+						"Not Completed");
 #endif
 			/* VNVS:END */
 
 			powercfg = Si4709_dev.registers[POWERCFG];
 
-			POWERCFG_BITSET_SEEK_LOW(&Si4709_dev.
-						 registers[POWERCFG]);
-			POWERCFG_BITSET_RESERVED(&Si4709_dev.
-						 registers[POWERCFG]);
+			POWERCFG_BITSET_SEEK_LOW(
+					&Si4709_dev.registers[POWERCFG]);
+			POWERCFG_BITSET_RESERVED(
+					&Si4709_dev.registers[POWERCFG]);
 
 			ret = i2c_write(POWERCFG);
 			if (ret < 0) {
@@ -2246,8 +2201,9 @@ static int seek(u32 * frequency, int up)
 						break;
 					}
 				} while (STATUSRSSI_SEEK_TUNE_STATUS
-					 (Si4709_dev.registers[STATUSRSSI]) !=
-					 CLEAR);
+						(Si4709_dev.
+						 registers[STATUSRSSI]) !=
+						CLEAR);
 
 				if (ret == 0 && valid_station_found == 1) {
 					ret = i2c_read(READCHAN);
@@ -2255,17 +2211,17 @@ static int seek(u32 * frequency, int up)
 						debug("seek i2c_read 4 failed");
 					else {
 						channel =
-						    READCHAN_GET_CHAN
-						    (Si4709_dev.
-						     registers[READCHAN]);
+							READCHAN_GET_CHAN
+							(Si4709_dev.
+							 registers[READCHAN]);
 						*frequency =
-						    channel_to_freq(channel);
-						debug
-						    ("Frequency after seek-up is %d \n",
-						     *frequency);
+							channel_to_freq
+							(channel);
+						debug("Frequency after seek-up "
+							"is %d\n", *frequency);
 					}
 				} else
-					debug("Valid station not found \n");
+					debug("Valid station not found\n");
 			}
 		}
 	}
@@ -2303,7 +2259,8 @@ static int tune_freq(u32 frequency)
 			debug("tune_freq i2c_read 1 failed");
 		else {
 			read_channel =
-			    READCHAN_GET_CHAN(Si4709_dev.registers[READCHAN]);
+				READCHAN_GET_CHAN(
+						Si4709_dev.registers[READCHAN]);
 			debug("curr_channel before tuning = %x", read_channel);
 		}
 #endif
@@ -2318,12 +2275,12 @@ static int tune_freq(u32 frequency)
 		if (ret < 0)
 			debug("tune_freq i2c_read 2 failed");
 		else if (STATUSRSSI_SEEK_TUNE_STATUS
-			 (Si4709_dev.registers[STATUSRSSI]) == COMPLETE)
-			debug("Seek/Tune Status is set to 1 by device\
-			---Tuning Operation Completed");
+				(Si4709_dev.registers[STATUSRSSI]) == COMPLETE)
+			debug("Seek/Tune Status is set to 1 by device "
+					"---Tuning Operation Completed");
 		else
-			debug("Seek/Tune Status is set to 0 by device\
-			---Tuning Operation Not Completed");
+			debug("Seek/Tune Status is set to 0 by device "
+					"---Tuning Operation Not Completed");
 #endif
 		/* VNVS:END */
 
@@ -2344,7 +2301,8 @@ static int tune_freq(u32 frequency)
 					break;
 				}
 			} while (STATUSRSSI_SEEK_TUNE_STATUS
-				 (Si4709_dev.registers[STATUSRSSI]) != CLEAR);
+					(Si4709_dev.registers[STATUSRSSI])
+					!= CLEAR);
 		}
 
 		/* VNVS:START 13-OCT'09 : */
@@ -2355,7 +2313,8 @@ static int tune_freq(u32 frequency)
 			debug("tune_freq i2c_read 2 failed");
 		else {
 			read_channel =
-			    READCHAN_GET_CHAN(Si4709_dev.registers[READCHAN]);
+				READCHAN_GET_CHAN(
+						Si4709_dev.registers[READCHAN]);
 			debug("curr_channel after tuning= %x", read_channel);
 		}
 #endif
@@ -2365,7 +2324,7 @@ static int tune_freq(u32 frequency)
 	return ret;
 }
 
-static void get_cur_chan_freq(u32 * frequency, u16 readchan)
+static void get_cur_chan_freq(u32 *frequency, u16 readchan)
 {
 	u16 channel = 0;
 	debug("get_cur_chan_freq called");
@@ -2386,7 +2345,7 @@ static u16 freq_to_channel(u32 frequency)
 		frequency = Si4709_dev.settings.bottom_of_band;
 
 	channel = (frequency - Si4709_dev.settings.bottom_of_band)
-	    / Si4709_dev.settings.channel_spacing;
+		/ Si4709_dev.settings.channel_spacing;
 
 	return channel;
 }
@@ -2396,26 +2355,26 @@ static u32 channel_to_freq(u16 channel)
 	u32 frequency;
 
 	frequency = Si4709_dev.settings.bottom_of_band +
-	    Si4709_dev.settings.channel_spacing * channel;
+		Si4709_dev.settings.channel_spacing * channel;
 
 	return frequency;
 }
 
 /* Only one thread will be able to call this, since this function call is
-protected by a mutex, so no race conditions can arise */
+   protected by a mutex, so no race conditions can arise */
 static void wait(void)
 {
 	wait_event_interruptible(Si4709_waitq,
-				 (Si4709_dev_wait_flag == WAIT_OVER) ||
-				 (Si4709_dev_wait_flag == SEEK_CANCEL));
+			(Si4709_dev_wait_flag == WAIT_OVER) ||
+			(Si4709_dev_wait_flag == SEEK_CANCEL));
 }
 
 #ifndef RDS_INTERRUPT_ON_ALWAYS
 static void wait_RDS(void)
 {
 	wait_event_interruptible_timeout(Si4709_waitq,
-					 (Si4709_dev_wait_flag == WAIT_OVER),
-					 Si4709_dev.settings.timeout_RDS);
+			(Si4709_dev_wait_flag == WAIT_OVER),
+			Si4709_dev.settings.timeout_RDS);
 }
 #endif
 
@@ -2443,7 +2402,7 @@ static int i2c_read(u8 reg)
 		msglen = (msglen + NUM_OF_REGISTERS) * 2;
 
 	ret = i2c_master_recv((struct i2c_client *)(Si4709_dev.client), data,
-			      msglen);
+			msglen);
 
 	if (ret == msglen) {
 		idx = 0;
@@ -2453,7 +2412,7 @@ static int i2c_read(u8 reg)
 
 			Si4709_dev.registers[reading_reg] = 0x0000;
 			Si4709_dev.registers[reading_reg] =
-			    (data_high << 8) + data_low;
+				(data_high << 8) + data_low;
 			reading_reg = (reading_reg + 1) & RDSD;
 			idx = idx + 2;
 		} while (reading_reg != ((reg + 1) & RDSD));
@@ -2484,13 +2443,13 @@ static int i2c_write(u8 reg)
 	do {
 		data[msglen++] = (u8) (Si4709_dev.registers[writing_reg] >> 8);
 		data[msglen++] =
-		    (u8) (Si4709_dev.registers[writing_reg] & 0xFF);
+			(u8) (Si4709_dev.registers[writing_reg] & 0xFF);
 
 		writing_reg = (writing_reg + 1) & RDSD;
 	} while (writing_reg != ((reg + 1) & RDSD));
 
 	ret = i2c_master_send((struct i2c_client *)(Si4709_dev.client),
-			      (const char *)data, msglen);
+			(const char *)data, msglen);
 
 	if (ret == msglen)
 		ret = 0;
@@ -2501,7 +2460,7 @@ static int i2c_write(u8 reg)
 }
 
 #if 0
-static int insert_preset(u32 frequency, u8 rssi, u8 * seek_preset_rssi)
+static int insert_preset(u32 frequency, u8 rssi, u8 *seek_preset_rssi)
 {
 	u8 i;
 	u8 min_rssi = 0xff;
@@ -2524,11 +2483,11 @@ static int insert_preset(u32 frequency, u8 rssi, u8 * seek_preset_rssi)
 		ret = -1;
 
 	/***Delete the preset with the minimum rssi, and clear the last preset
-	since it would only be a copy of the second to last preset after
-	the deletion ***/
+	  since it would only be a copy of the second to last preset after
+	  the deletion ***/
 	for (i = min_rssi_preset; i < NUM_SEEK_PRESETS - 1; i++) {
 		Si4709_dev.settings.seek_preset[i] =
-		    Si4709_dev.settings.seek_preset[i + 1];
+			Si4709_dev.settings.seek_preset[i + 1];
 		seek_preset_rssi[i] = seek_preset_rssi[i + 1];
 	}
 
@@ -2536,7 +2495,7 @@ static int insert_preset(u32 frequency, u8 rssi, u8 * seek_preset_rssi)
 	seek_preset_rssi[i] = 0;
 
 	/*** Fill the first preset with a zero for the frequency.  This will
-	always overwrite the last preset once all presets have been filled. ***/
+	  always overwrite the last preset once all presets have been filled. ***/
 	for (i = min_rssi_preset; i < NUM_SEEK_PRESETS; i++) {
 		if (Si4709_dev.settings.seek_preset[i] == 0) {
 			Si4709_dev.settings.seek_preset[i] = frequency;

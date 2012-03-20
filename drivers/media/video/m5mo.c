@@ -14,13 +14,14 @@
  */
 
 #include <linux/i2c.h>
-#include <media/v4l2-i2c-drv.h>
+#include <linux/init.h>
 #include <media/v4l2-device.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/vmalloc.h>
 #include <linux/firmware.h>
+#include <linux/videodev2.h>
 
 #ifdef CONFIG_VIDEO_SAMSUNG_V4L2
 #include <linux/videodev2_samsung.h>
@@ -33,15 +34,28 @@
 
 #define M5MO_DRIVER_NAME	"M5MO"
 
+#ifdef CONFIG_MACH_S2PLUS
+extern struct class *camera_class;
+struct device *m5mo_dev;
+#endif
+
 #define M5MO_FW_PATH		"/sdcard/RS_M5LS.bin"
 #define M5MO_FW_DUMP_PATH	"/data/RS_M5LS_dump.bin"
 
-#define M5MOTB_FW_PATH		"RS_M5LS_TB.bin"	/* TECHWIN - SONY */
-#define M5MOOB_FW_PATH		"RS_M5LS_OB.bin"	/* FIBEROPTICS - SONY */
-#define M5MOOE_FW_PATH		"RS_M5LS_OE.bin"	/* FIBEROPTICS - SONY */
-/*#define M5MOOC_FW_PATH		"RS_M5LS_OC.bin"*/	/* FIBEROPTICS - S.LSI */
-/*#define M5MOSB_FW_PATH		"RS_M5LS_SB.bin"*/	/* ELECTRO-MECHANICS - SONY */
-/*#define M5MOSC_FW_PATH		"RS_M5LS_SC.bin"*/	/* ELECTRO-MECHANICS - S.LSI */
+#define M5MOTB_FW_PATH "RS_M5LS_TB.bin" /* TECHWIN - SONY */
+/* #define M5MOON_FW_PATH "RS_M5LS_ON.bin" */ /* FIBEROPTICS - SONY */
+/* #define M5MOOM_FW_PATH "RS_M5LS_OM.bin" */ /* FIBEROPTICS - S.LSI */
+#if defined(CONFIG_MACH_U1_KOR_LGT)
+#define M5MOSB_FW_PATH "RS_M5LS_SB.bin" /* ELECTRO-MECHANICS - SONY */
+#endif
+/* #define M5MOSC_FW_PATH "RS_M5LS_SC.bin" */ /* ELECTRO-MECHANICS - S.LSI */
+/* #define M5MOCB_FW_PATH "RS_M5LS_CB.bin" */ /* CAMSYS - SONY */
+#if defined(CONFIG_TARGET_LOCALE_NA)
+/* #define M5MOOE_FW_PATH "RS_M5LS_OE.bin" */ /* FIBEROPTICS - SONY */
+#endif
+#if defined(CONFIG_MACH_Q1_BD)
+#define M5MOOO_FW_PATH "RS_M5LS_OO.bin" /* FIBEROPTICS - SONY */
+#endif
 
 #define M5MO_FW_VER_LEN		22
 #define M5MO_FW_VER_FILE_CUR	0x16FF00
@@ -74,6 +88,8 @@
 				return x; \
 			}
 
+#define NELEMS(array) (sizeof(array) / sizeof(array[0]))
+
 static const struct m5mo_frmsizeenum preview_frmsizes[] = {
 	{ M5MO_PREVIEW_QCIF,	176,	144,	0x05 },	/* 176 x 144 */
 	{ M5MO_PREVIEW_QCIF2,	528,	432,	0x2C },	/* 176 x 144 */
@@ -82,6 +98,16 @@ static const struct m5mo_frmsizeenum preview_frmsizes[] = {
 	{ M5MO_PREVIEW_D1,	720,	480,	0x18 },
 	{ M5MO_PREVIEW_WVGA,	800,	480,	0x1A },
 	{ M5MO_PREVIEW_720P,	1280,	720,	0x21 },
+
+#if defined(CONFIG_MACH_Q1_BD)
+	{ M5MO_PREVIEW_880_720,  880,	720,	0x2E },
+	{ M5MO_PREVIEW_1200_800, 1200,	800,	0x2F },
+	{ M5MO_PREVIEW_1280_800, 1280,	800,	0x35 },
+	{ M5MO_PREVIEW_1280_768, 1280,	768,	0x22 },
+	{ M5MO_PREVIEW_1072_800, 1072,	800,	0x36 },
+	{ M5MO_PREVIEW_980_800,	 980,	800,	0x37 },
+#endif
+
 	{ M5MO_PREVIEW_1080P,	1920,	1080,	0x28 },
 	{ M5MO_PREVIEW_HDR,	3264,	2448,	0x27 },
 };
@@ -138,8 +164,19 @@ static struct m5mo_control m5mo_ctrls[] = {
 		.step = 1,
 		.value = 100,
 		.default_value = 100,
+	}, {
+		.id = V4L2_CID_CAMERA_ANTI_BANDING,
+		.minimum = ANTI_BANDING_AUTO,
+		.maximum = ANTI_BANDING_OFF,
+		.step = 1,
+		.value = ANTI_BANDING_50HZ,
+		.default_value = ANTI_BANDING_50HZ,
 	},
 };
+
+#ifndef CONFIG_MACH_S2PLUS
+struct class *camera_class;
+#endif
 
 static inline struct m5mo_state *to_state(struct v4l2_subdev *sd)
 {
@@ -381,7 +418,8 @@ static u32 m5mo_wait_interrupt(struct v4l2_subdev *sd,
 	struct m5mo_state *state = to_state(sd);
 	cam_trace("E\n");
 
-	if (wait_event_interruptible_timeout(state->isp.wait, state->isp.issued == 1,
+	if (wait_event_interruptible_timeout(state->isp.wait,
+		state->isp.issued == 1,
 		msecs_to_jiffies(timeout)) == 0) {
 		cam_err("timeout\n");
 		return 0;
@@ -389,7 +427,8 @@ static u32 m5mo_wait_interrupt(struct v4l2_subdev *sd,
 
 	state->isp.issued = 0;
 
-	m5mo_readb(sd, M5MO_CATEGORY_SYS, M5MO_SYS_INT_FACTOR, &state->isp.int_factor);
+	m5mo_readb(sd, M5MO_CATEGORY_SYS,
+		M5MO_SYS_INT_FACTOR, &state->isp.int_factor);
 
 	cam_trace("X\n");
 	return state->isp.int_factor;
@@ -402,11 +441,14 @@ static int m5mo_set_mode(struct v4l2_subdev *sd, u32 mode)
 	cam_trace("E\n");
 
 	err = m5mo_readb(sd, M5MO_CATEGORY_SYS, M5MO_SYS_MODE, &old_mode);
+
 	if (err < 0)
 		return err;
 
-	if (old_mode == mode)
+	if (old_mode == mode) {
+		cam_dbg("%#x -> %#x\n", old_mode, mode);
 		return old_mode;
+	}
 
 	cam_dbg("%#x -> %#x\n", old_mode, mode);
 
@@ -473,6 +515,8 @@ static int m5mo_queryctrl(struct v4l2_subdev *sd, struct v4l2_queryctrl *qc)
 
 	return -EINVAL;
 }
+static int m5mo_get_af_result(struct v4l2_subdev *sd,
+		struct v4l2_control *ctrl);
 
 static int m5mo_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
@@ -481,7 +525,7 @@ static int m5mo_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_CAMERA_AUTO_FOCUS_RESULT:
-		ctrl->value = state->focus.status;
+		m5mo_get_af_result(sd, ctrl);
 		break;
 
 	case V4L2_CID_CAM_JPEG_MEMSIZE:
@@ -543,23 +587,38 @@ static int m5mo_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	return err;
 }
 
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT)
-static int m5mo_set_antibanding(struct v4l2_subdev *sd, int val)
+static int m5mo_set_antibanding(struct v4l2_subdev *sd,
+		struct v4l2_control *ctrl)
 {
-	int antibanding = 0x02;	/* Fix 60Hz for domastic */
-	int err = 0;
+	struct v4l2_queryctrl qc = {0,};
+	struct m5mo_state *state = to_state(sd);
+	int val = ctrl->value, err;
+	u32 antibanding[] = {0x00, 0x01, 0x02, 0x03};
+
+	if (state->anti_banding == val)
+		return 0;
 
 	cam_dbg("E, value %d\n", val);
 
-	antibanding = val;
+	qc.id = ctrl->id;
+	m5mo_queryctrl(sd, &qc);
 
-	err = m5mo_writeb(sd, M5MO_CATEGORY_AE,	M5MO_AE_FLICKER, antibanding);
+	if (val < qc.minimum || val > qc.maximum) {
+		cam_warn("invalied value, %d\n", val);
+		val = qc.default_value;
+	}
+
+	val -= qc.minimum;
+
+	err = m5mo_writeb(sd, M5MO_CATEGORY_AE,
+					M5MO_AE_FLICKER, antibanding[val]);
 	CHECK_ERR(err);
 
+	state->anti_banding = val;
+
 	cam_trace("X\n");
-	return err;
+	return 0;
 }
-#endif
 
 static int m5mo_set_af_softlanding(struct v4l2_subdev *sd)
 {
@@ -585,7 +644,8 @@ static int m5mo_set_af_softlanding(struct v4l2_subdev *sd)
 
 	for (i = M5MO_I2C_VERIFY; i; i--) {
 		msleep(10);
-		err = m5mo_readb(sd, M5MO_CATEGORY_LENS, M5MO_LENS_AF_STATUS, &status);
+		err = m5mo_readb(sd, M5MO_CATEGORY_LENS,
+			M5MO_LENS_AF_STATUS, &status);
 		CHECK_ERR(err);
 
 		if ((status & 0x01) == 0x00)
@@ -618,7 +678,7 @@ static int m5mo_dump_fw(struct v4l2_subdev *sd)
 		cam_err("failed to open %s, err %ld\n",
 			M5MO_FW_DUMP_PATH, PTR_ERR(fp));
 		err = -ENOENT;
-		goto out;
+		goto file_out;
 	}
 
 	buf = kmalloc(intram_unit, GFP_KERNEL);
@@ -633,7 +693,10 @@ static int m5mo_dump_fw(struct v4l2_subdev *sd)
 	/* set pin */
 	val = 0x7E;
 	err = m5mo_mem_write(sd, 0x04, sizeof(val), 0x50000308, &val);
-	CHECK_ERR(err);
+	if (err < 0) {
+		cam_err("failed to write memory\n");
+		goto out;
+	}
 
 	addr = M5MO_FLASH_BASE_ADDR;
 	unit = SZ_64K;
@@ -671,6 +734,7 @@ out:
 	kfree(buf);
 	if (!IS_ERR(fp))
 		filp_close(fp, current->files);
+file_out:
 	set_fs(old_fs);
 
 	return err;
@@ -694,13 +758,12 @@ static int m5mo_get_sensor_fw_version(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int m5mo_get_phone_fw_version(struct v4l2_subdev *sd,
-	char *buf)
+static int m5mo_get_phone_fw_version(struct v4l2_subdev *sd, char *buf)
 {
 	struct device *dev = sd->v4l2_dev->dev;
 	u8 sensor_ver[M5MO_FW_VER_LEN] = {0, };
 	const struct firmware *fw;
-	int err;
+	int err = 0;
 
 	struct file *fp;
 	mm_segment_t old_fs;
@@ -712,7 +775,8 @@ static int m5mo_get_phone_fw_version(struct v4l2_subdev *sd,
 
 	fp = filp_open(M5MO_FW_PATH, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		cam_trace("failed to open %s, err %ld\n", M5MO_FW_PATH, PTR_ERR(fp));
+		cam_trace("failed to open %s, err %ld\n", M5MO_FW_PATH,
+			  PTR_ERR(fp));
 		goto request_fw;
 	}
 
@@ -738,22 +802,23 @@ request_fw:
 
 		if (sensor_ver[0] == 'T' && sensor_ver[1] == 'B') {
 			err = request_firmware(&fw, M5MOTB_FW_PATH, dev);
-#if defined(CONFIG_TARGET_LOCALE_NA) //TEMP forcely use OE path for compatibility with old targets
-		} else if ((sensor_ver[0] == 'O' && sensor_ver[1] == 'B') || (sensor_ver[0] == 'O' && sensor_ver[1] == 'E')) {
-			err = request_firmware(&fw, M5MOOE_FW_PATH, dev);
-#else
-		} else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'B') {
-			err = request_firmware(&fw, M5MOOB_FW_PATH, dev);
+#if defined(CONFIG_MACH_Q1_BD)
+		} else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'O') {
+			err = request_firmware(&fw, M5MOOO_FW_PATH, dev);
 #endif
-		} /*else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'C') {
-			err = request_firmware(&fw, M5MOOC_FW_PATH, dev);
+#if defined(CONFIG_MACH_U1_KOR_LGT)
 		} else if (sensor_ver[0] == 'S' && sensor_ver[1] == 'B') {
 			err = request_firmware(&fw, M5MOSB_FW_PATH, dev);
-		} else if (sensor_ver[0] == 'S' && sensor_ver[1] == 'C') {
-			err = request_firmware(&fw, M5MOSC_FW_PATH, dev);
-		} */else {
+#endif
+		} else {
 			cam_warn("cannot find the matched F/W file\n");
+#if defined(CONFIG_MACH_Q1_BD)
+			err = request_firmware(&fw, M5MOOO_FW_PATH, dev);
+#elif defined(CONFIG_MACH_U1_KOR_LGT)
+			err = request_firmware(&fw, M5MOSB_FW_PATH, dev);
+#else
 			err = request_firmware(&fw, M5MOTB_FW_PATH, dev);
+#endif
 		}
 
 		if (err != 0) {
@@ -762,7 +827,8 @@ request_fw:
 			goto out;
 		}
 
-		memcpy(buf, (u8 *)&fw->data[M5MO_FW_VER_FILE_CUR], M5MO_FW_VER_LEN);
+		memcpy(buf, (u8 *)&fw->data[M5MO_FW_VER_FILE_CUR],
+		       M5MO_FW_VER_LEN);
 	}
 
 out:
@@ -957,17 +1023,14 @@ retry:
 		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_MODE, 0x03);
 		CHECK_ERR(err);
 		break;
-
 	case METERING_SPOT:
 		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_MODE, 0x06);
 		CHECK_ERR(err);
 		break;
-
 	case METERING_MATRIX:
 		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_MODE, 0x01);
 		CHECK_ERR(err);
 		break;
-
 	default:
 		cam_warn("invalid value, %d\n", val);
 		val = METERING_CENTER;
@@ -1012,37 +1075,47 @@ static int m5mo_set_whitebalance(struct v4l2_subdev *sd, int val)
 retry:
 	switch (val) {
 	case WHITE_BALANCE_AUTO:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x01);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MODE, 0x01);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x01);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MANUAL, 0x01);
 		CHECK_ERR(err);
 		break;
 
 	case WHITE_BALANCE_SUNNY:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x02);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MODE, 0x02);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x04);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MANUAL, 0x04);
 		CHECK_ERR(err);
 		break;
 
 	case WHITE_BALANCE_CLOUDY:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x02);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MODE, 0x02);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x05);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MANUAL, 0x05);
 		CHECK_ERR(err);
 		break;
 
 	case WHITE_BALANCE_TUNGSTEN:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x02);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MODE, 0x02);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x01);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MANUAL, 0x01);
 		CHECK_ERR(err);
 		break;
 
 	case WHITE_BALANCE_FLUORESCENT:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x02);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MODE, 0x02);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x02);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,
+			M5MO_WB_AWB_MANUAL, 0x02);
 		CHECK_ERR(err);
 		break;
 
@@ -1359,10 +1432,12 @@ static int m5mo_set_wdr(struct v4l2_subdev *sd, int val)
 	contrast = (val == 1 ? 0x09 : 0x05);
 	wdr = (val == 1 ? 0x01 : 0x00);
 
-	err = m5mo_writeb(sd, M5MO_CATEGORY_MON, M5MO_MON_TONE_CTRL, contrast);
-	CHECK_ERR(err);
-	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM, M5MO_CAPPARM_WDR_EN, wdr);
-	CHECK_ERR(err);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_MON,
+			M5MO_MON_TONE_CTRL, contrast);
+		CHECK_ERR(err);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM,
+			M5MO_CAPPARM_WDR_EN, wdr);
+		CHECK_ERR(err);
 
 	cam_trace("X\n");
 	return 0;
@@ -1383,9 +1458,9 @@ static int m5mo_set_antishake(struct v4l2_subdev *sd, int val)
 	ahs = (val == 1 ? 0x0E : 0x00);
 
 	err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_EP_MODE_MON, ahs);
-	CHECK_ERR(err);
+		CHECK_ERR(err);
 	err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_EP_MODE_CAP, ahs);
-	CHECK_ERR(err);
+		CHECK_ERR(err);
 
 	cam_trace("X\n");
 	return 0;
@@ -1425,7 +1500,18 @@ static int m5mo_set_lock(struct v4l2_subdev *sd, int val)
 	cam_trace("X\n");
 	return 0;
 }
+static int m5mo_get_af_result(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	struct m5mo_state *state = to_state(sd);
+	int status, err;
 
+	err = m5mo_readb(sd, M5MO_CATEGORY_LENS,
+		M5MO_LENS_AF_STATUS, &status);
+
+	state->focus.status = status;
+	ctrl->value = status;
+	return ctrl->value;
+}
 static int m5mo_set_af(struct v4l2_subdev *sd, int val)
 {
 	struct m5mo_state *state = to_state(sd);
@@ -1449,30 +1535,6 @@ static int m5mo_set_af(struct v4l2_subdev *sd, int val)
 			m5mo_set_lock(sd, val);
 		}
 
-		if (val) {
-			/* check AF status for 6 sec */
-			for (i = 600; i && err && state->focus.start; i--) {
-				msleep(10);
-				err = m5mo_readb(sd, M5MO_CATEGORY_LENS,
-					M5MO_LENS_AF_STATUS, &status);
-				CHECK_ERR(err);
-
-				if (!(status & 0x01))
-					err = 0;
-			}
-		} else {
-			for (i = 600; i && err; i--) {
-				msleep(10);
-				err = m5mo_readb(sd, M5MO_CATEGORY_LENS,
-					M5MO_LENS_AF_STATUS, &status);
-				CHECK_ERR(err);
-
-				if (!(status & 0x01))
-					err = 0;
-			}
-		}
-
-		state->focus.status = status;
 	} else {
 		err = m5mo_writeb(sd, M5MO_CATEGORY_LENS,
 			M5MO_LENS_AF_START, val ? 0x02 : 0x00);
@@ -1592,7 +1654,7 @@ retry:
 static int m5mo_set_touch_auto_focus(struct v4l2_subdev *sd, int val)
 {
 	struct m5mo_state *state = to_state(sd);
-	int err;
+	int err = 0;
 	cam_info("%s\n", val ? "start" : "stop");
 
 	state->focus.touch = val;
@@ -1656,7 +1718,8 @@ static int m5mo_set_jpeg_quality(struct v4l2_subdev *sd,
 		val = qc.default_value;
 	}
 
-	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM, M5MO_CAPPARM_JPEG_RATIO, 0x62);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM,
+		M5MO_CAPPARM_JPEG_RATIO, 0x62);
 	CHECK_ERR(err);
 
 	if (val <= 65)		/* Normal */
@@ -1666,7 +1729,8 @@ static int m5mo_set_jpeg_quality(struct v4l2_subdev *sd,
 	else			/* Superfine */
 		ratio = 0x00;
 
-	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM, M5MO_CAPPARM_JPEG_RATIO_OFS, ratio);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM,
+		M5MO_CAPPARM_JPEG_RATIO_OFS, ratio);
 	CHECK_ERR(err);
 
 	cam_trace("X\n");
@@ -1687,9 +1751,11 @@ static int m5mo_get_exif(struct v4l2_subdev *sd)
 	int num, den, i, err;
 
 	/* exposure time */
-	err = m5mo_readl(sd, M5MO_CATEGORY_EXIF, M5MO_EXIF_EXPTIME_NUM, &num);
+	err = m5mo_readl(sd, M5MO_CATEGORY_EXIF,
+		M5MO_EXIF_EXPTIME_NUM, &num);
 	CHECK_ERR(err);
-	err = m5mo_readl(sd, M5MO_CATEGORY_EXIF, M5MO_EXIF_EXPTIME_DEN, &den);
+	err = m5mo_readl(sd, M5MO_CATEGORY_EXIF,
+		M5MO_EXIF_EXPTIME_DEN, &den);
 	CHECK_ERR(err);
 	state->exif.exptime = (u32)num*1000/den;
 
@@ -1701,7 +1767,7 @@ static int m5mo_get_exif(struct v4l2_subdev *sd)
 	/* iso */
 	err = m5mo_readw(sd, M5MO_CATEGORY_EXIF, M5MO_EXIF_ISO, &num);
 	CHECK_ERR(err);
-	for (i = 0; i < sizeof(iso_qtable); i++) {
+	for (i = 0; i < NELEMS(iso_qtable); i++) {
 		if (num <= iso_qtable[i]) {
 			state->exif.iso = iso_std_values[i];
 			break;
@@ -1750,7 +1816,8 @@ static int m5mo_start_capture(struct v4l2_subdev *sd, int val)
 	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_FRM_SEL, 0x01);
 	CHECK_ERR(err);
 
-	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_TRANSFER, 0x01);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPCTRL,
+		M5MO_CAPCTRL_TRANSFER, 0x01);
 	int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
 	if (!(int_factor & M5MO_INT_CAPTURE)) {
 		cam_warn("M5MO_INT_CAPTURE isn't issued on transfer, %#x\n", int_factor);
@@ -1758,10 +1825,10 @@ static int m5mo_start_capture(struct v4l2_subdev *sd, int val)
 	}
 
 	err = m5mo_readl(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_IMG_SIZE,
-		&state->jpeg.main_size);
+				&state->jpeg.main_size);
 	CHECK_ERR(err);
 	err = m5mo_readl(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_THUMB_SIZE,
-		&state->jpeg.thumb_size);
+				&state->jpeg.thumb_size);
 	CHECK_ERR(err);
 
 	state->jpeg.main_offset = 0;
@@ -1781,22 +1848,60 @@ static int m5mo_set_hdr(struct v4l2_subdev *sd, int val)
 	cam_trace("E\n");
 
 	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_FRM_SEL, val + 1);
-	CHECK_ERR(err);
+		CHECK_ERR(err);
 
-	int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
+		int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
 	if (!(int_factor & M5MO_INT_CAPTURE)) {
 		cam_warn("M5MO_INT_CAPTURE isn't issued on transfer, %#x\n", int_factor);
-		return -ETIMEDOUT;
+			return -ETIMEDOUT;
 	}
 
 	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPCTRL, M5MO_CAPCTRL_TRANSFER, 0x01);
-	int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
+		int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
 	if (!(int_factor & M5MO_INT_CAPTURE)) {
 		cam_warn("M5MO_INT_CAPTURE isn't issued on transfer, %#x\n", int_factor);
 		return -ETIMEDOUT;
 	}
 
 	cam_trace("X\n");
+	return 0;
+}
+
+static int m5mo_set_aeawblock(struct v4l2_subdev *sd, int val)
+{
+	int err;
+
+	cam_err("%d\n", val);
+	switch (val) {
+	case AE_UNLOCK_AWB_UNLOCK:
+		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_LOCK, 0);
+		CHECK_ERR(err);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB, M5MO_AWB_LOCK, 0);
+		CHECK_ERR(err);
+		break;
+
+	case AE_LOCK_AWB_UNLOCK:
+		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_LOCK, 1);
+		CHECK_ERR(err);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB, M5MO_AWB_LOCK, 0);
+		CHECK_ERR(err);
+		break;
+
+	case AE_UNLOCK_AWB_LOCK:
+		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_LOCK, 0);
+		CHECK_ERR(err);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB, M5MO_AWB_LOCK, 1);
+		CHECK_ERR(err);
+		break;
+
+	case AE_LOCK_AWB_LOCK:
+		err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_LOCK, 1);
+		CHECK_ERR(err);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB, M5MO_AWB_LOCK, 1);
+		CHECK_ERR(err);
+		break;
+	}
+	cam_err("X\n");
 	return 0;
 }
 
@@ -1849,7 +1954,7 @@ static int m5mo_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	struct m5mo_state *state = to_state(sd);
 	int err = 0;
 
-	cam_trace("id %d, value %d\n",
+	printk(KERN_INFO "id %d, value %d\n",
 		ctrl->id - V4L2_CID_PRIVATE_BASE, ctrl->value);
 
 	if (unlikely(state->isp.bad_fw && ctrl->id != V4L2_CID_CAM_UPDATE_FW)) {
@@ -1921,25 +2026,30 @@ static int m5mo_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	case V4L2_CID_CAMERA_OBJECT_POSITION_X:
 		state->focus.pos_x = ctrl->value;
 		/* FIXME - It should be fixed on F/W (touch AF offset) */
-		if (state->exif.unique_id[0] == 'T') {
-			if (state->preview->index == M5MO_PREVIEW_VGA)
-				state->focus.pos_x -= 40;
-			else if (state->preview->index == M5MO_PREVIEW_WVGA)
-				state->focus.pos_x -= 50;
+	      if (state->preview != NULL) {
+			if (state->exif.unique_id[0] == 'T') {
+				if (state->preview->index == M5MO_PREVIEW_VGA)
+					state->focus.pos_x -= 40;
+				else if (state->preview->index ==
+					 M5MO_PREVIEW_WVGA)
+					state->focus.pos_x -= 50;
+			}
 		}
 		break;
 
 	case V4L2_CID_CAMERA_OBJECT_POSITION_Y:
 		state->focus.pos_y = ctrl->value;
 		/* FIXME - It should be fixed on F/W (touch AF offset) */
-		if (state->preview->index == M5MO_PREVIEW_VGA) {
-			if (state->exif.unique_id[0] == 'T')
-				state->focus.pos_y -=  50;
-		} else if (state->preview->index == M5MO_PREVIEW_WVGA) {
-			if (state->exif.unique_id[0] == 'T')
-				state->focus.pos_y -= 2;
-			else
-				state->focus.pos_y += 60;
+		if (state->preview != NULL) {
+			if (state->preview->index == M5MO_PREVIEW_VGA) {
+				if (state->exif.unique_id[0] == 'T')
+					state->focus.pos_y -=  50;
+			} else if (state->preview->index == M5MO_PREVIEW_WVGA) {
+				if (state->exif.unique_id[0] == 'T')
+					state->focus.pos_y -= 2;
+				else
+					state->focus.pos_y += 60;
+			}
 		}
 		break;
 
@@ -1971,13 +2081,21 @@ static int m5mo_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		state->check_dataline = ctrl->value;
 		break;
 
+	case V4L2_CID_CAMERA_ANTI_BANDING:
+		err = m5mo_set_antibanding(sd, ctrl);
+		break;
+
 	case V4L2_CID_CAMERA_CHECK_ESD:
 		err = m5mo_check_esd(sd);
 		break;
 
+	case V4L2_CID_CAMERA_AEAWB_LOCK_UNLOCK:
+		err = m5mo_set_aeawblock(sd, ctrl->value);
+		break;
+
 	default:
 		cam_err("no such control id %d, value %d\n",
-			ctrl->id - V4L2_CID_PRIVATE_BASE, ctrl->value);
+				ctrl->id - V4L2_CID_PRIVATE_BASE, ctrl->value);
 		/*err = -ENOIOCTLCMD;*/
 		err = 0;
 		break;
@@ -1985,7 +2103,7 @@ static int m5mo_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 	if (err < 0 && err != -ENOIOCTLCMD)
 		cam_err("failed, id %d, value %d\n",
-			ctrl->id - V4L2_CID_PRIVATE_BASE, ctrl->value);
+				ctrl->id - V4L2_CID_PRIVATE_BASE, ctrl->value);
 	return err;
 }
 
@@ -2002,12 +2120,14 @@ static int m5mo_g_ext_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *ctrl
 	default:
 		cam_err("no such control id %d\n", ctrl->id - V4L2_CID_CAMERA_CLASS_BASE);
 		/*err = -ENOIOCTLCMD*/
-		err = 0;
+		/*err = 0;*/
 		break;
 	}
 
-	if (err < 0 && err != -ENOIOCTLCMD)
-		cam_err("failed, id %d\n", ctrl->id - V4L2_CID_CAMERA_CLASS_BASE);
+	/* FIXME
+	 * if (err < 0 && err != -ENOIOCTLCMD)
+	 *	cam_err("failed, id %d\n", ctrl->id - V4L2_CID_CAMERA_CLASS_BASE);
+	 */
 
 	return err;
 }
@@ -2070,17 +2190,20 @@ static int m5mo_program_fw(struct v4l2_subdev *sd,
 
 	for (i = 0; i < unit*count; i += unit) {
 		/* Set Flash ROM memory address */
-		err = m5mo_writel(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_ADDR, addr + i);
+		err = m5mo_writel(sd, M5MO_CATEGORY_FLASH,
+			M5MO_FLASH_ADDR, addr + i);
 		CHECK_ERR(err);
 
 		/* Erase FLASH ROM entire memory */
-		err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_ERASE, erase);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH,
+			M5MO_FLASH_ERASE, erase);
 		CHECK_ERR(err);
 		/* Response while sector-erase is operating */
 		retries = 0;
 		do {
 			mdelay(50);
-			err = m5mo_readb(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_ERASE, &val);
+			err = m5mo_readb(sd, M5MO_CATEGORY_FLASH,
+				M5MO_FLASH_ERASE, &val);
 			CHECK_ERR(err);
 		} while (val == erase && retries++ < M5MO_I2C_VERIFY);
 
@@ -2095,11 +2218,13 @@ static int m5mo_program_fw(struct v4l2_subdev *sd,
 		CHECK_ERR(err);
 
 		/* Clear M-5MoLS internal RAM */
-		err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_RAM_CLEAR, 0x01);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH,
+			M5MO_FLASH_RAM_CLEAR, 0x01);
 		CHECK_ERR(err);
 
 		/* Set Flash ROM programming address */
-		err = m5mo_writel(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_ADDR, addr + i);
+		err = m5mo_writel(sd, M5MO_CATEGORY_FLASH,
+			M5MO_FLASH_ADDR, addr + i);
 		CHECK_ERR(err);
 
 		/* Send programmed firmware */
@@ -2118,7 +2243,8 @@ static int m5mo_program_fw(struct v4l2_subdev *sd,
 		retries = 0;
 		do {
 			mdelay(50);
-			err = m5mo_readb(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_WR, &val);
+			err = m5mo_readb(sd, M5MO_CATEGORY_FLASH,
+				M5MO_FLASH_WR, &val);
 			CHECK_ERR(err);
 		} while (val && retries++ < M5MO_I2C_VERIFY);
 
@@ -2134,10 +2260,11 @@ static int m5mo_program_fw(struct v4l2_subdev *sd,
 static int m5mo_load_fw(struct v4l2_subdev *sd)
 {
 	struct device *dev = sd->v4l2_dev->dev;
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 	u8 sensor_ver[M5MO_FW_VER_LEN] = {0, };
 	u8 *buf = NULL, val, id;
-	int offset, err;
+	int offset;
+	int err = 0;
 
 	struct file *fp;
 	mm_segment_t old_fs;
@@ -2177,34 +2304,28 @@ request_fw:
 	if (fw_requested) {
 		set_fs(old_fs);
 
-		m5mo_get_sensor_fw_version(sd, sensor_ver);
+	m5mo_get_sensor_fw_version(sd, sensor_ver);
 
-		if (sensor_ver[0] == 'T' && sensor_ver[1] == 'B') {
-			err = request_firmware(&fw, M5MOTB_FW_PATH, dev);
-#if defined(CONFIG_TARGET_LOCALE_NA) //TEMP forcely use OE path for compatibility with old targets
-		} else if ((sensor_ver[0] == 'O' && sensor_ver[1] == 'B') || (sensor_ver[0] == 'O' && sensor_ver[1] == 'E')) {
-			err = request_firmware(&fw, M5MOOE_FW_PATH, dev);
-#else
-		} else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'B') {
-			err = request_firmware(&fw, M5MOOB_FW_PATH, dev);
+	if (sensor_ver[0] == 'T' && sensor_ver[1] == 'B') {
+		err = request_firmware(&fw, M5MOTB_FW_PATH, dev);
+#if defined(CONFIG_MACH_Q1_BD)
+	} else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'O') {
+		err = request_firmware(&fw, M5MOOO_FW_PATH, dev);
 #endif
-		} /*else if (sensor_ver[0] == 'O' && sensor_ver[1] == 'C') {
-			err = request_firmware(&fw, M5MOOC_FW_PATH, dev);
-		} else if (sensor_ver[0] == 'S' && sensor_ver[1] == 'B') {
-			err = request_firmware(&fw, M5MOSB_FW_PATH, dev);
-		} else if (sensor_ver[0] == 'S' && sensor_ver[1] == 'C') {
-			err = request_firmware(&fw, M5MOSC_FW_PATH, dev);
-		} */else {
-			cam_err("cannot find the matched F/W file\n");
-			err = -EINVAL;
-		}
+#if defined(CONFIG_MACH_U1_KOR_LGT)
+	} else if (sensor_ver[0] == 'S' && sensor_ver[1] == 'B') {
+		err = request_firmware(&fw, M5MOSB_FW_PATH, dev);
+#endif
+	} else {
+		cam_err("cannot find the matched F/W file\n");
+		err = -EINVAL;
+	}
 
-		if (err != 0) {
-			cam_err("request_firmware falied\n");
+	if (err != 0) {
+		cam_err("request_firmware falied\n");
 			err = -EINVAL;
 			goto out;
-		}
-
+	}
 		cam_dbg("start, size %d Bytes\n", fw->size);
 		buf = (u8 *)fw->data;
 	}
@@ -2218,10 +2339,13 @@ request_fw:
 	}
 
 	id = m5mo_check_manufacturer_id(sd);
-	if (id < 0) {
-		cam_err("i2c falied, err %d\n", id);
-		goto out;
-	}
+	/* No Effect - compare unsigned with 0 */
+	/* FIXME
+	 * if (id < 0) {
+	 *	cam_err("i2c falied, err %d\n", id);
+	 *	goto out;
+	 *}
+	 */
 
 	/* select flash memory */
 	err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH,
@@ -2312,12 +2436,13 @@ static int m5mo_set_frmsize(struct v4l2_subdev *sd)
 	return 0;
 }
 
-static int m5mo_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *f)
+static int m5mo_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *ffmt)
 {
 	struct m5mo_state *state = to_state(sd);
 	const struct m5mo_frmsizeenum **frmsize;
-	u32 width = f->fmt.pix.width;
-	u32 height = f->fmt.pix.height;
+
+	u32 width = ffmt->width;
+	u32 height = ffmt->height;
 	u32 old_index;
 	int i, num_entries;
 	cam_trace("E\n");
@@ -2327,7 +2452,7 @@ static int m5mo_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *f)
 		return -ENOSYS;
 	}
 
-	state->format_mode = f->fmt.pix.priv;
+	state->format_mode = ffmt->field;
 
 	frmsize = state->format_mode == V4L2_PIX_FMT_MODE_PREVIEW ?
 		&state->preview : &state->capture;
@@ -2365,8 +2490,7 @@ static int m5mo_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *f)
 	}
 
 	cam_dbg("%dx%d\n", (*frmsize)->width, (*frmsize)->height);
-	if (old_index != (*frmsize)->index)
-		m5mo_set_frmsize(sd);
+	m5mo_set_frmsize(sd);
 
 	cam_trace("X\n");
 	return 0;
@@ -2426,14 +2550,14 @@ static int m5mo_enum_framesizes(struct v4l2_subdev *sd,
 	* this returns the default camera resolution (VGA)
 	*/
 	if (state->format_mode == V4L2_PIX_FMT_MODE_PREVIEW) {
-		if (state->preview == NULL || state->preview->index < 0)
+		if (state->preview == NULL /* FIXME || state->preview->index < 0 */)
 			return -EINVAL;
 
 		fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 		fsize->discrete.width = state->preview->width;
 		fsize->discrete.height = state->preview->height;
 	} else {
-		if (state->capture == NULL || state->capture->index < 0)
+		if (state->capture == NULL /* FIXME || state->capture->index < 0 */)
 			return -EINVAL;
 
 		fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
@@ -2517,10 +2641,10 @@ static int m5mo_s_stream_hdr(struct v4l2_subdev *sd, int enable)
 
 	err = m5mo_writeb(sd, M5MO_CATEGORY_CAPPARM,
 		M5MO_CAPPARM_YUVOUT_MAIN, enable ? 0x00 : 0x21);
-	CHECK_ERR(err);
+		CHECK_ERR(err);
 
 	err = m5mo_readb(sd, M5MO_CATEGORY_SYS, M5MO_SYS_INT_EN, &int_en);
-	CHECK_ERR(err);
+		CHECK_ERR(err);
 
 	if (enable)
 		int_en |= M5MO_INT_FRAME_SYNC;
@@ -2598,7 +2722,6 @@ static int m5mo_s_stream(struct v4l2_subdev *sd, int enable)
 
 	case STREAM_MODE_MOVIE_ON:
 		state->recording = 1;
-
 		if (state->flash_mode != FLASH_MODE_OFF)
 			err = m5mo_set_flash(sd, state->flash_mode, 1);
 
@@ -2679,10 +2802,6 @@ static int m5mo_init_param(struct v4l2_subdev *sd)
 	err = m5mo_writeb(sd, M5MO_CATEGORY_AE, M5MO_AE_AUTO_BRACKET_EV, 0x64);
 	CHECK_ERR(err);
 
-#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT)
-	err = m5mo_set_antibanding(sd, 0x02);
-	CHECK_ERR(err);
-#endif
 	cam_trace("X\n");
 	return 0;
 }
@@ -2712,7 +2831,8 @@ static int m5mo_init(struct v4l2_subdev *sd, u32 val)
 	memset(&state->focus, 0, sizeof(state->focus));
 
 	/* start camera program(parallel FLASH ROM) */
-	err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH, M5MO_FLASH_CAM_START, 0x01);
+	err = m5mo_writeb(sd, M5MO_CATEGORY_FLASH,
+		M5MO_FLASH_CAM_START, 0x01);
 	CHECK_ERR(err);
 
 	int_factor = m5mo_wait_interrupt(sd, M5MO_ISP_TIMEOUT);
@@ -2731,68 +2851,17 @@ static int m5mo_init(struct v4l2_subdev *sd, u32 val)
 	return 0;
 }
 
-/*
- * s_config subdev ops
- * With camera device,  * we need to re-initialize every single opening time
- * therefor, it is not necessary to be initialized on probe time.
- * except for version checking
- * NOTE: version checking is optional
- */
-static int m5mo_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
-{
-	struct m5mo_state *state = to_state(sd);
-	struct m5mo_platform_data *pdata =
-		(struct m5mo_platform_data *)platform_data;
-	int err = 0;
-
-	/* Register ISP irq */
-	if (!pdata) {
-		cam_err("no platform data\n");
-		return -ENODEV;
-	}
-
-	if (irq) {
-		/* wait queue initialize */
-		init_waitqueue_head(&state->isp.wait);
-
-		if (pdata->config_isp_irq)
-			pdata->config_isp_irq();
-
-		err = request_irq(irq,
-			m5mo_isp_isr, IRQF_TRIGGER_RISING, "m5mo isp", sd);
-		if (err) {
-			cam_err("failed to request irq\n");
-			return err;
-		}
-		state->isp.irq = irq;
-	}
-
-	return 0;
-}
-
-static int m5mo_s_power(struct v4l2_subdev *sd, int on)
-{
-	struct m5mo_state *state = to_state(sd);
-
-	if (on)
-		wake_lock_timeout(&state->wake_lock, 3*HZ);
-
-	return 0;
-}
-
 static const struct v4l2_subdev_core_ops m5mo_core_ops = {
-	.s_config = m5mo_s_config,	/* Fetch platform data */
 	.init = m5mo_init,		/* initializing API */
 	.load_fw = m5mo_load_fw,
 	.queryctrl = m5mo_queryctrl,
 	.g_ctrl = m5mo_g_ctrl,
 	.s_ctrl = m5mo_s_ctrl,
 	.g_ext_ctrls = m5mo_g_ext_ctrls,
-	.s_power = m5mo_s_power,
 };
 
 static const struct v4l2_subdev_video_ops m5mo_video_ops = {
-	.s_fmt = m5mo_s_fmt,
+	.s_mbus_fmt = m5mo_s_fmt,
 	.g_parm = m5mo_g_parm,
 	.s_parm = m5mo_s_parm,
 	.enum_framesizes = m5mo_enum_framesizes,
@@ -2807,10 +2876,7 @@ static const struct v4l2_subdev_ops m5mo_ops = {
 static ssize_t m5mo_camera_type_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct m5mo_state *state = to_state(sd);
-
+	struct m5mo_state *state = dev_get_drvdata(dev);
 	char type[25];
 
 	if (state->exif.unique_id[1] == 'B') {
@@ -2828,26 +2894,26 @@ static ssize_t m5mo_camera_type_show(struct device *dev,
 static ssize_t m5mo_camera_fw_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct m5mo_state *state = to_state(sd);
-
+	struct m5mo_state *state = dev_get_drvdata(dev);
 	return sprintf(buf, "%s\n", state->fw_version);
 }
 
-static DEVICE_ATTR(camera_type, S_IRUGO, m5mo_camera_type_show, NULL);
-static DEVICE_ATTR(camera_fw, S_IRUGO, m5mo_camera_fw_show, NULL);
+static DEVICE_ATTR(rear_camtype, S_IRUGO, m5mo_camera_type_show, NULL);
+static DEVICE_ATTR(rear_camfw, S_IRUGO, m5mo_camera_fw_show, NULL);
 
 /*
  * m5mo_probe
  * Fetching platform data is being done with s_config subdev call.
  * In probe routine, we just register subdev device
  */
-static int m5mo_probe(struct i2c_client *client,
+static int __devinit m5mo_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	struct m5mo_state *state;
 	struct v4l2_subdev *sd;
+
+	const struct m5mo_platform_data *pdata = client->dev.platform_data;
+	int err = 0;
 
 	state = kzalloc(sizeof(struct m5mo_state), GFP_KERNEL);
 	if (state == NULL)
@@ -2859,26 +2925,51 @@ static int m5mo_probe(struct i2c_client *client,
 	/* Registering subdev */
 	v4l2_i2c_subdev_init(sd, client, &m5mo_ops);
 
-	wake_lock_init(&state->wake_lock, WAKE_LOCK_SUSPEND, "m5mo_core_operation");
-
 #ifdef CAM_DEBUG
 	state->dbg_level = CAM_DEBUG;
 #endif
-
-	if (device_create_file(&client->dev, &dev_attr_camera_type) < 0) {
-		cam_warn("failed to create device file, %s\n",
-			dev_attr_camera_type.attr.name);
+#ifndef CONFIG_MACH_S2PLUS
+	if (state->m5mo_dev == NULL) {
+		state->m5mo_dev =
+		    device_create(camera_class, NULL, 0, NULL, "rear");
+		if (IS_ERR(state->m5mo_dev)) {
+			cam_err("failed to create device m5mo_dev!\n");
+		} else {
+			dev_set_drvdata(state->m5mo_dev, state);
+			if (device_create_file
+			    (state->m5mo_dev, &dev_attr_rear_camtype) < 0) {
+				cam_err("failed to create device file, %s\n",
+				dev_attr_rear_camtype.attr.name);
+			}
+			if (device_create_file
+			    (state->m5mo_dev, &dev_attr_rear_camfw) < 0) {
+				cam_err("failed to create device file, %s\n",
+				dev_attr_rear_camfw.attr.name);
+			}
+		}
 	}
+#endif
+	/* wait queue initialize */
+	init_waitqueue_head(&state->isp.wait);
 
-	if (device_create_file(&client->dev, &dev_attr_camera_fw) < 0) {
-		cam_warn("failed to create device file, %s\n",
-			dev_attr_camera_fw.attr.name);
+	if (pdata->config_isp_irq)
+		pdata->config_isp_irq();
+
+	err = request_irq(pdata->irq,
+		m5mo_isp_isr, IRQF_TRIGGER_RISING, "m5mo isp", sd);
+	if (err) {
+		cam_err("failed to request irq\n");
+		return err;
 	}
+	state->isp.irq = pdata->irq;
+	state->isp.issued = 0;
+
+	printk("%s\n", __func__);
 
 	return 0;
 }
 
-static int m5mo_remove(struct i2c_client *client)
+static int __devexit m5mo_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct m5mo_state *state = to_state(sd);
@@ -2886,10 +2977,10 @@ static int m5mo_remove(struct i2c_client *client)
 	if (m5mo_set_af_softlanding(sd) < 0)
 		cam_err("failed to set soft landing\n");
 
-	device_remove_file(&client->dev, &dev_attr_camera_type);
-	device_remove_file(&client->dev, &dev_attr_camera_fw);
-
-	wake_lock_destroy(&state->wake_lock);
+	device_remove_file(state->m5mo_dev, &dev_attr_rear_camtype);
+	device_remove_file(state->m5mo_dev, &dev_attr_rear_camfw);
+	device_destroy(camera_class, 0);
+	state->m5mo_dev = NULL;
 
 	if (state->isp.irq > 0)
 		free_irq(state->isp.irq, sd);
@@ -2908,12 +2999,53 @@ static const struct i2c_device_id m5mo_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, m5mo_id);
 
-static struct v4l2_i2c_driver_data v4l2_i2c_data = {
-	.name = M5MO_DRIVER_NAME,
-	.probe = m5mo_probe,
-	.remove = m5mo_remove,
-	.id_table = m5mo_id,
+static struct i2c_driver m5mo_i2c_driver = {
+	.driver = {
+		.name	= M5MO_DRIVER_NAME,
+	},
+	.probe		= m5mo_probe,
+	.remove		= __devexit_p(m5mo_remove),
+	.id_table	= m5mo_id,
 };
+
+static int __init m5mo_mod_init(void)
+{
+#ifdef CONFIG_MACH_S2PLUS
+	if (!m5mo_dev) {
+		m5mo_dev =
+		device_create(camera_class, NULL, 0, NULL, "rear");
+		if (IS_ERR(m5mo_dev)) {
+			cam_err("failed to create device m5mo_dev!\n");
+			return 0;
+		}
+		if (device_create_file
+		(m5mo_dev, &dev_attr_rear_camtype) < 0) {
+			cam_err("failed to create device file, %s\n",
+			dev_attr_rear_camtype.attr.name);
+		}
+		if (device_create_file
+		(m5mo_dev, &dev_attr_rear_camfw) < 0) {
+			cam_err("failed to create device file, %s\n",
+			dev_attr_rear_camfw.attr.name);
+		}
+	}
+#else
+	camera_class = class_create(THIS_MODULE, "camera");
+	if (IS_ERR(camera_class))
+		pr_err("Failed to create class(camera)!\n");
+#endif
+	return i2c_add_driver(&m5mo_i2c_driver);
+}
+
+static void __exit m5mo_mod_exit(void)
+{
+	i2c_del_driver(&m5mo_i2c_driver);
+	if (camera_class)
+		class_destroy(camera_class);
+}
+module_init(m5mo_mod_init);
+module_exit(m5mo_mod_exit);
+
 
 MODULE_AUTHOR("Goeun Lee <ge.lee@samsung.com>");
 MODULE_DESCRIPTION("driver for Fusitju M5MO LS 8MP camera");

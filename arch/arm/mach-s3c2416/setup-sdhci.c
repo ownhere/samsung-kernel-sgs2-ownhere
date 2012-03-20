@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-s3c2416/setup-sdhci.c
  *
  * Copyright 2010 Promwad Innovation Company
- *	Yauhen Kharuzhy <yauhen.kharuzhy@xxxxxxxxxxx>
+ *	Yauhen Kharuzhy <yauhen.kharuzhy@promwad.com>
  *
  * S3C2416 - Helper functions for settign up SDHCI device(s) (HSMMC)
  *
@@ -40,7 +40,7 @@ void s3c2416_setup_sdhci_cfg_card(struct platform_device *dev,
 {
 	u32 ctrl2, ctrl3;
 
-	ctrl2 = readl(r + S3C_SDHCI_CONTROL2);
+	ctrl2 = __raw_readl(r + S3C_SDHCI_CONTROL2);
 	ctrl2 &= S3C_SDHCI_CTRL2_SELBASECLK_MASK;
 	ctrl2 |= (S3C64XX_SDHCI_CTRL2_ENSTAASYNCCLR |
 		  S3C64XX_SDHCI_CTRL2_ENCMDCNFMSK |
@@ -56,7 +56,6 @@ void s3c2416_setup_sdhci_cfg_card(struct platform_device *dev,
 	else
 		ctrl3 = (S3C_SDHCI_CTRL3_FCSEL1 | S3C_SDHCI_CTRL3_FCSEL0);
 
-	writel(ctrl2, r + S3C_SDHCI_CONTROL2);
-	writel(ctrl3, r + S3C_SDHCI_CONTROL3);
+	__raw_writel(ctrl2, r + S3C_SDHCI_CONTROL2);
+	__raw_writel(ctrl3, r + S3C_SDHCI_CONTROL3);
 }
-

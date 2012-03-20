@@ -27,6 +27,9 @@ extern "C"
 
 int ump_allocate_wrapper(u32 __user * argument, struct ump_session_data  * session_data);
 
+#ifdef CONFIG_ION_EXYNOS
+int ump_ion_import_wrapper(u32 __user * argument, struct ump_session_data  * session_data);
+#endif
 
 #ifdef __cplusplus
 }

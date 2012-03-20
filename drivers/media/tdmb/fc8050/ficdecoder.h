@@ -1,12 +1,27 @@
 /*****************************************************************************
- Copyright(c) 2009 FCI Inc. All Rights Reserved
- 
- File name : ficdecoder.h
- 
- Description : fic parser
- 
- History : 
- ----------------------------------------------------------------------
+	Copyright(c) 2009 FCI Inc. All Rights Reserved
+
+	File name : ficdecoder.h
+
+	Description : fic parser
+
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; either version 2 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+
+	History :
+	----------------------------------------------------------------------
 *******************************************************************************/
 #ifndef __ficdecodera_h__
 #define __ficdecodera_h__
@@ -17,107 +32,103 @@
 #define MAX_SVC_NUM	128
 #define MAX_SC_NUM	128
 #define MAX_SUBCH_NUM	64
-#define MAX_DIDP_NUM 	8
+#define MAX_DIDP_NUM	8
 
 #define MAX_USER_APPL_NUM       15
 #define MAX_USER_APPL_DATA_SIZE 24
 
-typedef struct {
-	u8 	head;
+struct fig {
+	u8	head;
 	u8	data[29];
-} Fig;
+};
 
-typedef struct {
+struct fib {
 	u8	data[30];
 	u16	crc;
-} Fib;
+};
 
-typedef struct {
-	//Fib 	fib[12];
-	Fib 	fib[32];
-} Fic;
+struct fic {
+	/* Fib		fib[12]; */
+	struct fib	fib[32];
+};
 
-typedef struct {
+struct figdata {
 	u8	head;
 	u8	data[28];
-} FigData;
+};
 
-typedef struct {
+struct esbinfo_t {
 	u8	flag;
-	u16	EId;
+	u16	eid;
 	u8	label[32];
-} esbInfo_t;
+};
 
-typedef struct {
+struct service_info_t {
 	u8	flag;
-	u32	SId;
-	u16	SCId;
-	u8	ASCTy;
-	u8	DSCTy;
-	u8	FIDCId;
-	u8	addrType;		// PD
-	u8	TMId;
-	u8	SubChId;
+	u32	sid;
+	u16	scid;
+	u8	ascty;
+	u8	dscty;
+	u8	fidc_id;
+	u8	addrType;		/* PD */
+	u8	tmid;
+	u8	sub_channel_id;
 	u8	nscps;
 	u8	label[32];
 
-#if 0 // Because of Visual Radio	
-	u16	UAtype;
-#else
-    u8  NumberofUserAppl;
-    u16 UserApplType[MAX_USER_APPL_NUM];
-    u8  UserApplLength[MAX_USER_APPL_NUM];
-    u8  UserApplData[MAX_USER_APPL_NUM][MAX_USER_APPL_DATA_SIZE];
-#endif
-} svcInfo_t;
+	u8  num_of_user_appl;
+	u16 user_appl_type[MAX_USER_APPL_NUM];
+	u8  user_appl_length[MAX_USER_APPL_NUM];
+	u8  user_appl_data[MAX_USER_APPL_NUM][MAX_USER_APPL_DATA_SIZE];
+};
 
-typedef struct {
+struct scInfo_t {
 	u8	flag;
-	u16	SCId;
-	u8	DSCTy;
-	u8	SubChId;
-	u8	SCCAFlag;
-	u8	DGFlag;
-	u16	PacketAddress;
-	u16	SCCA;
+	u16	scid;
+	u8	dscty;
+	u8	sub_channel_id;
+	u8	scca_flag;
+	u8	dg_flag;
+	u16	packet_address;
+	u16	scca;
 	u8	label[32];
-} scInfo_t;
+};
 
-typedef struct {
+struct subch_info_t {
 	u8	flag;
-	u8 	subChId;			//
-	u16	startAddress;			//
-	u8	formType;			//
-	u8 	tableIndex;			//
-	u8	tableSwitch;		
-	u8 	option;				//
-	u8 	protectLevel;			//
-	u16	subChSize;			//
-	u32	SId;
-	u8	svcChId;			//
-	u8	reCfg;
-#if 1	/* T-MMB */
-	u8	mode;			// 0 T-DMB, 1 T-MMB
-	u8	modType;
-	u8	encType;
-	u8	intvDepth;
+	u8	subchannel_id;
+	u16	start_address;
+	u8	form_type;
+	u8	table_index;
+	u8	table_switch;
+	u8	option;
+	u8	protect_level;
+	u16	subch_size;
+	u32	sid;
+	u8	service_channel_id;
+	u8	re_config;
+
+	/* T-MMB */
+	u8	mode;			/* 0 T-DMB, 1 T-MMB */
+	u8	mod_type;
+	u8	enc_type;
+	u8	intv_depth;
 	u8	pl;
-#endif	/* T-MMB */
+	/* T-MMB */
 
-#if 1 /* FEC */
-	u8  fecScheme;
-#endif
+	 /* FEC */
+	u8  fec_schem;
 
-} subChInfo_t;
+};
 
-typedef struct {
+struct didp_info_t {
 	u8	flag;
-	u8	reCfgOffset;
-	u8	subChId;
-	u16	startAddress;
-	u8	formType;
-	u16	subChSize;
-	u16	speed;			// kbsp
+	u8	reconfig_offset;
+	u8	subchannel_id;
+	u16	start_address;
+	u8	form_type;
+	u16	subch_size;
+	u16	speed;			/* kbsp */
 	u16	l1;
 	u8	p1;
 	u16	l2;
@@ -127,42 +138,46 @@ typedef struct {
 	u16	l4;
 	u8	p4;
 	u8	pad;
-#if 1	/* T-MMB */
-	u8	mode;			// 0 T-DMB, 1 T-MMB
-	u8	modType;
-	u8	encType;
-	u8	intvDepth;
+	/* T-MMB */
+	u8	mode;			/* 0 T-DMB, 1 T-MMB */
+	u8	mod_type;
+	u8	enc_type;
+	u8	intv_depth;
 	u8	pl;
-	u16	mi;			// kies use
-#endif 	/* T-MMB */
-} didpInfo_t;
+	u16	mi;			/* kies use */
+	/* T-MMB */
+};
 
 #ifdef __cplusplus
 	extern "C" {
 #endif
 
-extern esbInfo_t   	gEsbInfo[MAX_ESB_NUM];
-extern svcInfo_t 	gSvcInfo[MAX_SVC_NUM];
-extern subChInfo_t 	subChInfo[MAX_SUBCH_NUM];
-extern didpInfo_t 	didpInfo[MAX_DIDP_NUM];
+extern struct esbinfo_t		ensemble_info[MAX_ESB_NUM];
+extern struct service_info_t	service_info[MAX_SVC_NUM];
+extern struct subch_info_t	subchannel_info[MAX_SUBCH_NUM];
+extern struct didp_info_t	didpInfo[MAX_DIDP_NUM];
 
 
-extern int          fic_decoder(Fic *pFic, u16 length);
-extern int          fib_decoder(Fib *pFib);
-extern esbInfo_t*   GetEsbInfo(void);
-extern subChInfo_t* GetSubChInfo(u8 subChId);
-extern svcInfo_t*   GetSvcInfo(u32 SId);
-extern scInfo_t*    GetScInfo(u16 SCId);
-extern svcInfo_t*   GetSvcInfoList(u8 SvcIdx);
-extern void         SubChannelOrganizationClean(void);
-extern void         SubChannelOrganizationPrn(int subChId);
-extern int          FoundAllLabels(void);
-extern void         DidpPrn(didpInfo_t *pDidp);
-extern int          SetDidpReg(int svcChId, didpInfo_t *pDidp);
-extern int          SubChOrgan2DidpReg(subChInfo_t *pSubChInfo, didpInfo_t *pDidp);
+extern int fic_decoder(struct fic *pfic, u16 length);
+extern int fib_decoder(struct fib *pfib);
+extern struct esbinfo_t *get_emsemble_info(void);
+extern struct subch_info_t *get_subchannel_info(u8 subchannel_id);
+extern struct service_info_t *get_service_info(u32 sid);
+extern struct scInfo_t *get_sc_info(u16 scid);
+extern struct service_info_t *get_service_info_list(u8 service_index);
+extern void subchannel_org_clean(void);
+extern void subchannel_org_prn(int subchannel_id);
+extern int found_all_labels(void);
+extern void didp_prn(struct didp_info_t *pdidp);
+extern int set_didp_reg(int service_channel_id, struct didp_info_t *pdidp);
+extern int  subchannel_org_to_didp(
+	struct subch_info_t *sub_ch_info, struct didp_info_t *pdidp);
+extern void subchannel_org_prn(int subchannel_id);
+extern int dummy_decoder(u8 *fibBuffer, int figLength);
+
 
 #ifdef __cplusplus
-	} // extern "C" {
+	} /* extern "C" {*/
 #endif
 
 #endif /* __ficdecoder_h__ */

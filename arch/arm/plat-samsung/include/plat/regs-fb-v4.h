@@ -30,9 +30,17 @@
 #define VIDCON1_FSTATUS_EVEN	(1 << 15)
 
 /* Video timing controls */
+#ifdef CONFIG_FB_EXYNOS_FIMD_V8
+#define VIDTCON0				(0x20010)
+#define VIDTCON1				(0x20014)
+#define VIDTCON2				(0x20018)
+#define VIDTCON3				(0x2001C)
+#else
 #define VIDTCON0				(0x10)
 #define VIDTCON1				(0x14)
 #define VIDTCON2				(0x18)
+#define VIDTCON3				(0x1C)
+#endif
 
 /* Window position controls */
 
@@ -40,18 +48,15 @@
 
 /* OSD1 and OSD4 do not have register D */
 
-#define VIDOSD_A(_win)				(0x40 + ((_win) * 16))
-#define VIDOSD_B(_win)				(0x44 + ((_win) * 16))
-#define VIDOSD_C(_win)				(0x48 + ((_win) * 16))
-#define VIDOSD_D(_win)				(0x4C + ((_win) * 16))
-
+#define VIDOSD_BASE				(0x40)
 
 #define VIDINTCON0				(0x130)
-
-#define WxKEYCONy(_win, _con)			((0x140 + ((_win) * 8)) + ((_con) * 4))
+#define VIDINTCON1				(0x134)
 
 /* WINCONx */
 
+#define WINCONx_CSC_CON_EQ709			(1 << 28)
+#define WINCONx_CSC_CON_EQ601			(0 << 28)
 #define WINCONx_CSCWIDTH_MASK			(0x3 << 26)
 #define WINCONx_CSCWIDTH_SHIFT			(26)
 #define WINCONx_CSCWIDTH_WIDE			(0x0 << 26)
@@ -142,76 +147,6 @@
 #define WPALCON_W3PAL_16BPP_A555		(1 << 7)
 #define WPALCON_W2PAL_16BPP_A555		(1 << 6)
 
-
-/* system specific implementation code for palette sizes, and other
- * information that changes depending on which architecture is being
- * compiled.
-*/
-
-/* return true if window _win has OSD register D */
-#define s3c_fb_has_osd_d(_win) ((_win) != 4 && (_win) != 0)
-
-static inline unsigned int s3c_fb_win_pal_size(unsigned int win)
-{
-	if (win < 2)
-		return 256;
-	if (win < 4)
-		return 16;
-	if (win == 4)
-		return 4;
-
-	BUG();	/* shouldn't get here */
-}
-
-static inline int s3c_fb_validate_win_bpp(unsigned int win, unsigned int bpp)
-{
-	/* all windows can do 1/2 bpp */
-
-	if ((bpp == 25 || bpp == 19) && win == 0)
-		return 0;	/* win 0 does not have 19 or 25bpp modes */
-
-	if (bpp == 4 && win == 4)
-		return 0;
-
-	if (bpp == 8 && (win >= 3))
-		return 0;	/* win 3/4 cannot do 8bpp in any mode */
-
-	return 1;
-}
-
-static inline int s3c_fb_pal_is16(unsigned int window)
-{
-	return window > 1;
-}
-
-struct s3c_fb_palette {
-	struct fb_bitfield	r;
-	struct fb_bitfield	g;
-	struct fb_bitfield	b;
-	struct fb_bitfield	a;
-};
-
-static inline void s3c_fb_init_palette(unsigned int window,
-				       struct s3c_fb_palette *palette)
-{
-	if (window < 2) {
-		/* Windows 0/1 are 8/8/8 or A/8/8/8 */
-		palette->r.offset = 16;
-		palette->r.length = 8;
-		palette->g.offset = 8;
-		palette->g.length = 8;
-		palette->b.offset = 0;
-		palette->b.length = 8;
-	} else {
-		/* currently we assume RGB 5/6/5 */
-		palette->r.offset = 11;
-		palette->r.length = 5;
-		palette->g.offset = 5;
-		palette->g.length = 6;
-		palette->b.offset = 0;
-		palette->b.length = 5;
-	}
-}
 
 /* Notes on per-window bpp settings
  *

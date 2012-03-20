@@ -45,381 +45,865 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 
-#ifdef CONFIG_CPU_S5PV210
-#include <mach/pd.h>
+#include <plat/clock.h>
+#if defined(CONFIG_BUSFREQ_OPP)
+#include <mach/dev.h>
 #endif
 
 #include "s5p_tvout_common_lib.h"
 #include "hw_if/hw_if.h"
 #include "s5p_tvout_ctrl.h"
 
-/****************************************
- * Definitions for sdo ctrl class
- ***************************************/
-enum {
-	SDO_PCLK = 0,
-	SDO_MUX,
-	SDO_NO_OF_CLK
-};
-
-struct s5p_sdo_vscale_cfg {
-	enum s5p_sdo_level		composite_level;
-	enum s5p_sdo_vsync_ratio	composite_ratio;
-};
-
-struct s5p_sdo_vbi {
-	bool wss_cvbs;
-	enum s5p_sdo_closed_caption_type caption_cvbs;
-};
-
-struct s5p_sdo_offset_gain {
-	u32 offset;
-	u32 gain;
-};
-
-struct s5p_sdo_delay {
-	u32 delay_y;
-	u32 offset_video_start;
-	u32 offset_video_end;
-};
-
-struct s5p_sdo_component_porch {
-	u32 back_525;
-	u32 front_525;
-	u32 back_625;
-	u32 front_625;
-};
-
-struct s5p_sdo_ch_xtalk_cancellat_coeff {
-	u32 coeff1;
-	u32 coeff2;
-};
-
-struct s5p_sdo_closed_caption {
-	u32 display_cc;
-	u32 nondisplay_cc;
-};
-
-struct s5p_sdo_ctrl_private_data {
-	struct s5p_sdo_vscale_cfg		video_scale_cfg;
-	struct s5p_sdo_vbi			vbi;
-	struct s5p_sdo_offset_gain		offset_gain;
-	struct s5p_sdo_delay			delay;
-	struct s5p_sdo_bright_hue_saturation	bri_hue_sat;
-	struct s5p_sdo_cvbs_compensation	cvbs_compen;
-	struct s5p_sdo_component_porch		compo_porch;
-	struct s5p_sdo_ch_xtalk_cancellat_coeff	xtalk_cc;
-	struct s5p_sdo_closed_caption		closed_cap;
-	struct s5p_sdo_525_data			wss_525;
-	struct s5p_sdo_625_data			wss_625;
-	struct s5p_sdo_525_data			cgms_525;
-	struct s5p_sdo_625_data			cgms_625;
-
-	bool			color_sub_carrier_phase_adj;
-
-	bool			running;
-
-	struct s5p_tvout_clk_info	clk[SDO_NO_OF_CLK];
-	char			*pow_name;
-	struct reg_mem_info	reg_mem;
-};
-
-static struct s5p_sdo_ctrl_private_data s5p_sdo_ctrl_private = {
-	.clk[SDO_PCLK] = {
-		.name			= "tvenc",
-		.ptr			= NULL
-	},
-	.clk[SDO_MUX] = {
-		.name			= "sclk_dac",
-		.ptr			= NULL
-	},
-		.pow_name		= "tv_enc_pd",
-	.reg_mem = {
-		.name			= "s5p-sdo",
-		.res			= NULL,
-		.base			= NULL
+#ifdef CONFIG_HDMI_14A_3D
+static struct s5p_hdmi_v_format s5p_hdmi_v_fmt[] = {
+	[v720x480p_60Hz] = {
+		.frame = {
+			.vH_Line = 0x035a,
+			.vV_Line = 0x020d,
+			.vH_SYNC_START = 0x000e,
+			.vH_SYNC_END = 0x004c,
+			.vV1_Blank = 0x002d,
+			.vV2_Blank = 0x020d,
+			.vHBlank = 0x008a,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x9,
+			.vVSYNC_LINE_BEF_2 = 0x000f,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 1,
+			.Vsync_polarity = 1,
+			.interlaced = 0,
+			.vAVI_VIC = 2,
+			.vAVI_VIC_16_9 = 3,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_27_027,
+		},
+		.tg_H_FSZ = 0x35a,
+		.tg_HACT_ST = 0x8a,
+		.tg_HACT_SZ = 0x2d0,
+		.tg_V_FSZ = 0x20d,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x1e0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.running			= false,
-
-	.color_sub_carrier_phase_adj	= false,
-
-	.vbi = {
-		.wss_cvbs		= true,
-		.caption_cvbs		= SDO_INS_OTHERS
+	[v1280x720p_60Hz] = {
+		.frame = {
+			.vH_Line = 0x0672,
+			.vV_Line = 0x02ee,
+			.vH_SYNC_START = 0x006c,
+			.vH_SYNC_END = 0x0094,
+			.vV1_Blank = 0x001e,
+			.vV2_Blank = 0x02ee,
+			.vHBlank = 0x0172,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 4,
+			.vAVI_VIC_16_9 = 4,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x672,
+		.tg_HACT_ST = 0x172,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.offset_gain = {
-		.offset			= 0,
-		.gain			= 0x800
+	[v1920x1080i_60Hz] = {
+		.frame = {
+			.vH_Line = 0x0898,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x0056,
+			.vH_SYNC_END = 0x0082,
+			.vV1_Blank = 0x0016,
+			.vV2_Blank = 0x0232,
+			.vHBlank = 0x0118,
+			.VBLANK_F0 = 0x0249,
+			.VBLANK_F1 = 0x0465,
+			.vVSYNC_LINE_BEF_1 = 0x2,
+			.vVSYNC_LINE_BEF_2 = 0x0007,
+			.vVSYNC_LINE_AFT_1 = 0x0234,
+			.vVSYNC_LINE_AFT_2 = 0x0239,
+			.vVSYNC_LINE_AFT_PXL_1 = 0x04a4,
+			.vVSYNC_LINE_AFT_PXL_2 = 0x04a4,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 1,
+			.vAVI_VIC = 5,
+			.vAVI_VIC_16_9 = 5,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x898,
+		.tg_HACT_ST = 0x118,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x16,
+		.tg_VACT_SZ = 0x21c,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x249,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x233,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.delay = {
-		.delay_y		= 0x00,
-		.offset_video_start	= 0xfa,
-		.offset_video_end	= 0x00
+	[v1920x1080p_60Hz] = {
+		.frame = {
+			.vH_Line = 0x0898,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x0056,
+			.vH_SYNC_END = 0x0082,
+			.vV1_Blank = 0x002d,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x0118,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 16,
+			.vAVI_VIC_16_9 = 16,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_148_500,
+		},
+		.tg_H_FSZ = 0x898,
+		.tg_HACT_ST = 0x118,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.bri_hue_sat = {
-		.bright_hue_sat_adj	= false,
-		.gain_brightness	= 0x80,
-		.offset_brightness	= 0x00,
-		.gain0_cb_hue_sat	= 0x00,
-		.gain1_cb_hue_sat	= 0x00,
-		.gain0_cr_hue_sat	= 0x00,
-		.gain1_cr_hue_sat	= 0x00,
-		.offset_cb_hue_sat	= 0x00,
-		.offset_cr_hue_sat	= 0x00
+	[v720x576p_50Hz] = {
+		.frame = {
+			.vH_Line = 0x0360,
+			.vV_Line = 0x0271,
+			.vH_SYNC_START = 0x000a,
+			.vH_SYNC_END = 0x004a,
+			.vV1_Blank = 0x0031,
+			.vV2_Blank = 0x0271,
+			.vHBlank = 0x0090,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 1,
+			.Vsync_polarity = 1,
+			.interlaced = 0,
+			.vAVI_VIC = 17,
+			.vAVI_VIC_16_9 = 18,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_27,
+		},
+		.tg_H_FSZ = 0x360,
+		.tg_HACT_ST = 0x90,
+		.tg_HACT_SZ = 0x2d0,
+		.tg_V_FSZ = 0x271,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x31,
+		.tg_VACT_SZ = 0x240,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.cvbs_compen = {
-		.cvbs_color_compen	= false,
-		.y_lower_mid		= 0x200,
-		.y_bottom		= 0x000,
-		.y_top			= 0x3ff,
-		.y_upper_mid		= 0x200,
-		.radius			= 0x1ff
+	[v1280x720p_50Hz] = {
+		.frame = {
+			.vH_Line = 0x07BC,
+			.vV_Line = 0x02EE,
+			.vH_SYNC_START = 0x01b6,
+			.vH_SYNC_END = 0x01de,
+			.vV1_Blank = 0x001E,
+			.vV2_Blank = 0x02EE,
+			.vHBlank = 0x02BC,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 19,
+			.vAVI_VIC_16_9 = 19,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x7bc,
+		.tg_HACT_ST = 0x2bc,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.compo_porch = {
-		.back_525		= 0x8a,
-		.front_525		= 0x359,
-		.back_625		= 0x96,
-		.front_625		= 0x35c
+	[v1920x1080i_50Hz] = {
+		.frame = {
+			.vH_Line = 0x0A50,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x020e,
+			.vH_SYNC_END = 0x023a,
+			.vV1_Blank = 0x0016,
+			.vV2_Blank = 0x0232,
+			.vHBlank = 0x02D0,
+			.VBLANK_F0 = 0x0249,
+			.VBLANK_F1 = 0x0465,
+			.vVSYNC_LINE_BEF_1 = 0x2,
+			.vVSYNC_LINE_BEF_2 = 0x0007,
+			.vVSYNC_LINE_AFT_1 = 0x0234,
+			.vVSYNC_LINE_AFT_2 = 0x0239,
+			.vVSYNC_LINE_AFT_PXL_1 = 0x0738,
+			.vVSYNC_LINE_AFT_PXL_2 = 0x0738,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 1,
+			.vAVI_VIC = 20,
+			.vAVI_VIC_16_9 = 20,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0xa50,
+		.tg_HACT_ST = 0x2d0,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x16,
+		.tg_VACT_SZ = 0x21c,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x249,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x233,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.xtalk_cc = {
-		.coeff2			= 0,
-		.coeff1			= 0
+	[v1920x1080p_50Hz] = {
+		.frame = {
+			.vH_Line = 0x0A50,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x020e,
+			.vH_SYNC_END = 0x023a,
+			.vV1_Blank = 0x002D,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x02D0,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 31,
+			.vAVI_VIC_16_9 = 31,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_148_500,
+		},
+		.tg_H_FSZ = 0xa50,
+		.tg_HACT_ST = 0x2d0,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.closed_cap = {
-		.display_cc		= 0,
-		.nondisplay_cc		= 0
+	[v1920x1080p_30Hz] = {
+		.frame = {
+			.vH_Line = 0x0898,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x056,
+			.vH_SYNC_END = 0x082,
+			.vV1_Blank = 0x002D,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x0118,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 34,
+			.vAVI_VIC_16_9 = 34,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_176,
+		},
+		.tg_H_FSZ = 0x898,
+		.tg_HACT_ST = 0x118,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.wss_525 = {
-		.copy_permit		= SDO_525_COPY_PERMIT,
-		.mv_psp			= SDO_525_MV_PSP_OFF,
-		.copy_info		= SDO_525_COPY_INFO,
-		.analog_on		= false,
-		.display_ratio		= SDO_525_4_3_NORMAL
+	[v720x480p_59Hz] = {
+		.frame = {
+			.vH_Line = 0x035a,
+			.vV_Line = 0x020d,
+			.vH_SYNC_START = 0x000e,
+			.vH_SYNC_END = 0x004c,
+			.vV1_Blank = 0x002D,
+			.vV2_Blank = 0x020d,
+			.vHBlank = 0x008a,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x9,
+			.vVSYNC_LINE_BEF_2 = 0x000f,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 1,
+			.Vsync_polarity = 1,
+			.interlaced = 0,
+			.vAVI_VIC = 2,
+			.vAVI_VIC_16_9 = 3,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_27,
+		},
+		.tg_H_FSZ = 0x35a,
+		.tg_HACT_ST = 0x8a,
+		.tg_HACT_SZ = 0x2d0,
+		.tg_V_FSZ = 0x20d,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x1e0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.wss_625 = {
-		.surround_sound		= false,
-		.copyright		= false,
-		.copy_protection	= false,
-		.text_subtitles		= false,
-		.open_subtitles		= SDO_625_NO_OPEN_SUBTITLES,
-		.camera_film		= SDO_625_CAMERA,
-		.color_encoding		= SDO_625_NORMAL_PAL,
-		.helper_signal		= false,
-		.display_ratio		= SDO_625_4_3_FULL_576
+	[v1280x720p_59Hz] = {
+		.frame = {
+			.vH_Line = 0x0672,
+			.vV_Line = 0x02ee,
+			.vH_SYNC_START = 0x006c,
+			.vH_SYNC_END = 0x0094,
+			.vV1_Blank = 0x001e,
+			.vV2_Blank = 0x02ee,
+			.vHBlank = 0x0172,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 4,
+			.vAVI_VIC_16_9 = 4,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_176,
+		},
+		.tg_H_FSZ = 0x672,
+		.tg_HACT_ST = 0x172,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.cgms_525 = {
-		.copy_permit		= SDO_525_COPY_PERMIT,
-		.mv_psp			= SDO_525_MV_PSP_OFF,
-		.copy_info		= SDO_525_COPY_INFO,
-		.analog_on		= false,
-		.display_ratio		= SDO_525_4_3_NORMAL
+	[v1920x1080i_59Hz] = {
+		.frame = {
+			.vH_Line = 0x0898,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x0056,
+			.vH_SYNC_END = 0x0082,
+			.vV1_Blank = 0x0016,
+			.vV2_Blank = 0x0232,
+			.vHBlank = 0x0118,
+			.VBLANK_F0 = 0x0249,
+			.VBLANK_F1 = 0x0465,
+			.vVSYNC_LINE_BEF_1 = 0x2,
+			.vVSYNC_LINE_BEF_2 = 0x0007,
+			.vVSYNC_LINE_AFT_1 = 0x0234,
+			.vVSYNC_LINE_AFT_2 = 0x0239,
+			.vVSYNC_LINE_AFT_PXL_1 = 0x04a4,
+			.vVSYNC_LINE_AFT_PXL_2 = 0x04a4,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 1,
+			.vAVI_VIC = 5,
+			.vAVI_VIC_16_9 = 5,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_176,
+		},
+		.tg_H_FSZ = 0x898,
+		.tg_HACT_ST = 0x118,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x16,
+		.tg_VACT_SZ = 0x21c,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x249,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x233,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
 
-	.cgms_625 = {
-		.surround_sound		= false,
-		.copyright		= false,
-		.copy_protection	= false,
-		.text_subtitles		= false,
-		.open_subtitles		= SDO_625_NO_OPEN_SUBTITLES,
-		.camera_film		= SDO_625_CAMERA,
-		.color_encoding		= SDO_625_NORMAL_PAL,
-		.helper_signal		= false,
-		.display_ratio		= SDO_625_4_3_FULL_576
+	[v1920x1080p_59Hz] = {
+		.frame = {
+			.vH_Line = 0x0898,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x0056,
+			.vH_SYNC_END = 0x0082,
+			.vV1_Blank = 0x002d,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x0118,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 16,
+			.vAVI_VIC_16_9 = 16,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_148_352,
+		},
+		.tg_H_FSZ = 0x898,
+		.tg_HACT_ST = 0x118,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
 	},
+
+	[v1280x720p_60Hz_SBS_HALF] = {
+		.frame = {
+			.vH_Line = 0x0672,
+			.vV_Line = 0x02ee,
+			.vH_SYNC_START = 0x006c,
+			.vH_SYNC_END = 0x0094,
+			.vV1_Blank = 0x001e,
+			.vV2_Blank = 0x02ee,
+			.vHBlank = 0x0172,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 4,
+			.vAVI_VIC_16_9 = 4,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x672,
+		.tg_HACT_ST = 0x172,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x30c,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
+	},
+
+	[v1280x720p_59Hz_SBS_HALF] = {
+		.frame = {
+			.vH_Line = 0x0672,
+			.vV_Line = 0x02ee,
+			.vH_SYNC_START = 0x006c,
+			.vH_SYNC_END = 0x0094,
+			.vV1_Blank = 0x001e,
+			.vV2_Blank = 0x02ee,
+			.vHBlank = 0x0172,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 4,
+			.vAVI_VIC_16_9 = 4,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x672,
+		.tg_HACT_ST = 0x172,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x0,
+		.tg_VACT_ST2 = 0x30c,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
+	},
+
+	[v1280x720p_50Hz_TB] = {
+		.frame = {
+			.vH_Line = 0x07bc,
+			.vV_Line = 0x02ee,
+			.vH_SYNC_START = 0x01b6,
+			.vH_SYNC_END = 0x01de,
+			.vV1_Blank = 0x001e,
+			.vV2_Blank = 0x02ee,
+			.vHBlank = 0x02bc,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x5,
+			.vVSYNC_LINE_BEF_2 = 0x000a,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 19,
+			.vAVI_VIC_16_9 = 19,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0x7bc,
+		.tg_HACT_ST = 0x2bc,
+		.tg_HACT_SZ = 0x500,
+		.tg_V_FSZ = 0x2ee,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x1e,
+		.tg_VACT_SZ = 0x2d0,
+		.tg_FIELD_CHG = 0x0,
+		.tg_VACT_ST2 = 0x30c,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
+	},
+
+	[v1920x1080p_24Hz_TB] = {
+		.frame = {
+			.vH_Line = 0x0abe,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x027c,
+			.vH_SYNC_END = 0x02a8,
+			.vV1_Blank = 0x002d,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x033e,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 32,
+			.vAVI_VIC_16_9 = 32,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0xabe,
+		.tg_HACT_ST = 0x33e,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
+	},
+
+	[v1920x1080p_23Hz_TB] = {
+		.frame = {
+			.vH_Line = 0x0abe,
+			.vV_Line = 0x0465,
+			.vH_SYNC_START = 0x027c,
+			.vH_SYNC_END = 0x02a8,
+			.vV1_Blank = 0x002d,
+			.vV2_Blank = 0x0465,
+			.vHBlank = 0x033e,
+			.VBLANK_F0 = 0xffff,
+			.VBLANK_F1 = 0xffff,
+			.vVSYNC_LINE_BEF_1 = 0x4,
+			.vVSYNC_LINE_BEF_2 = 0x0009,
+			.vVSYNC_LINE_AFT_1 = 0xffff,
+			.vVSYNC_LINE_AFT_2 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_1 = 0xffff,
+			.vVSYNC_LINE_AFT_PXL_2 = 0xffff,
+			.vVACT_SPACE_1 = 0xffff,
+			.vVACT_SPACE_2 = 0xffff,
+			.Hsync_polarity = 0,
+			.Vsync_polarity = 0,
+			.interlaced = 0,
+			.vAVI_VIC = 32,
+			.vAVI_VIC_16_9 = 32,
+			.repetition = 0,
+			.pixel_clock = ePHY_FREQ_74_250,
+		},
+		.tg_H_FSZ = 0xabe,
+		.tg_HACT_ST = 0x33e,
+		.tg_HACT_SZ = 0x780,
+		.tg_V_FSZ = 0x465,
+		.tg_VSYNC = 0x1,
+		.tg_VSYNC2 = 0x233,
+		.tg_VACT_ST = 0x2d,
+		.tg_VACT_SZ = 0x438,
+		.tg_FIELD_CHG = 0x233,
+		.tg_VACT_ST2 = 0x248,
+		.tg_VACT_ST3 = 0x0,
+		.tg_VACT_ST4 = 0x0,
+		.tg_VSYNC_TOP_HDMI = 0x1,
+		.tg_VSYNC_BOT_HDMI = 0x1,
+		.tg_FIELD_TOP_HDMI = 0x1,
+		.tg_FIELD_BOT_HDMI = 0x233,
+		.mhl_hsync = 0xf,
+		.mhl_vsync = 0x1,
+	},
+
 };
-
-
-
-
-
-/****************************************
- * Definitions for hdmi ctrl class
- ***************************************/
-
-#define AVI_SAME_WITH_PICTURE_AR	(0x1<<3)
-
-enum {
-	HDMI_PCLK = 0,
-	HDMI_MUX,
-	HDMI_NO_OF_CLK
-};
-
-enum {
-	HDMI = 0,
-	HDMI_PHY,
-	HDMI_NO_OF_MEM_RES
-};
-
-enum s5p_hdmi_pic_aspect {
-	HDMI_PIC_RATIO_4_3	= 1,
-	HDMI_PIC_RATIO_16_9	= 2
-};
-
-enum s5p_hdmi_colorimetry {
-	HDMI_CLRIMETRY_NO	= 0x00,
-	HDMI_CLRIMETRY_601	= 0x40,
-	HDMI_CLRIMETRY_709	= 0x80,
-	HDMI_CLRIMETRY_X_VAL	= 0xc0,
-};
-
-enum s5p_hdmi_audio_type {
-	HDMI_GENERIC_AUDIO,
-	HDMI_60958_AUDIO,
-	HDMI_DVD_AUDIO,
-	HDMI_SUPER_AUDIO,
-};
-
-enum s5p_hdmi_v_mode {
-	v640x480p_60Hz,
-	v720x480p_60Hz,
-	v1280x720p_60Hz,
-	v1920x1080i_60Hz,
-	v720x480i_60Hz,
-	v720x240p_60Hz,
-	v2880x480i_60Hz,
-	v2880x240p_60Hz,
-	v1440x480p_60Hz,
-	v1920x1080p_60Hz,
-	v720x576p_50Hz,
-	v1280x720p_50Hz,
-	v1920x1080i_50Hz,
-	v720x576i_50Hz,
-	v720x288p_50Hz,
-	v2880x576i_50Hz,
-	v2880x288p_50Hz,
-	v1440x576p_50Hz,
-	v1920x1080p_50Hz,
-	v1920x1080p_24Hz,
-	v1920x1080p_25Hz,
-	v1920x1080p_30Hz,
-	v2880x480p_60Hz,
-	v2880x576p_50Hz,
-	v1920x1080i_50Hz_1250,
-	v1920x1080i_100Hz,
-	v1280x720p_100Hz,
-	v720x576p_100Hz,
-	v720x576i_100Hz,
-	v1920x1080i_120Hz,
-	v1280x720p_120Hz,
-	v720x480p_120Hz,
-	v720x480i_120Hz,
-	v720x576p_200Hz,
-	v720x576i_200Hz,
-	v720x480p_240Hz,
-	v720x480i_240Hz,
-	v720x480p_59Hz,
-	v1280x720p_59Hz,
-	v1920x1080i_59Hz,
-	v1920x1080p_59Hz,
-};
-
-struct s5p_hdmi_bluescreen {
-	bool	enable;
-	u8	cb_b;
-	u8	y_g;
-	u8	cr_r;
-};
-
-struct s5p_hdmi_packet {
-	u8				acr[7];
-	u8				asp[7];
-	u8				gcp[7];
-	u8				acp[28];
-	u8				isrc1[16];
-	u8				isrc2[16];
-	u8				obas[7];
-	u8				dst[28];
-	u8				gmp[28];
-
-	u8				spd_vendor[8];
-	u8				spd_product[16];
-
-	u8				vsi[27];
-	u8				avi[27];
-	u8				spd[27];
-	u8				aui[27];
-	u8				mpg[27];
-
-	struct s5p_hdmi_infoframe	vsi_info;
-	struct s5p_hdmi_infoframe	avi_info;
-	struct s5p_hdmi_infoframe	spd_info;
-	struct s5p_hdmi_infoframe	aui_info;
-	struct s5p_hdmi_infoframe	mpg_info;
-
-	u8				h_asp[3];
-	u8				h_acp[3];
-	u8				h_isrc[3];
-};
-
-struct s5p_hdmi_color_range {
-	u8	y_min;
-	u8	y_max;
-	u8	c_min;
-	u8	c_max;
-};
-
-struct s5p_hdmi_tg {
-	bool correction_en;
-	bool bt656_en;
-};
-
-struct s5p_hdmi_audio {
-	enum s5p_hdmi_audio_type	type;
-	u32				freq;
-	u32				bit;
-	u32				channel;
-
-	u8				on;
-};
-
-struct s5p_hdmi_video {
-	struct s5p_hdmi_color_range	color_r;
-	enum s5p_hdmi_pic_aspect	aspect;
-	enum s5p_hdmi_colorimetry	colorimetry;
-	enum s5p_hdmi_color_depth	depth;
-};
-
-struct s5p_hdmi_o_params {
-	struct s5p_hdmi_o_trans	trans;
-	struct s5p_hdmi_o_reg	reg;
-};
-
-struct s5p_hdmi_ctrl_private_data {
-	u8				vendor[8];
-	u8				product[16];
-
-	enum s5p_tvout_o_mode		out;
-	enum s5p_hdmi_v_mode		mode;
-
-	struct s5p_hdmi_bluescreen	blue_screen;
-	struct s5p_hdmi_packet		packet;
-	struct s5p_hdmi_tg		tg;
-	struct s5p_hdmi_audio		audio;
-	struct s5p_hdmi_video		video;
-
-	bool				hpd_status;
-	bool				hdcp_en;
-
-	bool				av_mute;
-
-	bool				running;
-	char				*pow_name;
-	struct s5p_tvout_clk_info		clk[HDMI_NO_OF_CLK];
-	struct reg_mem_info		reg_mem[HDMI_NO_OF_MEM_RES];
-	struct irq_info			irq;
-};
-
+#else
 static struct s5p_hdmi_v_format s5p_hdmi_v_fmt[] = {
 	[v720x480p_60Hz] = {
 		.frame = {
@@ -928,6 +1412,7 @@ static struct s5p_hdmi_v_format s5p_hdmi_v_fmt[] = {
 		.mhl_vsync = 0x1,
 	},
 };
+#endif
 
 static struct s5p_hdmi_o_params s5p_hdmi_output[] = {
 	{
@@ -951,9 +1436,15 @@ static struct s5p_hdmi_ctrl_private_data s5p_hdmi_ctrl_private = {
 
 	.blue_screen = {
 		.enable = false,
+#ifdef	CONFIG_HDMI_14A_3D
+		.b	= 0,
+		.g	= 0,
+		.r	= 0,
+#else
 		.cb_b	= 0,
 		.y_g	= 0,
 		.cr_r	= 0,
+#endif
 	},
 
 	.video = {
@@ -985,6 +1476,12 @@ static struct s5p_hdmi_ctrl_private_data s5p_hdmi_ctrl_private = {
 		.type	= HDMI_60958_AUDIO,
 		.bit	= 16,
 		.freq	= 44100,
+		/* Support audio 5.1Ch */
+#if defined(CONFIG_VIDEO_TVOUT_2CH_AUDIO)
+		.channel = 2,
+#else
+		.channel = 5,
+#endif
 	},
 
 	.av_mute	= false,
@@ -1022,24 +1519,6 @@ static struct s5p_hdmi_ctrl_private_data s5p_hdmi_ctrl_private = {
 
 };
 
-
-
-
-
-
-
-
-
-/****************************************
- * Definitions for tvif ctrl class
- ***************************************/
-struct s5p_tvif_ctrl_private_data {
-	enum s5p_tvout_disp_mode	curr_std;
-	enum s5p_tvout_o_mode		curr_if;
-
-	bool				running;
-};
-
 static struct s5p_tvif_ctrl_private_data s5p_tvif_ctrl_private = {
 	.curr_std = TVOUT_INIT_DISP_VALUE,
 	.curr_if = TVOUT_INIT_O_VALUE,
@@ -1047,15 +1526,10 @@ static struct s5p_tvif_ctrl_private_data s5p_tvif_ctrl_private = {
 	.running = false
 };
 
-
-
-
-
-
-
 /****************************************
  * Functions for sdo ctrl class
  ***************************************/
+#ifdef CONFIG_ANALOG_TVENC
 
 static void s5p_sdo_ctrl_init_private(void)
 {
@@ -1139,11 +1613,7 @@ static void s5p_sdo_ctrl_clock(bool on)
 	if (on) {
 		clk_enable(s5p_sdo_ctrl_private.clk[SDO_MUX].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_enable(s5p_sdo_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_get();
 #endif
 
@@ -1151,11 +1621,7 @@ static void s5p_sdo_ctrl_clock(bool on)
 	} else {
 		clk_disable(s5p_sdo_ctrl_private.clk[SDO_PCLK].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_disable(s5p_sdo_ctrl_private.pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_put();
 #endif
 
@@ -1165,11 +1631,24 @@ static void s5p_sdo_ctrl_clock(bool on)
 	mdelay(50);
 }
 
+#ifdef CONFIG_ANALOG_TVENC
+#ifndef CONFIG_VPLL_USE_FOR_TVENC
+static void s5p_tvenc_src_to_hdmiphy_on(void);
+static void s5p_tvenc_src_to_hdmiphy_off(void);
+#endif
+#endif
+
 void s5p_sdo_ctrl_stop(void)
 {
 	if (s5p_sdo_ctrl_private.running) {
 		s5p_sdo_ctrl_internal_stop();
 		s5p_sdo_ctrl_clock(0);
+
+#ifdef CONFIG_ANALOG_TVENC
+#ifndef CONFIG_VPLL_USE_FOR_TVENC
+		s5p_tvenc_src_to_hdmiphy_off();
+#endif
+#endif
 
 		s5p_sdo_ctrl_private.running = false;
 	}
@@ -1209,6 +1688,12 @@ int s5p_sdo_ctrl_start(enum s5p_tvout_disp_mode disp_mode)
 		s5p_sdo_ctrl_internal_stop();
 	else {
 		s5p_sdo_ctrl_clock(1);
+
+#ifdef CONFIG_ANALOG_TVENC
+#ifndef CONFIG_VPLL_USE_FOR_TVENC
+		s5p_tvenc_src_to_hdmiphy_on();
+#endif
+#endif
 
 		sdo_private->running = true;
 	}
@@ -1280,8 +1765,7 @@ void s5p_sdo_ctrl_destructor(void)
 			clk_put(s5p_sdo_ctrl_private.clk[i].ptr);
 	}
 }
-
-
+#endif
 
 
 
@@ -1371,6 +1855,28 @@ static enum s5p_hdmi_v_mode s5p_hdmi_check_v_fmt(enum s5p_tvout_disp_mode disp)
 		mode = v1920x1080i_50Hz;
 		video->colorimetry = HDMI_CLRIMETRY_709;
 		break;
+#ifdef CONFIG_HDMI_14A_3D
+	case TVOUT_720P_60_SBS_HALF:
+		mode = v1280x720p_60Hz_SBS_HALF;
+		video->colorimetry = HDMI_CLRIMETRY_709;
+		break;
+	case TVOUT_720P_59_SBS_HALF:
+		mode = v1280x720p_59Hz_SBS_HALF;
+		video->colorimetry = HDMI_CLRIMETRY_709;
+		break;
+	case TVOUT_720P_50_TB:
+		mode = v1280x720p_50Hz_TB;
+		video->colorimetry = HDMI_CLRIMETRY_709;
+		break;
+	case TVOUT_1080P_24_TB:
+		mode = v1920x1080p_24Hz_TB;
+		video->colorimetry = HDMI_CLRIMETRY_709;
+		break;
+	case TVOUT_1080P_23_TB:
+		mode = v1920x1080p_23Hz_TB;
+		video->colorimetry = HDMI_CLRIMETRY_709;
+		break;
+#endif
 
 	default:
 		mode = v720x480p_60Hz;
@@ -1437,25 +1943,39 @@ static void s5p_hdmi_set_avi(
 	struct s5p_hdmi_v_frame			frame;
 
 	frame = s5p_hdmi_v_fmt[mode].frame;
-
 	avi[0] = param.reg.pxl_fmt;
-	avi[0] |= (0x1 << 4);
+
+	/* RGB or YCbCr */
+	if (s5p_tvif_ctrl_private.curr_if == TVOUT_HDMI_RGB)
+		avi[0] |= (0x1 << 4);
+	else
+		avi[0] |= (0x5 << 4);
 
 	avi[1] = video->colorimetry;
 	avi[1] |= video->aspect << 4;
 	avi[1] |= AVI_SAME_WITH_PICTURE_AR;
-
+#ifdef CONFIG_HDMI_14A_3D
+	avi[3] = (video->aspect == HDMI_PIC_RATIO_16_9) ?
+				frame.vAVI_VIC_16_9 : frame.vAVI_VIC;
+#else
 	avi[3] = (video->aspect == HDMI_PIC_RATIO_16_9) ?
 				frame.vic_16_9 : frame.vic;
-
+#endif
 	avi[4] = frame.repetition;
 }
 
 static void s5p_hdmi_set_aui(struct s5p_hdmi_audio *audio, u8 *aui)
 {
-	aui[0] = (0 << 4) | audio->channel;
-	aui[1] = ((audio->type == HDMI_60958_AUDIO) ? 0 : audio->freq << 2) | 0;
-	aui[2] = 0;
+	aui[0] = audio->channel;
+	if (audio->channel == 2) {
+		aui[1] = ((audio->type == HDMI_60958_AUDIO) ?
+				0 : audio->freq << 2) | 0;
+		aui[2] = 0;
+	} else {
+		aui[1] = 0x09;
+		aui[2] = 0;
+		aui[3] = 0x0b;
+	}
 }
 
 static void s5p_hdmi_set_spd(u8 *spd)
@@ -1502,7 +2022,11 @@ static void s5p_hdmi_ctrl_set_bluescreen(bool en)
 	s5p_hdmi_reg_bluescreen(en);
 }
 
+#ifndef CONFIG_HDMI_EARJACK_MUTE
 static void s5p_hdmi_ctrl_set_audio(bool en)
+#else
+void s5p_hdmi_ctrl_set_audio(bool en)
+#endif
 {
 	struct s5p_hdmi_ctrl_private_data       *ctrl = &s5p_hdmi_ctrl_private;
 
@@ -1571,29 +2095,63 @@ static bool s5p_hdmi_ctrl_set_reg(
 	struct s5p_hdmi_bluescreen		*bl = &ctrl->blue_screen;
 	struct s5p_hdmi_color_range		*cr = &ctrl->video.color_r;
 	struct s5p_hdmi_tg			*tg = &ctrl->tg;
+#ifdef CONFIG_HDMI_14A_3D
+	u8 type3D;
+#endif
 
+#ifdef CONFIG_HDMI_14A_3D
+	s5p_hdmi_reg_bluescreen_clr(bl->b, bl->g, bl->r);
+#else
 	s5p_hdmi_reg_bluescreen_clr(bl->cb_b, bl->y_g, bl->cr_r);
+#endif
 	s5p_hdmi_reg_bluescreen(bl->enable);
 
 	s5p_hdmi_reg_clr_range(cr->y_min, cr->y_max, cr->c_min, cr->c_max);
 
 	s5p_hdmi_reg_acr(packet->acr);
-	s5p_hdmi_reg_asp(packet->h_asp);
+	s5p_hdmi_reg_asp(packet->h_asp, &ctrl->audio);
+#ifdef CONFIG_HDMI_14A_3D
+	s5p_hdmi_reg_gcp(s5p_hdmi_v_fmt[mode].frame.interlaced, packet->gcp);
+#else
 	s5p_hdmi_reg_gcp(s5p_hdmi_v_fmt[mode].frame.i_p, packet->gcp);
+#endif
 
 	s5p_hdmi_reg_acp(packet->h_acp, packet->acp);
 	s5p_hdmi_reg_isrc(packet->isrc1, packet->isrc2);
 	s5p_hdmi_reg_gmp(packet->gmp);
 
+
+#ifdef CONFIG_HDMI_14A_3D
+	if ((mode == v1280x720p_60Hz_SBS_HALF) ||
+		(mode == v1280x720p_59Hz_SBS_HALF))
+		type3D = HDMI_3D_SSH_FORMAT;
+	else if ((mode == v1280x720p_50Hz_TB) ||
+		(mode == v1920x1080p_24Hz_TB) || (mode == v1920x1080p_23Hz_TB))
+		type3D = HDMI_3D_TB_FORMAT;
+	else
+		type3D = HDMI_2D_FORMAT;
+
+	s5p_hdmi_reg_infoframe(&packet->vsi_info, packet->vsi, type3D);
+	s5p_hdmi_reg_infoframe(&packet->vsi_info, packet->vsi, type3D);
+	s5p_hdmi_reg_infoframe(&packet->avi_info, packet->avi, type3D);
+	s5p_hdmi_reg_infoframe(&packet->aui_info, packet->aui, type3D);
+	s5p_hdmi_reg_infoframe(&packet->spd_info, packet->spd, type3D);
+	s5p_hdmi_reg_infoframe(&packet->mpg_info, packet->mpg, type3D);
+#else
 	s5p_hdmi_reg_infoframe(&packet->avi_info, packet->avi);
 	s5p_hdmi_reg_infoframe(&packet->aui_info, packet->aui);
 	s5p_hdmi_reg_infoframe(&packet->spd_info, packet->spd);
 	s5p_hdmi_reg_infoframe(&packet->mpg_info, packet->mpg);
+#endif
 
 	s5p_hdmi_reg_packet_trans(&s5p_hdmi_output[out].trans);
 	s5p_hdmi_reg_output(&s5p_hdmi_output[out].reg);
 
+#ifdef CONFIG_HDMI_14A_3D
+	s5p_hdmi_reg_tg(&s5p_hdmi_v_fmt[mode]);
+#else
 	s5p_hdmi_reg_tg(&s5p_hdmi_v_fmt[mode].frame);
+#endif
 	s5p_hdmi_reg_v_timing(&s5p_hdmi_v_fmt[mode]);
 	s5p_hdmi_reg_tg_cmd(tg->correction_en, tg->bt656_en, true);
 
@@ -1602,7 +2160,7 @@ static bool s5p_hdmi_ctrl_set_reg(
 		break;
 
 	case HDMI_60958_AUDIO:
-		s5p_hdmi_audio_init(PCM, 44100, 16, 0);
+		s5p_hdmi_audio_init(PCM, 44100, 16, 0, &ctrl->audio);
 		break;
 
 	case HDMI_DVD_AUDIO:
@@ -1631,8 +2189,6 @@ static void s5p_hdmi_ctrl_internal_stop(void)
 	if (ctrl->hdcp_en)
 		s5p_hdcp_stop();
 
-	mdelay(10);
-
 	s5p_hdmi_reg_enable(false);
 
 	s5p_hdmi_reg_tg_cmd(tg->correction_en, tg->bt656_en, false);
@@ -1654,8 +2210,13 @@ int s5p_hdmi_ctrl_phy_power(bool on)
 		 * switch to internal clk - SCLK_DAC, SCLK_PIXEL
 		 */
 		s5p_mixer_ctrl_mux_clk(s5ptv_status.sclk_dac);
-		clk_set_parent(s5ptv_status.sclk_hdmi,
-					s5ptv_status.sclk_pixel);
+		if (clk_set_parent(s5ptv_status.sclk_hdmi,
+				s5ptv_status.sclk_pixel)) {
+			tvout_err("unable to set parent %s of clock %s.\n",
+				   s5ptv_status.sclk_pixel->name,
+				   s5ptv_status.sclk_hdmi->name);
+			return -1;
+		}
 
 		s5p_hdmi_phy_power(false);
 
@@ -1674,11 +2235,7 @@ void s5p_hdmi_ctrl_clock(bool on)
 	if (on) {
 		clk_enable(clk[HDMI_MUX].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_enable(ctrl->pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_get();
 #endif
 
@@ -1686,18 +2243,12 @@ void s5p_hdmi_ctrl_clock(bool on)
 	} else {
 		clk_disable(clk[HDMI_PCLK].ptr);
 
-#ifdef CONFIG_CPU_S5PV210
-		s5pv210_pd_disable(ctrl->pow_name);
-#endif
-
-#ifdef CONFIG_CPU_S5PV310
+#ifdef CONFIG_ARCH_EXYNOS4
 		s5p_tvout_pm_runtime_put();
 #endif
 
 		clk_disable(clk[HDMI_MUX].ptr);
 	}
-
-	mdelay(50);
 }
 
 bool s5p_hdmi_ctrl_status(void)
@@ -1771,11 +2322,10 @@ int s5p_hdmi_ctrl_start(
 	s5p_hdmi_ctrl_set_reg(mode, out);
 
 	s5p_hdmi_reg_enable(true);
-//JJW  HDMI  Rotate  Issue 
+
 #ifdef CONFIG_HDMI_HPD
-		s5p_hpd_set_hdmiint();
+	s5p_hpd_set_hdmiint();
 #endif
-//JJW End. 
 
 	if (ctrl->hdcp_en)
 		s5p_hdcp_start();
@@ -1831,16 +2381,20 @@ int s5p_hdmi_ctrl_constructor(struct platform_device *pdev)
 	s5p_hdmi_ctrl_init_private();
 	s5p_hdmi_init(reg_mem[HDMI].base, reg_mem[HDMI_PHY].base);
 
-#if defined(CONFIG_ARCH_S5PV310)
 	/* set initial state of HDMI PHY power to off */
 	s5p_hdmi_ctrl_phy_power(1);
 	s5p_hdmi_ctrl_phy_power(0);
-#endif
 
-	s5p_hdcp_init();
+	ret = s5p_hdcp_init();
+
+	if (ret) {
+		printk(KERN_ERR "HDCP init failed..\n");
+		goto err_hdcp_init;
+	}
 
 	return 0;
 
+err_hdcp_init:
 err_on_irq:
 err_on_clk:
 	for (j = 0; j < k; j++)
@@ -1884,19 +2438,38 @@ void s5p_hdmi_ctrl_resume(void)
 {
 }
 
+#ifdef CONFIG_ANALOG_TVENC
+#ifndef CONFIG_VPLL_USE_FOR_TVENC
+static void s5p_tvenc_src_to_hdmiphy_on(void)
+{
+	s5p_hdmi_ctrl_clock(1);
+	s5p_hdmi_ctrl_phy_power(1);
+	if (s5p_hdmi_phy_config(ePHY_FREQ_54, HDMI_CD_24) < 0)
+		tvout_err("hdmi phy configuration failed.\n");
+	if (clk_set_parent(s5ptv_status.sclk_dac, s5ptv_status.sclk_hdmiphy))
+		tvout_err("unable to set parent %s of clock %s.\n",
+			   s5ptv_status.sclk_hdmiphy->name,
+			   s5ptv_status.sclk_dac->name);
+}
 
-
-
-
-
-
-
+static void s5p_tvenc_src_to_hdmiphy_off(void)
+{
+	s5p_hdmi_ctrl_phy_power(0);
+	s5p_hdmi_ctrl_clock(0);
+}
+#endif
+#endif
 
 /****************************************
  * Functions for tvif ctrl class
  ***************************************/
-static void s5p_tvif_ctrl_init_private(void)
+static void s5p_tvif_ctrl_init_private(struct platform_device *pdev)
 {
+#if defined(CONFIG_BUSFREQ_OPP)
+	/* add bus device ptr for using bus frequency with opp */
+	s5p_tvif_ctrl_private.bus_dev = dev_get("exynos-busfreq");
+#endif
+	s5p_tvif_ctrl_private.dev = &pdev->dev;
 }
 
 /*
@@ -1906,14 +2479,15 @@ static void s5p_tvif_ctrl_init_private(void)
  */
 static int s5p_tvif_ctrl_internal_stop(void)
 {
-	tvout_dbg("\n");
+	tvout_dbg("status(%d)\n", s5p_tvif_ctrl_private.curr_if);
 	s5p_mixer_ctrl_stop();
 
 	switch (s5p_tvif_ctrl_private.curr_if) {
+#ifdef CONFIG_ANALOG_TVENC
 	case TVOUT_COMPOSITE:
 		s5p_sdo_ctrl_stop();
 		break;
-
+#endif
 	case TVOUT_DVI:
 	case TVOUT_HDMI:
 	case TVOUT_HDMI_RGB:
@@ -1948,6 +2522,7 @@ static void s5p_tvif_ctrl_internal_start(
 	s5p_mixer_ctrl_clear_pend_all();
 
 	switch (inf) {
+#ifdef CONFIG_ANALOG_TVENC
 	case TVOUT_COMPOSITE:
 		if (s5p_mixer_ctrl_start(std, inf) < 0)
 			goto ret_on_err;
@@ -1956,7 +2531,7 @@ static void s5p_tvif_ctrl_internal_start(
 			goto ret_on_err;
 
 		break;
-
+#endif
 	case TVOUT_HDMI:
 	case TVOUT_HDMI_RGB:
 	case TVOUT_DVI:
@@ -1986,13 +2561,18 @@ int s5p_tvif_ctrl_set_audio(bool en)
 	case TVOUT_HDMI_RGB:
 	case TVOUT_DVI:
 		s5p_hdmi_ctrl_set_audio(en);
-
 		break;
 	default:
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+void s5p_tvif_audio_channel(int channel)
+{
+	struct s5p_hdmi_ctrl_private_data	*ctrl = &s5p_hdmi_ctrl_private;
+	ctrl->audio.channel = channel;
 }
 
 int s5p_tvif_ctrl_set_av_mute(bool en)
@@ -2029,14 +2609,24 @@ int s5p_tvif_ctrl_start(
 		enum s5p_tvout_disp_mode std, enum s5p_tvout_o_mode inf)
 {
 	tvout_dbg("\n");
+#if defined(CONFIG_BUSFREQ_OPP)
+	if ((std == TVOUT_1080P_60) || (std == TVOUT_1080P_59)
+			|| (std == TVOUT_1080P_50)) {
+		dev_lock(s5p_tvif_ctrl_private.bus_dev,
+				s5p_tvif_ctrl_private.dev, BUSFREQ_400MHZ);
+	}
+#endif
 	if (s5p_tvif_ctrl_private.running &&
-		(std == s5p_tvif_ctrl_private.curr_std) &&
-		(inf == s5p_tvif_ctrl_private.curr_if))
-	{
+			(std == s5p_tvif_ctrl_private.curr_std) &&
+			(inf == s5p_tvif_ctrl_private.curr_if))	{
 		on_start_process = false;
-		tvout_dbg("on_start_process(%d)\n", on_start_process);
+		tvout_dbg("%s() on_start_process(%d)\n",
+			__func__, on_start_process);
 		goto cannot_change;
 	}
+
+	s5p_tvif_ctrl_private.curr_std = std;
+	s5p_tvif_ctrl_private.curr_if = inf;
 
 	switch (inf) {
 	case TVOUT_COMPOSITE:
@@ -2063,8 +2653,6 @@ int s5p_tvif_ctrl_start(
 	}
 
 	s5p_tvif_ctrl_private.running = true;
-	s5p_tvif_ctrl_private.curr_std = std;
-	s5p_tvif_ctrl_private.curr_if = inf;
 
 	return 0;
 
@@ -2079,17 +2667,22 @@ void s5p_tvif_ctrl_stop(void)
 
 		s5p_tvif_ctrl_private.running = false;
 	}
+#if defined(CONFIG_BUSFREQ_OPP)
+	dev_unlock(s5p_tvif_ctrl_private.bus_dev, s5p_tvif_ctrl_private.dev);
+#endif
 }
 
 int s5p_tvif_ctrl_constructor(struct platform_device *pdev)
 {
+#ifdef CONFIG_ANALOG_TVENC
 	if (s5p_sdo_ctrl_constructor(pdev))
 		goto err;
+#endif
 
 	if (s5p_hdmi_ctrl_constructor(pdev))
 		goto err;
 
-	s5p_tvif_ctrl_init_private();
+	s5p_tvif_ctrl_init_private(pdev);
 
 	return 0;
 
@@ -2099,15 +2692,20 @@ err:
 
 void s5p_tvif_ctrl_destructor(void)
 {
+#ifdef CONFIG_ANALOG_TVENC
 	s5p_sdo_ctrl_destructor();
+#endif
 	s5p_hdmi_ctrl_destructor();
 }
 
 void s5p_tvif_ctrl_suspend(void)
 {
+	unsigned long spin_flags;
 	tvout_dbg("\n");
 	if (s5p_tvif_ctrl_private.running) {
+		spin_lock_irqsave(&s5ptv_status.tvout_lock, spin_flags);
 		s5p_tvif_ctrl_internal_stop();
+		spin_unlock_irqrestore(&s5ptv_status.tvout_lock, spin_flags);
 #ifdef CONFIG_VCM
 		s5p_tvout_vcm_deactivate();
 #endif
@@ -2117,8 +2715,6 @@ void s5p_tvif_ctrl_suspend(void)
 
 void s5p_tvif_ctrl_resume(void)
 {
-	pr_info("%s: running:%d\n", __func__, s5p_tvif_ctrl_private.running);
-
 	if (s5p_tvif_ctrl_private.running) {
 #ifdef CONFIG_VCM
 		s5p_tvout_vcm_activate();

@@ -15,6 +15,8 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
+#include <plat/devs.h>
+
 /* uart devices */
 
 static struct platform_device s3c24xx_uart_device0 = {
@@ -33,29 +35,12 @@ static struct platform_device s3c24xx_uart_device3 = {
 	.id		= 3,
 };
 
-#if CONFIG_SERIAL_SAMSUNG_UARTS > 4 
-static struct platform_device s3c24xx_uart_device4 = {
-	.id		= 4,
-};
-#endif
-#if CONFIG_SERIAL_SAMSUNG_UARTS > 5 
-static struct platform_device s3c24xx_uart_device5 = {
-	.id		= 5,
-};
-#endif
-
-struct platform_device *s3c24xx_uart_src[CONFIG_SERIAL_SAMSUNG_UARTS] = {
+struct platform_device *s3c24xx_uart_src[4] = {
 	&s3c24xx_uart_device0,
 	&s3c24xx_uart_device1,
 	&s3c24xx_uart_device2,
 	&s3c24xx_uart_device3,
-#if CONFIG_SERIAL_SAMSUNG_UARTS > 4
-	&s3c24xx_uart_device4,
-#endif
-#if CONFIG_SERIAL_SAMSUNG_UARTS > 5 
-	&s3c24xx_uart_device5,
-#endif
 };
 
-struct platform_device *s3c24xx_uart_devs[CONFIG_SERIAL_SAMSUNG_UARTS] = {
+struct platform_device *s3c24xx_uart_devs[4] = {
 };

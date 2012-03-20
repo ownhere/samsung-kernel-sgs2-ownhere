@@ -31,8 +31,8 @@ int mali_dev_pause()
 {
 	int err = 0;
 	_mali_osk_lock_wait(lock, _MALI_OSK_LOCKMODE_RW);
-	if ((mali_dvfs_device_state ==  _MALI_DEVICE_SUSPEND) || (mali_device_state == _MALI_DEVICE_SUSPEND_IN_PROGRESS)
-	      || (mali_device_state == _MALI_DEVICE_SUSPEND) || mali_device_state == _MALI_DEVICE_EARLYSUSPEND_DISABLE_FB)
+	if ((mali_dvfs_device_state ==  _MALI_DEVICE_SUSPEND)
+	      || (mali_device_state == _MALI_DEVICE_SUSPEND) )
 	{
 		err = -EPERM;
 	}
@@ -51,8 +51,8 @@ int mali_dev_resume()
 {
 	int err = 0;
 	_mali_osk_lock_wait(lock, _MALI_OSK_LOCKMODE_RW);
-	if ((mali_dvfs_device_state == _MALI_DEVICE_RESUME) || (mali_device_state == _MALI_DEVICE_SUSPEND_IN_PROGRESS)
-	     || (mali_device_state == _MALI_DEVICE_SUSPEND) || mali_device_state == _MALI_DEVICE_EARLYSUSPEND_DISABLE_FB)
+	if ((mali_dvfs_device_state == _MALI_DEVICE_RESUME)
+	     || (mali_device_state == _MALI_DEVICE_SUSPEND) )
 	{
 		err = -EPERM;
 	}

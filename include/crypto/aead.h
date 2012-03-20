@@ -1,18 +1,15 @@
 /*
  * AEAD: Authenticated Encryption with Associated Data
- * 
+ *
  * Copyright (c) 2007 Herbert Xu <herbert@gondor.apana.org.au>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
  */
 
-#ifdef SEC_FIPS_ENABLED
-#include <crypto/fips_aead.h>
-#else
 #ifndef _CRYPTO_AEAD_H
 #define _CRYPTO_AEAD_H
 
@@ -42,12 +39,24 @@ static inline struct crypto_aead *aead_givcrypt_reqtfm(
 static inline int crypto_aead_givencrypt(struct aead_givcrypt_request *req)
 {
 	struct aead_tfm *crt = crypto_aead_crt(aead_givcrypt_reqtfm(req));
+
+#ifdef CONFIG_CRYPTO_FIPS
+	if (unlikely(in_fips_err()))
+		return -EACCES;
+#endif
+
 	return crt->givencrypt(req);
 };
 
 static inline int crypto_aead_givdecrypt(struct aead_givcrypt_request *req)
 {
 	struct aead_tfm *crt = crypto_aead_crt(aead_givcrypt_reqtfm(req));
+
+#ifdef CONFIG_CRYPTO_FIPS
+	if (unlikely(in_fips_err()))
+		return -EACCES;
+#endif
+
 	return crt->givdecrypt(req);
 };
 
@@ -61,6 +70,11 @@ static inline struct aead_givcrypt_request *aead_givcrypt_alloc(
 	struct crypto_aead *tfm, gfp_t gfp)
 {
 	struct aead_givcrypt_request *req;
+
+#ifdef CONFIG_CRYPTO_FIPS
+	if (unlikely(in_fips_err()))
+		return NULL;
+#endif
 
 	req = kmalloc(sizeof(struct aead_givcrypt_request) +
 		      crypto_aead_reqsize(tfm), gfp);
@@ -106,4 +120,3 @@ static inline void aead_givcrypt_set_giv(struct aead_givcrypt_request *req,
 }
 
 #endif	/* _CRYPTO_AEAD_H */
-#endif

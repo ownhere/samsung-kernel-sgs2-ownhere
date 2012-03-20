@@ -21,7 +21,7 @@ typedef enum {
 	STREAM_STOP,
 	STREAM_START,
 } stream_cmd_t;
-	
+
 struct s5k5bafx_framesize {
 	u32 width;
 	u32 height;
@@ -38,6 +38,7 @@ struct s5k5bafx_exif {
  */
 struct s5k5bafx_state {
 	struct v4l2_subdev sd;
+	struct device *s5k5bafx_dev;
 	/*
 	 * req_fmt is the requested format from the application.
 	 * set_fmt is the output format of the camera. Finally FIMC
@@ -52,6 +53,7 @@ struct s5k5bafx_state {
 	enum v4l2_sensor_mode sensor_mode;
 	s32 vt_mode;
 	s32 check_dataline;
+	s32 anti_banding;
 	u32 req_fps;
 	u32 set_fps;
 	u32 initialized;
@@ -86,8 +88,8 @@ static inline struct s5k5bafx_state *to_state(struct v4l2_subdev *sd)
 #else
 #define cam_dbg(fmt, ...)
 #endif /* CONFIG_CAM_DEBUG */
-	
-	
+
+
 /************ driver feature ************/
 #define S5K5BAFX_USLEEP
 /* #define CONFIG_LOAD_FILE */
@@ -98,13 +100,13 @@ static inline struct s5k5bafx_state *to_state(struct v4l2_subdev *sd)
 /* #define S5K5BAFX_10MS_DELAY	0xAA55AA5E */
 #define S5K5BAFX_DELAY		0xFFFF0000
 #define S5K5BAFX_DEF_APEX_DEN	100
-	
+
 /* Register address */
 #define REG_PAGE_SHUTTER    0x7000
 #define REG_ADDR_SHUTTER    0x14D0
 #define REG_PAGE_ISO        0x7000
 #define REG_ADDR_ISO        0x14C8
-	
+
 #include  "s5k5bafx_setfile.h"
 
 #endif /* __S5K5BAFX_H */

@@ -12,6 +12,5 @@ all:
 clean:
 	rm -rf *.ko
 	rm -rf *.mod.*
-	rm -rf .*.cmd	
+	rm -rf .*.cmd
 	rm -rf *.o
-                                                               
