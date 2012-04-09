@@ -16,7 +16,7 @@
 
 #include "gpu_clock_control.h"
 
-int gpu_clock_control[3] = { 160, 266, 300 };
+int gpu_clock_control[3] = { 133, 266, 300 };
 static ssize_t gpu_clock_show(struct device *dev, struct device_attribute *attr, char *buf) {
 	return sprintf(buf, "Step0: %d\nStep1: %d\nStep2: %d", gpu_clock_control[0], gpu_clock_control[1], gpu_clock_control[2]);
 }
