@@ -10,7 +10,7 @@ dir=`pwd`"/"${dir}
 cwmsize=`cat ${dir}"/../ownherefiles/CWMManager.apk"|wc -c`
 susize=`cat ${dir}"/../ownherefiles/Superuser.apk"|wc -c`
 kernelsize=`cat ${dir}"/../arch/arm/boot/zImage"|wc -c`
-newkernelsize=`expr \( ${kernelsize} / 100000 + 1 \) \* 100000`
+newkernelsize=`expr \( ${kernelsize} / 500000 + 1 \) \* 500000`
 kernelsizediff=$(( newkernelsize - kernelsize ))
 echo "cwm:"$cwmsize
 echo "su:"$susize
