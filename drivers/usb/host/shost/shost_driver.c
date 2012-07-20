@@ -126,31 +126,15 @@ static int s5pc110_start_otg(u32 regs)
 	struct sec_otghost *otghost = NULL;
 	struct sec_otghost_data *otg_data = dev_get_platdata(&pdev->dev);
 
-	pr_info("%s + regs=0x%x\n", __func__, regs);
+	pr_info("otg probe start : 0x%x\n", regs);
 
-	/* 1. hcd */
 	g_pUsbHcd = usb_create_hcd(&s5pc110_otg_hc_driver, &pdev->dev,
 					"s3cotg");/*pdev->dev.bus_id*/
 	if (g_pUsbHcd == NULL) {
 		otg_err(1, "failed to usb_create_hcd\n");
 		return -ENOMEM;
 	}
-	g_pUsbHcd->self.otg_port = 1;
 
-	/* sec_otghost */
-	otghost = hcd_to_sec_otghost(g_pUsbHcd);
-	if (otghost == NULL) {
-		otg_err(true, "failed to get otghost hcd\n");
-		ret_val = USB_ERR_FAIL;
-		goto err_out_create_hcd;
-	}
-	otghost->otg_data = otg_data;
-
-	/* 2. wake lock */
-	wake_lock_init(&otghost->wake_lock, WAKE_LOCK_SUSPEND, "usb_otg");
-	wake_lock(&otghost->wake_lock);
-
-	/* base address */
 	if (!regs) {
 		pr_info("otg mapping hcd resource\n");
 		ret_val = s5pc110_mapping_resources(pdev);
@@ -161,11 +145,20 @@ static int s5pc110_start_otg(u32 regs)
 
 	pr_info("otg g_pUDCBase 0x%p\n", g_pUDCBase);
 
-	/* 3. workqueue */
+	g_pUsbHcd->self.otg_port = 1;
+
+	otghost = hcd_to_sec_otghost(g_pUsbHcd);
+	if (otghost == NULL) {
+		otg_err(true, "failed to get otghost hcd\n");
+		ret_val = USB_ERR_FAIL;
+		goto err_out_create_hcd;
+	}
+	otghost->otg_data = otg_data;
+
 	INIT_WORK(&otghost->work, otg_power_work);
 	otghost->wq = create_singlethread_workqueue("sec_otghostd");
 
-	/* 4. phy */
+	/* call others' init() */
 	ret_val = otg_hcd_init_modules(otghost);
 	if (ret_val != USB_ERR_SUCCESS) {
 		otg_err(OTG_DBG_OTGHCDI_DRIVER,
@@ -187,14 +180,13 @@ static int s5pc110_start_otg(u32 regs)
 		ret_val = -EINVAL;
 		goto err_out_create_hcd_init;
 	}
-
 #ifdef CONFIG_USB_SEC_WHITELIST
 	if (otg_data->sec_whlist_table_num)
 		g_pUsbHcd->sec_whlist_table_num =
 			otg_data->sec_whlist_table_num;
 #endif
 
-	/* 5. hcd
+	/*
 	 * Finish generic HCD initialization and start the HCD. This function
 	 * allocates the DMA buffer pool, registers the USB bus, requests the
 	 * IRQ line, and calls s5pc110_otghcd_start method.
@@ -214,7 +206,9 @@ static int s5pc110_start_otg(u32 regs)
 		"C110 OTG Controller", g_pUsbHcd->self.busnum);
 
 	/* otg_print_registers(); */
-	pr_info("%s -\n", __func__);
+
+	wake_lock_init(&otghost->wake_lock, WAKE_LOCK_SUSPEND, "usb_otg");
+	wake_lock(&otghost->wake_lock);
 
 	return USB_ERR_SUCCESS;
 
@@ -234,7 +228,7 @@ static int s5pc110_stop_otg(void)
 	struct sec_otghost *otghost = NULL;
 	struct sec_otghost_data *otgdata = NULL;
 
-	pr_info("%s +\n", __func__);
+	pr_info("+++++ OTG STOP\n");
 
 	otg_dbg(OTG_DBG_OTGHCDI_DRIVER, "s5pc110_stop_otg\n");
 
@@ -242,32 +236,27 @@ static int s5pc110_stop_otg(void)
 
 	otg_hcd_deinit_modules(otghost);
 
-	/* 5. hcd */
+	destroy_workqueue(otghost->wq);
+
+	wake_unlock(&otghost->wake_lock);
+	wake_lock_destroy(&otghost->wake_lock);
+
 	usb_remove_hcd(g_pUsbHcd);
+
 #if 1
 	if (g_pUDCBase == S3C_VA_HSOTG) {
 		pr_info("otg release_mem_region\n");
 		release_mem_region(g_pUsbHcd->rsrc_start, g_pUsbHcd->rsrc_len);
 	}
 #endif
-	/* 4. phy */
+
+	usb_put_hcd(g_pUsbHcd);
+
 	otgdata = otghost->otg_data;
 	if (otgdata && otgdata->phy_exit && otgdata->pdev) {
 		pr_info("otg phy_off\n");
 		otgdata->phy_exit(0);
 	}
-
-	/* 3. workqueue */
-	destroy_workqueue(otghost->wq);
-
-	/* 2. wake lock */
-	wake_unlock(&otghost->wake_lock);
-	wake_lock_destroy(&otghost->wake_lock);
-
-	/* 1. hcd */
-	usb_put_hcd(g_pUsbHcd);
-
-	pr_info("%s -\n", __func__);
 
 	return 0;
 }
@@ -317,7 +306,7 @@ static int s5pc110_otg_drv_probe(struct platform_device *pdev)
  * of this device are freed.
  */
 
-static int s5pc110_otg_drv_remove(struct platform_device *pdev)
+static int s5pc110_otg_drv_remove(struct platform_device *dev)
 {
 	return USB_ERR_SUCCESS;
 }

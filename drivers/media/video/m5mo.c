@@ -1644,7 +1644,7 @@ retry:
 
 	if ((status & 0x01) != 0x00) {
 		cam_err("failed\n");
-		/*return -ETIMEDOUT;*/ /*This return value cause camera lock-up.*/
+		return -ETIMEDOUT;
 	}
 
 	cam_trace("X\n");

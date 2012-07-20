@@ -258,7 +258,6 @@ static int	s5pc110_otghcd_start(struct usb_hcd *usb_hcd_p)
 	set_bit(HCD_FLAG_POLL_RH, &usb_hcd_p->flags);
 #endif
 	usb_hcd_p->uses_new_polling = 1;
-	usb_hcd_p->has_tt = 1;
 
 	/* init bus state	before enable irq */
 	usb_hcd_p->state = HC_STATE_RUNNING;
@@ -378,6 +377,11 @@ int compare_ed(struct sec_otghost *otghost, void *hcpriv, struct urb *urb)
 			usb_maxpacket(urb->dev, urb->pipe,
 				!(usb_pipein(urb->pipe)))) {
 		update |= 1 << 4;
+	}
+
+	if (ped->ed_desc.sched_frame != (u8)(urb->start_frame)) {
+		ped->ed_desc.sched_frame = (u8)urb->start_frame;
+		update |= 1 << 5;
 	}
 
 	if (update)
@@ -645,6 +649,13 @@ static int s5pc110_otghcd_urb_dequeue(
 
 	/* otg_dbg(OTG_DBG_OTGHCDI_HCD, "dequeue\n"); */
 
+	/* Dequeue should be performed only if endpoint is enabled */
+	if (_urb->ep->enabled == 0) {
+		spin_unlock_irqrestore(&otghost->lock, spin_lock_flag);
+		usb_hcd_giveback_urb(_hcd, _urb, status);
+		return USB_ERR_SUCCESS;
+	}
+
 	if (cancel_td == NULL) {
 		otg_err(OTG_DBG_OTGHCDI_HCD, "cancel_td is NULL\n");
 		spin_unlock_irqrestore(&otghost->lock, spin_lock_flag);
@@ -657,6 +668,7 @@ static int s5pc110_otghcd_urb_dequeue(
 	if ((ret_val) && (ret_val != -EIDRM)) {
 		otg_dbg(OTG_DBG_OTGHCDI_HCD, "ret_val = %d\n", ret_val);
 		spin_unlock_irqrestore(&otghost->lock, spin_lock_flag);
+		usb_hcd_giveback_urb(_hcd, _urb, status);
 		return ret_val;
 	}
 
