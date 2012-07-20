@@ -1,6 +1,7 @@
 export ARCH=arm
-export CROSS_COMPILE=/opt/toolchains/arm-eabi-4.4.3/bin/arm-eabi-
+export PATH=/opt/toolchains/arm-linux-androideabi-4.4.3/bin/:$PATH
+export CROSS_COMPILE=/opt/toolchains/arm-linux-androideabi-4.4.3/bin/arm-linux-androideabi-
 export USE_SEC_FIPS_MODE=true
 
-make u1_defconfig
+make u1_chn_defconfig
 make
