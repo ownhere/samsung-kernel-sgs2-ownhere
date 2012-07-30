@@ -42,6 +42,11 @@
 
 #include <../common/gpu_clock_control.h>
 
+#ifdef MALI_REBOOTNOTIFIER
+_mali_osk_atomic_t mali_shutdown_state;
+#include <linux/reboot.h>
+#endif
+
 #if MALI_GPU_UTILIZATION
 #include "mali_kernel_utilization.h"
 #endif /* MALI_GPU_UTILIZATION */
@@ -584,9 +589,15 @@ static int mali_pm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+int mali_pd_enable(void)
+{
+	return exynos_pd_enable(&exynos4_device_pd[PD_G3D].dev);
+}
+
 static void mali_pm_shutdown(struct platform_device *pdev)
 {
 	MALI_PRINT(("Mali shutdown!!\n"));
+	mali_dvfs_device_state =_MALI_DEVICE_SHUTDOWN;
 	exynos_pd_enable(&exynos4_device_pd[PD_G3D].dev);
 	return;
 }
@@ -604,6 +615,19 @@ static int mali_pm_probe(struct platform_device *pdev)
 #endif /* CONFIG_PM_DEBUG */
 	return 0;
 }
+#ifdef MALI_REBOOTNOTIFIER
+static int mali_reboot_notify(struct notifier_block *this,
+	unsigned long code, void *unused)
+{
+	_mali_osk_atomic_inc_return(&mali_shutdown_state);
+	mali_dvfs_device_state = _MALI_DEVICE_SHUTDOWN;
+	MALI_PRINT(("REBOOT Notifier for mali\n"));
+	return NOTIFY_DONE;
+}
+static struct notifier_block mali_reboot_notifier = {
+	.notifier_call = mali_reboot_notify,
+};
+#endif
 
 /** This function is called when Mali GPU device is initialized
  */
@@ -627,6 +651,16 @@ int _mali_dev_platform_register(void)
 	}
 #endif /* MALI_PMM_RUNTIME_JOB_CONTROL_ON */
 #endif /* CONFIG_PM_RUNTIME */
+
+#ifdef MALI_REBOOTNOTIFIER
+	_mali_osk_atomic_init(&mali_shutdown_state, 0);
+	err = register_reboot_notifier(&mali_reboot_notifier);
+	if (err) {
+		MALI_PRINT(("Failed to setup reboot notifier\n"));
+		return err;
+	}
+#endif
+
 	err = platform_device_register(&mali_gpu_device);
 	lock = _mali_osk_lock_init((_mali_osk_lock_flags_t)( _MALI_OSK_LOCKFLAG_READERWRITER | _MALI_OSK_LOCKFLAG_ORDERED), 0, 0);
 	if (!err) 
@@ -640,6 +674,11 @@ int _mali_dev_platform_register(void)
 			unregister_pm_notifier(&mali_pwr_notif_block);
 #endif /* MALI_PMM_RUNTIME_JOB_CONTROL_ON */
 #endif /* CONFIG_PM_RUNTIME */
+
+#ifdef MALI_REBOOTNOTIFIER
+	unregister_reboot_notifier(&mali_reboot_notifier);
+#endif
+
 			platform_device_unregister(&mali_gpu_device);
 		}
 	}
@@ -658,6 +697,9 @@ void _mali_dev_platform_unregister(void)
 #endif /* MALI_PMM_RUNTIME_JOB_CONTROL_ON */
 #endif /* CONFIG_PM_RUNTIME */
 
+#ifdef MALI_REBOOTNOTIFIER
+	unregister_reboot_notifier(&mali_reboot_notifier);
+#endif
 	platform_driver_unregister(&mali_plat_driver);
 	platform_device_unregister(&mali_gpu_device);
 }
