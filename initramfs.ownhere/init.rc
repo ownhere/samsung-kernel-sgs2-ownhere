@@ -221,7 +221,7 @@ on post-fs-data
     mkdir /data/misc/wifi 0770 wifi wifi
     chmod 0770 /data/misc/wifi
     chmod 0660 /data/misc/wifi/wpa_supplicant.conf
-    mkdir /data/local 0771 shell shell
+    mkdir /data/local 0751 root root
     mkdir /data/local/tmp 0771 shell shell
     mkdir /data/data 0771 system system
     mkdir /data/app-private 0771 system system
@@ -283,6 +283,11 @@ on post-fs-data
     chmod 0775 /efs/.files/.dx1
     chmod 0775 /efs/.files/.dm33
     chmod 0775 /efs/.files/.mp301
+    
+    	# IMEI
+    	mkdir /efs/imei 0775
+	    chown radio system /efs/imei
+	    chmod 0775 /efs/imei
 
     # If there is no fs-post-data action in the init.<device>.rc file, you
     # must uncomment this line, otherwise encrypted filesystems
@@ -311,6 +316,9 @@ on post-fs-data
     chmod 0600 /dev/pn544
     chown nfc nfc /dev/pn544
 
+# Permission for MHL
+    chown system radio /sys/class/mhl/test_result
+
 # Added by Yamaha Corporation. -----------------------------------------
     # setup for alsa snd device
     chmod 0770 /dev/snd/pcmC0D0c
@@ -322,7 +330,9 @@ on post-fs-data
 
     # create log system
     mkdir /data/log 0775 system log
+    mkdir /data/anr 0775 system log
     chown system log /data/log
+    chown system log /data/anr
 
     chmod 0775 /data/log
     chmod 0775 /data/anr
@@ -766,7 +776,7 @@ service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-sys
 service drm /system/bin/drmserver
     class main
     user drm
-    group system inet sdcard_rw media_rw radio
+    group system inet drmrpc sdcard_rw media_rw radio
 
 service media /system/bin/mediaserver
     class main
@@ -841,7 +851,7 @@ service racoon /system/bin/racoon
     class main
     socket racoon stream 600 system system
     # racoon will setuid to vpn after getting necessary resources.
-    group net_admin
+    group vpn net_admin inet
     disabled
     oneshot
 

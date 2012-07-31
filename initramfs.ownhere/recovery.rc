@@ -23,19 +23,19 @@ on init
     mkdir /data
     mkdir /cache
     mkdir /preload
+    mkdir /tmp
+    mkdir /efs
+    mkdir /misc
     mount /tmp /tmp tmpfs
 
 on fs
     mount ext4 /dev/block/mmcblk0p9 /system noatime wait
 
-    mkdir /efs
-    mount ext4 /dev/block/mmcblk0p1 /efs nosuid nodev noatime wait
-
     # check encryption status, checking UMS & data should be excuted after this command 
-    exec check_encryption_status /dev/block/mmcblk0p10
+    exec set_crypt_meta_info /dev/block/mmcblk0p1 efs
     
     # verfiy filesystem (UMS)
-	  exec sformat /dev/block/mmcblk0p11 vfat
+    exec sformat /dev/block/mmcblk0p11 vfat encryptable
 
 on boot
     #adb
