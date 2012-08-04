@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# Linux/arm 3.0.31 Kernel Configuration
+# Linux/arm 3.0.38 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -2056,9 +2056,11 @@ CONFIG_VIDEO_SAMSUNG_MEMSIZE_TVOUT=16384
 #
 # Mhl(sii9244) device support
 #
-# CONFIG_SAMSUNG_MHL is not set
+CONFIG_SAMSUNG_MHL=y
 # CONFIG_SAMSUNG_USE_11PIN_CONNECTOR is not set
 # CONFIG_SAMSUNG_SMARTDOCK is not set
+CONFIG_SAMSUNG_WORKAROUND_HPD_GLANCE=y
+# CONFIG_SAMSUNG_MHL_UNPOWERED is not set
 # CONFIG_RADIO_ADAPTERS is not set
 # CONFIG_TDMB is not set
 # CONFIG_ISDBT_FC8100 is not set
